@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Postou — organize, planeje e publique</title>
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Postou">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#7c3aed">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c3aed'/%3E%3Cstop offset='.5' stop-color='%23ec4899'/%3E%3Cstop offset='1' stop-color='%23f97316'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='url(%23g)'/%3E%3Cpath d='M37 11 L11 22.5 L21 26.5 L25 37 Z' fill='%23fff'/%3E%3Cpath d='M37 11 L21 26.5 L25 37' fill='%23ffffff88'/%3E%3C/svg%3E">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -78,8 +84,10 @@
   .cal-view-btn{border:none; background:transparent; color:var(--muted); padding:6px 14px; border-radius:999px; cursor:pointer; font-size:.85rem; font-weight:600;}
   .cal-view-btn.ativo{background:var(--grad); color:#fff;}
   .chip-compromisso{background:#fff7ed !important; color:var(--g3) !important; border:1px solid #fed7aa;}
-  .cal-semana{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
-  .cal-celula.sem{min-height:150px;}
+  .cal-semana{display:flex; flex-direction:column; gap:8px;}
+  .cal-celula.sem{min-height:auto;}
+  .cal-celula.sem .cal-num{font-size:.95rem; color:var(--ink); margin-bottom:6px;}
+  .cal-celula.sem.hoje .cal-num{color:var(--g1);}
   .dia-detalhe{display:flex; flex-direction:column; gap:16px;}
   .dia-comem{background:linear-gradient(90deg,#fdf2f8,#fff); border:1px solid var(--line); border-radius:10px; padding:10px 12px; color:#be185d; font-weight:600; font-size:.9rem;}
   .dia-sec{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px;}
@@ -89,6 +97,8 @@
   .dia-item:hover{border-color:var(--g2);}
   .pt-cor{width:10px; height:10px; border-radius:50%; flex:none;}
   .status-tag{font-size:.72rem; color:var(--muted); white-space:nowrap;}
+  .alerta-hoje{background:linear-gradient(90deg,#fff7ed,#fdf2f8); border:1px solid #fed7aa; border-radius:12px; padding:12px 16px; margin-bottom:16px; font-size:.95rem; color:#9a3412;}
+  .grupo-topo{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;}
   /* Tarefas */
   .grupo-tarefas{margin-bottom:18px;}
   .grupo-tarefas h3{font-size:.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
@@ -921,11 +931,13 @@ function renderHoje(){
       return {c, venc, dias};
     }).filter(x=>x.dias<=5).sort((a,b)=>a.dias-b.dias);
   const aReceber = dados.clientes.filter(c=>(!f||c.id===f) && c.valor>0 && !(c.pagamentos&&c.pagamentos[ym])).reduce((s,c)=>s+c.valor,0);
+  const compromissosHoje = compromissosDoDia(hoje);
 
   document.getElementById('tilesHoje').innerHTML = `
     <div class="tile"><div class="num">${deHoje.length}</div><div class="rot">postagens para hoje</div></div>
     <div class="tile"><div class="num">${atrasados.length}</div><div class="rot">postagens atrasadas</div></div>
     <div class="tile"><div class="num">${tarefasPend.length}</div><div class="rot">tarefas para hoje</div></div>
+    ${compromissosHoje.length?`<div class="tile"><div class="num">${compromissosHoje.length}</div><div class="rot">compromissos hoje</div></div>`:''}
     <div class="tile"><div class="num">${dados.clientes.length}</div><div class="rot">usuários ativos</div></div>
     ${aReceber>0?`<div class="tile"><div class="num" style="font-size:1.25rem;line-height:2.2">${dinheiro(aReceber)}</div><div class="rot">a receber no mês</div></div>`:''}`;
 
@@ -955,6 +967,10 @@ function renderHoje(){
   }
 
   let html = '';
+  const comAlerta = compromissosHoje.filter(c=>c.hora);
+  if(comAlerta.length){
+    html += `<div class="alerta-hoje">🔔 <b>Lembrete de hoje:</b> ${comAlerta.map(c=>`${escapar(c.hora)} — ${escapar(c.titulo)}`).join(' &nbsp;·&nbsp; ')}</div>`;
+  }
   html += `<div class="hoje-grupo"><h3>📌 Postagens de hoje</h3>` +
     (deHoje.length ? deHoje.map(p=>linhaPost(p,false)).join('') : '<div class="vazio">Nada agendado para hoje. Que tal planejar no calendário? 📅</div>') + '</div>';
   if(atrasados.length){
@@ -979,6 +995,14 @@ function renderHoje(){
         <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="marcarPago(${x.c.id})">✔ Recebido</button>
       </div>`).join('') + '</div>';
   }
+  html += `<div class="hoje-grupo"><h3 class="grupo-topo">📌 Compromissos de hoje <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="abrirModalCompromisso('${hoje}')">+ Compromisso</button></h3>` +
+    (compromissosHoje.length ? compromissosHoje.map(c=>`
+      <div class="pag-linha">
+        <span class="bolinha" style="background:var(--g3)"></span>
+        <span style="flex:1">${c.hora?`<b>${escapar(c.hora)}</b> · `:''}${escapar(c.titulo)}${c.obs?` <span style="color:var(--muted);font-size:.8rem">— ${escapar(c.obs)}</span>`:''}</span>
+        <button class="btn-mini" onclick="criarTarefaDeCompromisso(${c.id})" title="Transformar em tarefa">➕ tarefa</button>
+        <button class="btn-mini perigo" onclick="excluirCompromisso(${c.id})" title="Excluir">🗑</button>
+      </div>`).join('') : '<div class="vazio">Nada marcado pra hoje. Ex.: médico, DMV, reunião… <b>+ Compromisso</b> acima.</div>') + '</div>';
   html += `<div class="hoje-grupo"><h3>✅ Tarefas de hoje</h3>` +
     (tarefasPend.length ? tarefasPend.map(t=>{
       const c = clientePorId(t.clienteId);
@@ -1612,6 +1636,12 @@ function salvarCompromisso(){
 }
 function excluirCompromisso(id){
   dados.compromissos = (dados.compromissos||[]).filter(c=>c.id!==id);
+  tocar();
+}
+function criarTarefaDeCompromisso(id){
+  const c = (dados.compromissos||[]).find(x=>x.id===id);
+  if(!c) return;
+  dados.tarefas.push({ id:novoId(), clienteId:null, texto:(c.hora?c.hora+' · ':'')+c.titulo, prazo:c.data, feita:false });
   tocar();
 }
 
