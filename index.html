@@ -1,0 +1,2509 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Postou — organize, planeje e publique</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%237c3aed'/%3E%3Cstop offset='.5' stop-color='%23ec4899'/%3E%3Cstop offset='1' stop-color='%23f97316'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='48' height='48' rx='12' fill='url(%23g)'/%3E%3Cpath d='M37 11 L11 22.5 L21 26.5 L25 37 Z' fill='%23fff'/%3E%3Cpath d='M37 11 L21 26.5 L25 37' fill='%23ffffff88'/%3E%3C/svg%3E">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --bg:#faf8fc; --card:#ffffff; --ink:#241f2e; --muted:#8b8496;
+    --line:#eae5f0; --g1:#7c3aed; --g2:#ec4899; --g3:#f97316;
+    --grad:linear-gradient(100deg,#7c3aed,#ec4899 55%,#f97316);
+    --ok:#3f6f4e; --radius:14px;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--ink); min-height:100vh;}
+  header{background:var(--card); border-bottom:1px solid var(--line); padding:12px 20px; position:sticky; top:0; z-index:50;}
+  .head-row{display:flex; align-items:center; gap:12px; flex-wrap:wrap; max-width:1200px; margin:0 auto;}
+  .logo{display:flex; align-items:center; gap:9px;}
+  .logo svg{width:34px; height:34px; flex:none;}
+  .logo b{font-size:1.35rem; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent; letter-spacing:-.02em;}
+  .head-row .spacer{flex:1;}
+  select,input,textarea,button{font:inherit; color:inherit;}
+  .filtro{padding:8px 12px; border:1px solid var(--line); border-radius:10px; background:#fff; max-width:180px;}
+  nav{display:flex; gap:6px; max-width:1200px; margin:10px auto 0; flex-wrap:wrap;}
+  nav button{border:1px solid var(--line); background:#fff; padding:8px 15px; border-radius:999px; cursor:pointer; font-size:.9rem; color:var(--muted);}
+  nav button.ativo{background:var(--grad); color:#fff; border-color:transparent; font-weight:600;}
+  main{max-width:1200px; margin:20px auto; padding:0 20px 60px;}
+  .btn{background:var(--grad); color:#fff; border:none; padding:9px 16px; border-radius:10px; cursor:pointer; font-weight:600;}
+  .btn:hover{filter:brightness(1.06);}
+  .btn-claro{background:#fff; color:var(--ink); border:1px solid var(--line); padding:8px 14px; border-radius:10px; cursor:pointer;}
+  .btn-mini{border:none; background:transparent; cursor:pointer; font-size:.85rem; color:var(--muted); padding:4px;}
+  .btn-mini:hover{color:var(--ink);}
+  .sync{font-size:.8rem; color:var(--muted); white-space:nowrap;}
+  .sync.erro{color:#b91c1c;}
+  .secao-topo{display:flex; align-items:center; gap:12px; margin-bottom:16px; flex-wrap:wrap;}
+  .secao-topo h2{font-size:1.15rem; flex:1;}
+  .cartao{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px;}
+  .vazio{color:var(--muted); font-size:.9rem; padding:26px 0; text-align:center;}
+  /* Hoje */
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:20px;}
+  .tile{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px;}
+  .tile .num{font-size:1.7rem; font-weight:700; background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .tile .rot{font-size:.78rem; color:var(--muted);}
+  .hoje-grupo{margin-bottom:24px;}
+  .hoje-grupo h3{font-size:1rem; margin-bottom:10px;}
+  .post-linha{background:var(--card); border:1px solid var(--line); border-left:5px solid var(--cor,#999); border-radius:12px; padding:12px 14px; margin-bottom:8px;}
+  .post-linha .titulo-linha{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .post-linha b{font-size:.95rem;}
+  .post-linha .meta{color:var(--muted); font-size:.78rem; margin-top:2px;}
+  .post-linha .acoes-post{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; align-items:center;}
+  .badge{display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:22px; padding:0 6px; border-radius:6px; color:#fff; font-size:.66rem; font-weight:700; text-decoration:none; letter-spacing:.02em;}
+  .btn-rede{display:inline-flex; align-items:center; gap:5px; border:none; border-radius:8px; color:#fff; font-size:.76rem; font-weight:600; padding:5px 10px; cursor:pointer; text-decoration:none;}
+  .atrasado-tag{color:#b91c1c; font-weight:700; font-size:.75rem;}
+  /* Clientes */
+  .grade-clientes{display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:14px;}
+  .cartao-cliente{border-top:5px solid var(--cor,#999);}
+  .cartao-cliente h3{font-size:1.05rem;}
+  .cartao-cliente .nicho{display:inline-block; background:var(--bg); border-radius:999px; padding:2px 10px; font-size:.78rem; color:var(--muted); margin:6px 0;}
+  .redes-lista{display:flex; gap:6px; flex-wrap:wrap; margin:8px 0;}
+  .cartao-cliente .contagens{display:flex; gap:12px; font-size:.8rem; color:var(--muted); margin-top:8px; flex-wrap:wrap;}
+  .cartao-cliente .contagens b{color:var(--ink);}
+  .cartao-cliente .acoes{margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;}
+  /* Calendário */
+  .cal-nav{display:flex; align-items:center; gap:10px;}
+  .cal-nav b{min-width:150px; text-align:center; text-transform:capitalize;}
+  .calendario{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
+  .cal-dia-semana{text-align:center; font-size:.75rem; color:var(--muted); padding:4px 0; text-transform:uppercase;}
+  .cal-celula{background:var(--card); border:1px solid var(--line); border-radius:10px; min-height:92px; padding:6px; cursor:pointer;}
+  .cal-celula:hover{border-color:var(--g2);}
+  .cal-celula.fora{opacity:.35; cursor:default;}
+  .cal-celula.hoje{outline:2px solid var(--g2);}
+  .cal-num{font-size:.8rem; color:var(--muted); margin-bottom:4px;}
+  .chip{display:block; width:100%; text-align:left; border:none; border-radius:6px; color:#fff; font-size:.68rem; padding:2px 6px; margin-bottom:3px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .mais{font-size:.7rem; color:var(--muted);}
+  /* Tarefas */
+  .grupo-tarefas{margin-bottom:18px;}
+  .grupo-tarefas h3{font-size:.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
+  .bolinha{width:12px; height:12px; border-radius:50%; display:inline-block;}
+  .tarefa{display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:6px;}
+  .tarefa input[type=checkbox]{width:18px; height:18px; accent-color:var(--g1); cursor:pointer;}
+  .tarefa .texto{flex:1;}
+  .tarefa.feita .texto{text-decoration:line-through; color:var(--muted);}
+  .tarefa .prazo{font-size:.75rem; color:var(--muted);}
+  .tarefa .prazo.atrasada{color:#b91c1c; font-weight:600;}
+  .form-linha{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .form-linha input,.form-linha select{padding:9px 12px; border:1px solid var(--line); border-radius:10px; background:#fff;}
+  .form-linha input[type=text]{flex:1; min-width:180px;}
+  /* Ideias */
+  .grade-ideias{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px;}
+  .cartao-ideia{border-left:5px solid var(--cor,#999);}
+  .cartao-ideia h4{font-size:.98rem; margin-bottom:4px;}
+  .cartao-ideia .cliente-nome{font-size:.75rem; color:var(--muted); margin-bottom:6px;}
+  .cartao-ideia p{font-size:.85rem; margin-bottom:8px; white-space:pre-wrap;}
+  .hashtags{font-size:.78rem; color:var(--g2); word-break:break-word; margin-bottom:8px;}
+  /* Quadro */
+  .quadro{display:grid; grid-template-columns:repeat(6,minmax(180px,1fr)); gap:10px; overflow-x:auto;}
+  .coluna{background:#f1ecf7; border-radius:var(--radius); padding:10px; min-height:200px;}
+  .coluna h3{font-size:.78rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin-bottom:10px; text-align:center;}
+  .cartao-post{background:#fff; border:1px solid var(--line); border-left:5px solid var(--cor,#999); border-radius:10px; padding:8px 10px; margin-bottom:8px; font-size:.82rem;}
+  .cartao-post .meta{color:var(--muted); font-size:.72rem; margin-top:2px;}
+  .cartao-post .mover{display:flex; justify-content:space-between; margin-top:6px;}
+  /* Modal */
+  .fundo-modal{position:fixed; inset:0; background:rgba(36,31,46,.5); display:none; align-items:center; justify-content:center; z-index:210; padding:16px;}
+  .fundo-modal.aberto{display:flex;}
+  .modal{background:#fff; border-radius:var(--radius); padding:22px; width:100%; max-width:480px; max-height:90vh; overflow:auto;}
+  .modal h3{margin-bottom:14px;}
+  .modal label{display:block; font-size:.82rem; color:var(--muted); margin:10px 0 4px;}
+  .modal input,.modal select,.modal textarea{width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:10px; background:#fff;}
+  .modal textarea{min-height:80px; resize:vertical;}
+  .cores{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;}
+  .cor-opcao{width:28px; height:28px; border-radius:50%; cursor:pointer; border:3px solid transparent;}
+  .cor-opcao.escolhida{border-color:var(--ink);}
+  .modal .rodape{display:flex; gap:8px; justify-content:flex-end; margin-top:18px;}
+  .perigo{color:#b91c1c;}
+  .rede-item{display:flex; gap:6px; align-items:center; margin-bottom:2px;}
+  .rede-item select{width:auto; flex:none;}
+  .rede-item input{flex:1;}
+  .rede-dica{font-size:.72rem; color:var(--muted); margin:0 0 8px 2px;}
+  .avatar{border-radius:50%; display:inline-flex; align-items:center; justify-content:center; color:#fff; font-weight:800; position:relative; overflow:hidden; flex:none; line-height:1;}
+  .check-redes{display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;}
+  .check-redes label{display:inline-flex; align-items:center; gap:5px; margin:0; border:1px solid var(--line); border-radius:8px; padding:5px 9px; cursor:pointer; font-size:.8rem; color:var(--ink);}
+  .check-redes input{width:auto;}
+  /* Login */
+  #telaLogin{position:fixed; inset:0; background:var(--grad); z-index:200; display:flex; align-items:center; justify-content:center; padding:16px;}
+  .caixa-login{background:#fff; border-radius:18px; padding:34px 30px; width:100%; max-width:380px; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,.25);}
+  .caixa-login .logo{justify-content:center; margin-bottom:8px;}
+  .caixa-login .logo svg{width:46px; height:46px;}
+  .caixa-login .logo b{font-size:1.9rem;}
+  .caixa-login p{color:var(--muted); font-size:.88rem; margin-bottom:18px;}
+  .caixa-login input{width:100%; padding:11px 14px; border:1px solid var(--line); border-radius:10px; margin-bottom:10px;}
+  .caixa-login .btn{width:100%; padding:11px;}
+  .msg-login{font-size:.85rem; color:#b91c1c; margin-top:10px; min-height:1.2em;}
+  #app{display:none;}
+  /* Ajuda */
+  .grade-ajuda{display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px;}
+  .dica-card h3{font-size:1rem; margin-bottom:8px;}
+  .dica-card ol,.dica-card ul{margin-left:18px; font-size:.87rem;}
+  .dica-card li{margin-bottom:5px;}
+  .dica-card .passo{color:var(--muted); font-size:.8rem; margin-top:8px;}
+  .data-comem{font-size:.6rem;color:#be185d;font-weight:600;line-height:1.15;margin-bottom:2px;}
+  .contadores{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+  .cont{font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:6px;padding:2px 7px;}
+  .cont.estourou{color:#b91c1c;border-color:#b91c1c;font-weight:700;}
+  .meta-prog{margin-top:8px;font-size:.75rem;color:var(--muted);display:flex;align-items:center;gap:8px;}
+  .meta-barra{flex:1;height:8px;background:var(--bg);border-radius:99px;overflow:hidden;border:1px solid var(--line);}
+  .meta-barra div{height:100%;background:var(--grad);}
+  .pag-linha{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:6px;font-size:.88rem;}
+  .pag-linha .venc{font-size:.78rem;color:var(--muted);}
+  .pag-linha .venc.atrasado{color:#b91c1c;font-weight:700;}
+  .tab-met{width:100%;border-collapse:collapse;font-size:.8rem;margin-top:10px;}
+  .tab-met td,.tab-met th{border:1px solid var(--line);padding:4px 8px;text-align:left;}
+  .tab-met th{background:var(--bg);color:var(--muted);font-size:.7rem;text-transform:uppercase;}
+  /* Chat assistente */
+  .chat-botao{position:fixed; right:18px; bottom:18px; width:58px; height:58px; border-radius:50%; background:var(--grad); color:#fff; border:none; font-size:1.5rem; cursor:pointer; box-shadow:0 8px 24px rgba(124,58,237,.4); z-index:90;}
+  .chat-caixa{position:fixed; right:18px; bottom:86px; width:min(360px,calc(100vw - 36px)); height:min(500px,70vh); background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,.25); display:none; flex-direction:column; overflow:hidden; z-index:95;}
+  .chat-caixa.aberto{display:flex;}
+  .chat-topo{background:var(--grad); color:#fff; padding:12px 16px; font-weight:700; display:flex; align-items:center; gap:8px;}
+  .chat-topo small{font-weight:400; opacity:.9; display:block; font-size:.72rem;}
+  .chat-msgs{flex:1; overflow-y:auto; padding:12px; background:var(--bg);}
+  .msg{max-width:85%; padding:8px 12px; border-radius:12px; margin-bottom:8px; font-size:.85rem; white-space:pre-wrap; line-height:1.35;}
+  .msg.bot{background:#fff; border:1px solid var(--line);}
+  .msg.eu{background:var(--grad); color:#fff; margin-left:auto;}
+  .chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
+  .chips button{border:1px solid var(--g2); color:var(--g2); background:#fff; border-radius:999px; padding:4px 10px; font-size:.74rem; cursor:pointer;}
+  .chat-entrada{display:flex; gap:6px; padding:10px; border-top:1px solid var(--line); background:#fff;}
+  .chat-entrada input{flex:1; padding:9px 12px; border:1px solid var(--line); border-radius:10px;}
+  .chat-entrada button{background:var(--grad); color:#fff; border:none; border-radius:10px; padding:0 14px; cursor:pointer; font-weight:700;}
+  .linha-flex{display:flex;gap:8px;}
+  @media(max-width:720px){
+    .quadro{grid-template-columns:repeat(6,220px);}
+    .cal-celula{min-height:64px;}
+    .chip{font-size:.6rem;}
+    .linha-flex{flex-direction:column;gap:0;}
+    .modal{padding:16px;}
+    .modal label{margin-top:12px;}
+    /* alvos de toque maiores no celular */
+    nav button{padding:11px 18px; font-size:1rem;}
+    .btn{padding:13px 20px; font-size:1.02rem;}
+    .btn-claro{padding:11px 16px; font-size:.98rem;}
+    .btn-mini{font-size:1.05rem; padding:10px 12px;}
+    .badge{min-width:40px; height:34px; font-size:.85rem; border-radius:9px;}
+    .redes-lista{gap:9px;}
+    .redes-lista .badge{min-width:56px; height:46px; font-size:1.05rem; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,.15);}
+    .btn-rede{font-size:.92rem; padding:10px 15px; border-radius:10px;}
+    .cartao-post .mover .btn-mini{font-size:1.25rem; padding:8px 16px;}
+    .tarefa input[type=checkbox]{width:26px; height:26px;}
+    .cor-opcao{width:36px; height:36px;}
+    .rede-item select,.rede-item input{padding:11px 12px;}
+    .chat-botao{width:64px; height:64px; font-size:1.7rem;}
+    .chips button{padding:8px 14px; font-size:.85rem;}
+    .chat-entrada input{padding:12px 14px;}
+    .chat-entrada button{padding:0 18px; font-size:1.1rem;}
+    .filtro{padding:11px 12px;}
+    .contadores .cont{font-size:.82rem; padding:5px 10px;}
+    .acoes .btn-mini,.cartao-ideia .btn-mini{border:1px solid var(--line); border-radius:9px; margin:2px 2px 0 0;}
+  }
+</style>
+</head>
+<body>
+
+<div id="telaLogin">
+  <div class="caixa-login">
+    <div class="logo">
+      <svg viewBox="0 0 48 48"><defs><linearGradient id="lg1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset=".5" stop-color="#ec4899"/><stop offset="1" stop-color="#f97316"/></linearGradient></defs><rect width="48" height="48" rx="12" fill="url(#lg1)"/><path d="M37 11 L11 22.5 L21 26.5 L25 37 Z" fill="#fff"/><path d="M37 11 L21 26.5 L25 37 Z" fill="#ffffff99"/></svg>
+      <b>Postou</b>
+    </div>
+    <p>Organize, planeje e publique em todas as redes</p>
+    <div id="formEntrar">
+      <input type="email" id="loginEmail" placeholder="Seu e-mail" autocomplete="username">
+      <input type="password" id="loginSenha" placeholder="Sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()">
+      <button class="btn" id="btnEntrar" onclick="fazerLogin()">Entrar</button>
+      <p style="margin-top:14px;font-size:.85rem">Ainda não tem conta?<br><a href="#" onclick="mostrarCadastro();return false" style="color:var(--g1);font-weight:700">🎁 Teste 7 dias grátis</a></p>
+    </div>
+    <div id="formCadastro" style="display:none">
+      <input type="text" id="cadNome" placeholder="Seu nome">
+      <input type="text" id="cadZap" placeholder="Seu WhatsApp (com código do país, ex.: +1 ou +55)">
+      <select id="cadInteresse" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;color:var(--muted)">
+        <option value="pessoal">Vou usar para o meu próprio perfil</option>
+        <option value="vendas">Vendo produtos pelas redes</option>
+        <option value="business">Cuido de algumas contas (até 10)</option>
+        <option value="pro">Sou profissional de MKT (vários clientes + vendas)</option>
+      </select>
+      <input type="email" id="cadEmail" placeholder="Seu e-mail" autocomplete="username">
+      <input type="password" id="cadSenha" placeholder="Crie uma senha (mín. 6 letras)" autocomplete="new-password">
+      <button class="btn" id="btnCadastrar" onclick="fazerCadastro()">🎁 Começar meus 7 dias grátis</button>
+      <p style="margin-top:8px;font-size:.72rem;color:var(--muted)">Ao criar a conta, você concorda com os <a href="#" onclick="abrirTermos();return false" style="color:var(--g1)">Termos de Uso e Privacidade</a>.</p>
+      <p style="margin-top:10px;font-size:.85rem"><a href="#" onclick="mostrarEntrar();return false" style="color:var(--muted)">← Já tenho conta</a></p>
+    </div>
+    <div class="msg-login" id="msgLogin"></div>
+    <p style="margin-top:16px;font-size:.7rem;color:var(--muted)">© 2026 Joice Pazotto — Todos os direitos reservados · <a href="#" onclick="abrirTermos();return false" style="color:var(--muted);text-decoration:underline">Termos e Privacidade</a></p>
+  </div>
+</div>
+
+<div id="app">
+<header>
+  <div class="head-row">
+    <div class="logo">
+      <svg viewBox="0 0 48 48"><defs><linearGradient id="lg2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset=".5" stop-color="#ec4899"/><stop offset="1" stop-color="#f97316"/></linearGradient></defs><rect width="48" height="48" rx="12" fill="url(#lg2)"/><path d="M37 11 L11 22.5 L21 26.5 L25 37 Z" fill="#fff"/><path d="M37 11 L21 26.5 L25 37 Z" fill="#ffffff99"/></svg>
+      <b>Postou</b>
+    </div>
+    <span class="sync" id="statusSync">☁️ Conectando…</span>
+    <span class="sync" id="planoBadge" style="font-weight:700"></span>
+    <div class="spacer"></div>
+    <select class="filtro" id="filtroCliente" onchange="render()">
+      <option value="todos">Todos os usuários</option>
+    </select>
+    <button class="btn-claro" onclick="exportar()" title="Baixar uma cópia de segurança">⬇ Backup</button>
+    <button class="btn-claro" onclick="sair()">Sair</button>
+  </div>
+  <nav>
+    <button data-aba="hoje" class="ativo" onclick="trocarAba('hoje')">🏠 Hoje</button>
+    <button data-aba="clientes" onclick="trocarAba('clientes')">👥 Usuários</button>
+    <button data-aba="calendario" onclick="trocarAba('calendario')">📅 Calendário</button>
+    <button data-aba="tarefas" onclick="trocarAba('tarefas')">✅ Tarefas</button>
+    <button data-aba="ideias" onclick="trocarAba('ideias')">💡 Ideias</button>
+    <button data-aba="quadro" onclick="trocarAba('quadro')">🗂 Status</button>
+    <button data-aba="vendas" onclick="trocarAba('vendas')">💵 Vendas</button>
+    <button data-aba="ajuda" onclick="trocarAba('ajuda')">❓ Ajuda</button>
+  </nav>
+</header>
+<main>
+  <section id="aba-hoje">
+    <div class="tiles" id="tilesHoje"></div>
+    <div class="cartao" style="margin-bottom:20px">
+      <h3 style="margin-bottom:12px">📅 Semana em resumo</h3>
+      <div id="relatorioSemanal"></div>
+    </div>
+    <div id="listaHoje"></div>
+  </section>
+  <section id="aba-clientes" style="display:none">
+    <div class="secao-topo"><h2>Meus usuários</h2><button class="btn" onclick="abrirModalCliente()">+ Novo usuário</button></div>
+    <div class="grade-clientes" id="listaClientes"></div>
+  </section>
+  <section id="aba-calendario" style="display:none">
+    <div class="secao-topo">
+      <h2>Calendário</h2>
+      <div class="cal-nav">
+        <button class="btn-claro" onclick="mudarMes(-1)">◀</button>
+        <b id="tituloMes"></b>
+        <button class="btn-claro" onclick="mudarMes(1)">▶</button>
+      </div>
+      <button class="btn" onclick="abrirModalPost()">+ Nova postagem</button>
+    </div>
+    <div class="calendario" id="gradeCal"></div>
+  </section>
+  <section id="aba-tarefas" style="display:none">
+    <div class="secao-topo"><h2>Tarefas</h2></div>
+    <div class="form-linha">
+      <select id="tarefaCliente"></select>
+      <input type="text" id="tarefaTexto" placeholder="O que precisa ser feito? Ex.: gravar vídeo do lançamento" onkeydown="if(event.key==='Enter')addTarefa()">
+      <input type="date" id="tarefaPrazo">
+      <button class="btn" onclick="addTarefa()">Adicionar</button>
+    </div>
+    <div id="listaTarefas"></div>
+  </section>
+  <section id="aba-ideias" style="display:none">
+    <div class="secao-topo"><h2>Banco de ideias</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-claro" onclick="abrirTendencias()">🔥 Tendências</button><button class="btn-claro" onclick="abrirSugestoes()">✨ Ideias por nicho</button><button class="btn" onclick="abrirModalIdeia()">+ Nova ideia</button></div></div>
+    <div class="grade-ideias" id="listaIdeias"></div>
+  </section>
+  <section id="aba-quadro" style="display:none">
+    <div class="secao-topo"><h2>Status das postagens</h2><button class="btn" onclick="abrirModalPost()">+ Nova postagem</button></div>
+    <div class="quadro" id="quadroStatus"></div>
+  </section>
+  <section id="aba-vendas" style="display:none">
+    <div class="secao-topo"><h2>💵 Vendas e lucros</h2></div>
+    <div class="form-linha">
+      <input type="date" id="vData">
+      <select id="vCliente"></select>
+      <select id="vCanal"></select>
+      <input type="text" id="vDesc" placeholder="O que vendeu? Ex.: kit skincare" onkeydown="if(event.key==='Enter')addVenda()">
+      <input id="vValor" placeholder="Valor (R$)" style="width:110px">
+      <input id="vCusto" placeholder="Custo (R$)" style="width:110px">
+      <button class="btn" onclick="addVenda()">+ Registrar</button>
+    </div>
+    <div class="tiles" id="tilesVendas"></div>
+    <div class="cartao" id="contadorAjudante" style="margin-bottom:14px"></div>
+    <div class="cartao" id="graficoVendas" style="margin-bottom:14px"></div>
+    <div id="listaVendas"></div>
+  </section>
+  <section id="aba-ajuda" style="display:none">
+    <div class="secao-topo"><h2>Como usar o Postou — passo a passo</h2></div>
+    <div class="grade-ajuda">
+      <div class="cartao dica-card">
+        <h3>1️⃣ Comece pelos Usuários 👥</h3>
+        <ol>
+          <li><b>Nome:</b> o nome do usuário ou da marca (ex.: "Loja da Maria");</li>
+          <li><b>Nicho:</b> o assunto do perfil (moda, comida, estética...);</li>
+          <li><b>Redes:</b> adicione cada rede com o usuário <b>sem o @</b> — o link é criado sozinho;</li>
+          <li><b>Anotações:</b> combinados, frequência de posts, o que a pessoa não gosta;</li>
+          <li><b>Cor:</b> escolha uma cor — ela identifica o cliente em todas as telas.</li>
+        </ol>
+      </div>
+      <div class="cartao dica-card">
+        <h3>2️⃣ Planeje no Calendário 📅</h3>
+        <ol>
+          <li>Clique no <b>dia</b> em que quer postar;</li>
+          <li>Escolha o usuário e <b>marque as redes</b> onde o post vai sair;</li>
+          <li>Dê um título curto (ex.: "Promoção de sexta");</li>
+          <li>Defina <b>data e hora</b> e o tipo (foto, reel, story...);</li>
+          <li>Cole a <b>legenda pronta</b> com hashtags — vai economizar tempo na hora de postar!</li>
+        </ol>
+      </div>
+      <div class="cartao dica-card">
+        <h3>3️⃣ Acompanhe pelo Status 🗂</h3>
+        <ul>
+          <li>💡 <b>Ideia</b> → ✏️ <b>Rascunho</b> → 🎬 <b>Em produção</b> → 👍 <b>Aprovado</b> → ⏰ <b>Agendado</b> → ✅ <b>Publicado</b>;</li>
+          <li>Use as setas ◀ ▶ para mover o post conforme ele avança;</li>
+          <li>Dica de ouro: só mova para <b>Aprovado</b> depois que o usuário disser SIM — evita retrabalho!</li>
+        </ul>
+      </div>
+      <div class="cartao dica-card">
+        <h3>4️⃣ Use as Tarefas ✅</h3>
+        <ul>
+          <li>Anote tudo que precisa ser feito: gravar vídeo, criar arte, responder directs;</li>
+          <li>Sempre coloque um <b>prazo</b> — tarefas atrasadas ficam vermelhas;</li>
+          <li>Marque a caixinha quando terminar. Sensação boa garantida! 🎉</li>
+        </ul>
+      </div>
+      <div class="cartao dica-card">
+        <h3>5️⃣ Guarde as Ideias 💡</h3>
+        <ul>
+          <li>Toda ideia boa vai para o banco: título, descrição e hashtags;</li>
+          <li>Quando chegar a hora, clique em <b>"Virar postagem"</b> — ela vai direto para o quadro de Status;</li>
+          <li>Use <b>"Copiar texto"</b> para levar legenda + hashtags para qualquer lugar.</li>
+        </ul>
+      </div>
+      <div class="cartao dica-card">
+        <h3>🌅 Sua rotina diária com o Postou</h3>
+        <ol>
+          <li><b>De manhã:</b> abra a aba <b>Hoje</b> — ela mostra o que precisa sair e o que está atrasado;</li>
+          <li>Use o botão <b>🚀 Postar</b>: ele copia a legenda e abre a rede — é só colar e publicar;</li>
+          <li>Marque <b>✅ Publicado!</b> depois de postar;</li>
+          <li><b>Fim do dia:</b> planeje o dia seguinte no calendário;</li>
+          <li><b>1x por semana:</b> clique em <b>⬇ Backup</b> para guardar uma cópia dos seus dados.</li>
+        </ol>
+        <div class="passo">Dúvidas? Clique no botão 💬 no cantinho da tela e pergunte ao assistente!</div>
+      </div>
+      <div class="cartao dica-card">
+        <h3>📜 Termos e privacidade</h3>
+        <p style="font-size:.85rem;margin-bottom:8px">O Postou respeita seus dados (LGPD) e é protegido por direitos autorais.</p>
+        <button class="btn-claro" onclick="abrirTermos()">Ler os Termos de Uso e a Política de Privacidade</button>
+        <div class="passo">© 2026 Joice Pazotto — Todos os direitos reservados.</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<button class="chat-botao" onclick="alternarChat()" title="Assistente do Postou">💬</button>
+<div class="chat-caixa" id="chatCaixa">
+  <div class="chat-topo">🤖 <div>Assistente do Postou<small>respondo na hora, é só perguntar!</small></div></div>
+  <div class="chat-msgs" id="chatMsgs"></div>
+  <div class="chat-entrada">
+    <input id="chatInput" placeholder="Digite sua dúvida..." onkeydown="if(event.key==='Enter')enviarChat()">
+    <button onclick="enviarChat()">➤</button>
+  </div>
+</div>
+</div>
+
+<div class="fundo-modal" id="fundoModal" onclick="if(event.target===this)fecharModal()">
+  <div class="modal" id="conteudoModal"></div>
+</div>
+<input type="file" id="arquivoImport" accept=".json" style="display:none" onchange="importar(this)">
+
+<script>
+/* ===== CONFIGURAÇÃO ===== */
+const SUPABASE_URL = 'https://qzdursjwvlzwahemrkmv.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_zueiNLfKsr7au2YgziUtXQ_CwGWnLi6';
+/* ======================== */
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const CORES = ['#7c3aed','#ec4899','#f97316','#0e7490','#15803d','#be185d','#1d4ed8','#b45309','#a21caf','#dc2626','#0f766e','#4d7c0f'];
+const REDES = {
+  instagram:{nome:'Instagram', sigla:'IG',  cor:'#E1306C', perfil:u=>'https://instagram.com/'+u, postar:'https://www.instagram.com/'},
+  tiktok:   {nome:'TikTok',    sigla:'TT',  cor:'#111111', perfil:u=>'https://www.tiktok.com/@'+u, postar:'https://www.tiktok.com/tiktokstudio/upload'},
+  youtube:  {nome:'YouTube',   sigla:'YT',  cor:'#FF0000', perfil:u=>'https://www.youtube.com/@'+u, postar:'https://studio.youtube.com/'},
+  facebook: {nome:'Facebook',  sigla:'FB',  cor:'#1877F2', perfil:u=>'https://www.facebook.com/'+u, postar:'https://www.facebook.com/'},
+  linkedin: {nome:'LinkedIn',  sigla:'IN',  cor:'#0A66C2', perfil:u=>'https://www.linkedin.com/in/'+u, postar:'https://www.linkedin.com/feed/?shareActive=true'},
+  x:        {nome:'X (Twitter)',sigla:'X',  cor:'#000000', perfil:u=>'https://x.com/'+u, postar:'https://x.com/intent/post'},
+  kwai:     {nome:'Kwai',      sigla:'KW',  cor:'#FF7E00', perfil:u=>'https://www.kwai.com/@'+u, postar:'https://www.kwai.com/'},
+  pinterest:{nome:'Pinterest', sigla:'PIN', cor:'#E60023', perfil:u=>'https://www.pinterest.com/'+u, postar:'https://www.pinterest.com/pin-builder/'},
+  whatsapp: {nome:'WhatsApp',  sigla:'WA',  cor:'#25D366', perfil:u=>'https://wa.me/'+String(u).replace(/\D/g,''), postar:'https://wa.me/'},
+  telegram: {nome:'Telegram',  sigla:'TG',  cor:'#229ED9', perfil:u=>'https://t.me/'+u, postar:'https://web.telegram.org/'},
+  outra:    {nome:'Outra rede',sigla:'WEB', cor:'#6b7280', perfil:u=>u, postar:''}
+};
+// Modelo do que preencher em cada rede (aparece na hora de cadastrar, para a pessoa saber de cara)
+const REDE_DICA = {
+  instagram:{ex:'ex.: lojadamaria', dica:'Usuário sem @ (só o nome do perfil).'},
+  tiktok:{ex:'ex.: lojadamaria', dica:'Usuário sem @ (só o nome do perfil).'},
+  youtube:{ex:'ex.: @seucanal (ou cole o link)', dica:'Nome do canal com @, ou cole o link completo do canal.'},
+  facebook:{ex:'cole o link da página', dica:'Cole o LINK completo: abra a página no Facebook e copie o endereço https://... da barra.'},
+  linkedin:{ex:'ex.: maria-silva (ou link)', dica:'Nome do perfil, ou cole o link completo.'},
+  x:{ex:'ex.: lojadamaria', dica:'Usuário sem @ (só o nome do perfil).'},
+  kwai:{ex:'ex.: lojadamaria', dica:'Usuário sem @ (só o nome do perfil).'},
+  pinterest:{ex:'ex.: lojadamaria (ou link)', dica:'Usuário sem @, ou cole o link do perfil.'},
+  whatsapp:{ex:'ex.: +15085551234 (EUA) ou +5511999998888', dica:'Com o código do país na frente: EUA +1, Brasil +55. Ex.: +1 (EUA) + DDD + número.'},
+  telegram:{ex:'ex.: lojadamaria', dica:'Usuário sem @ (só o nome).'},
+  outra:{ex:'cole o link (https://...)', dica:'Cole o link completo do perfil ou página.'}
+};
+// Monta o link do perfil aceitando tanto o @usuário quanto um link completo colado (resolve páginas do Facebook, etc.)
+function linkRede(r){
+  if(!r) return '';
+  if(r.link) return r.link;
+  const u = String(r.usuario||'').trim();
+  if(!u) return '';
+  if(/^https?:\/\//i.test(u)) return u;                 // colou o endereço completo → abre direto
+  const limpo = u.replace(/^@+/,'').trim();
+  const cat = REDES[r.tipo] || REDES.outra;
+  return cat.perfil(limpo);
+}
+const TIPOS = {foto:'Foto/Feed', video:'Vídeo', reel:'Reel/Short', story:'Story', carrossel:'Carrossel', live:'Live', texto:'Texto'};
+const MAPA_TIPO_V1 = {feed:'foto', reel:'reel', story:'story', carrossel:'carrossel', live:'live'};
+const LIMITES = {instagram:2200, x:280, tiktok:2200, youtube:5000, facebook:5000, linkedin:3000, pinterest:500, kwai:1000, telegram:4096};
+const STATUS = ['ideia','rascunho','producao','aprovado','agendado','publicado'];
+const STATUS_NOME = {ideia:'💡 Ideia', rascunho:'✏️ Rascunho', producao:'🎬 Em produção', aprovado:'👍 Aprovado', agendado:'⏰ Agendado', publicado:'✅ Publicado'};
+
+const DADOS_INICIAIS = { versao:2, clientes: [], posts: [], tarefas: [], ideias: [], vendas: [], prox: 1, fin: { reservaPct: 8, limiteAnual: 81000 } };
+
+let dados = JSON.parse(JSON.stringify(DADOS_INICIAIS));
+let mesAtual = new Date();
+let abaAtual = 'hoje';
+let ultimaAtualizacao = null;
+let timerSalvar = null;
+let salvando = false;
+let usuarioId = null;
+let redesTemp = [];
+
+function hojeISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function novoId(){ return dados.prox++; }
+function clientePorId(id){ return dados.clientes.find(p=>p.id===id); }
+function filtroAtivo(){ const v=document.getElementById('filtroCliente').value; return v==='todos'?null:parseInt(v); }
+function escapar(t){ const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
+function dataBR(iso){ if(!iso) return ''; const p=iso.split('-'); return p[2]+'/'+p[1]; }
+
+/* ---------- MIGRAÇÃO (dados da versão antiga) ---------- */
+function migrar(d){
+  if(d.versao===2) return d;
+  const novo = JSON.parse(JSON.stringify(DADOS_INICIAIS));
+  novo.prox = d.prox || 1000;
+  (d.perfis||[]).forEach(p=>{
+    novo.clientes.push({id:p.id, nome:p.nome, nicho:p.nicho||'', notas:p.notas||'', cor:p.cor||CORES[0],
+      redes: p.handle ? [{tipo:'instagram', usuario:String(p.handle).replace('@',''), link:''}] : []});
+  });
+  (d.posts||[]).forEach(p=>{
+    novo.posts.push({id:p.id, clienteId:p.perfilId, redes:['instagram'], data:p.data, hora:'',
+      tipo: MAPA_TIPO_V1[p.tipo]||'foto', titulo:p.titulo, legenda:p.legenda||'', status:p.status||'rascunho'});
+  });
+  novo.tarefas = (d.tarefas||[]).map(t=>({id:t.id, clienteId:t.perfilId, texto:t.texto, prazo:t.prazo||'', feita:!!t.feita}));
+  novo.ideias = (d.ideias||[]).map(i=>({id:i.id, clienteId:i.perfilId, titulo:i.titulo, texto:i.texto||'', hashtags:i.hashtags||''}));
+  return novo;
+}
+
+/* ---------- LOGIN E SINCRONIZAÇÃO ---------- */
+async function iniciar(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(session){ await entrarNoApp(); }
+}
+function mostrarCadastro(){ document.getElementById('formEntrar').style.display='none'; document.getElementById('formCadastro').style.display='block'; document.getElementById('msgLogin').textContent=''; }
+function mostrarEntrar(){ document.getElementById('formEntrar').style.display='block'; document.getElementById('formCadastro').style.display='none'; document.getElementById('msgLogin').textContent=''; }
+async function fazerCadastro(){
+  const nome = document.getElementById('cadNome').value.trim();
+  const zap = document.getElementById('cadZap').value.replace(/[^\d+]/g,'');
+  const interesse = document.getElementById('cadInteresse').value;
+  const email = document.getElementById('cadEmail').value.trim();
+  const senha = document.getElementById('cadSenha').value;
+  const msg = document.getElementById('msgLogin');
+  if(!nome){ msg.textContent='Conta pra gente seu nome! 😊'; return; }
+  if(!email || senha.length<6){ msg.textContent='Preencha o e-mail e uma senha com pelo menos 6 caracteres.'; return; }
+  document.getElementById('btnCadastrar').textContent = 'Criando sua conta…';
+  const { data, error } = await sb.auth.signUp({ email, password: senha, options: { data: { nome, zap, interesse } } });
+  document.getElementById('btnCadastrar').textContent = '🎁 Começar meus 7 dias grátis';
+  if(error){ msg.textContent = 'Erro ao criar conta: '+error.message; return; }
+  if(data && data.session){ msg.textContent=''; await entrarNoApp(); }
+  else { msg.style.color = '#15803d'; msg.textContent = '✅ Conta criada! Agora abre seu e-mail e clica no link de confirmação — depois volta aqui e entra.'; mostrarEntrar(); }
+}
+async function fazerLogin(){
+  const email = document.getElementById('loginEmail').value.trim();
+  const senha = document.getElementById('loginSenha').value;
+  const msg = document.getElementById('msgLogin');
+  if(!email || !senha){ msg.textContent = 'Preencha o e-mail e a senha.'; return; }
+  document.getElementById('btnEntrar').textContent = 'Entrando…';
+  const { error } = await sb.auth.signInWithPassword({ email, password: senha });
+  document.getElementById('btnEntrar').textContent = 'Entrar';
+  if(error){
+    msg.textContent = error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' : 'Erro ao entrar: '+error.message;
+    return;
+  }
+  msg.textContent = '';
+  await entrarNoApp();
+}
+let usuarioMeta = {};
+async function entrarNoApp(){
+  const { data:{ user } } = await sb.auth.getUser();
+  usuarioId = user ? user.id : null;
+  usuarioMeta = (user && user.user_metadata) || {};
+  document.getElementById('telaLogin').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  await carregarDados();
+  render();
+  verificarExpiracao();
+}
+/* ---------- PLANOS E TESTE GRÁTIS ---------- */
+const PLANOS = {
+  pessoal:  {rotulo:'🌱 Pessoal',  vendas:false, maxClientes:1,  umaPorRede:true},
+  vendas:   {rotulo:'💵 Vendas',   vendas:true,  maxClientes:1,  umaPorRede:true},
+  business: {rotulo:'🏢 Business', vendas:false, maxClientes:10, umaPorRede:false},
+  pro:      {rotulo:'🚀 Pro',      vendas:true,  maxClientes:30, umaPorRede:false},
+  ultra:    {rotulo:'👑 Ultra',    vendas:true,  maxClientes:9999, umaPorRede:false},
+  completo: {rotulo:'',            vendas:true,  maxClientes:9999, umaPorRede:false}
+};
+function planoConfig(){
+  const pl = planoAtual();
+  if(pl==='trial'){
+    const interesse = (dados.assinatura && dados.assinatura.interesse) || 'pessoal';
+    return PLANOS[interesse] || PLANOS.pessoal;
+  }
+  return PLANOS[pl] || PLANOS.completo;
+}
+function diasDeTeste(){
+  if(!dados.assinatura || dados.assinatura.plano!=='trial') return 0;
+  const ini = dados.assinatura.inicio;
+  const d0 = new Date(parseInt(ini.slice(0,4)), parseInt(ini.slice(5,7))-1, parseInt(ini.slice(8,10)));
+  const hj = new Date(); hj.setHours(0,0,0,0);
+  return Math.round((hj-d0)/864e5);
+}
+function planoAtual(){
+  const a = dados.assinatura;
+  if(!a || !a.plano) return 'completo';
+  if(a.plano==='trial') return diasDeTeste()>7 ? 'expirado' : 'trial';
+  return PLANOS[a.plano] ? a.plano : 'completo';
+}
+function aplicarPlano(){
+  const pl = planoAtual();
+  const conf = planoConfig();
+  const btnV = document.querySelector('nav button[data-aba="vendas"]');
+  if(btnV) btnV.style.display = conf.vendas===false ? 'none' : '';
+  if(conf.vendas===false && abaAtual==='vendas'){ trocarAba('hoje'); return; }
+  const badge = document.getElementById('planoBadge');
+  if(badge){
+    if(pl==='trial'){
+      const resta = Math.max(0, 7-diasDeTeste());
+      badge.textContent = '🎁 teste '+(conf.rotulo||'')+': '+(resta===0?'último dia!':'faltam '+resta+' dia'+(resta>1?'s':''));
+    }
+    else badge.textContent = conf.rotulo || '';
+  }
+}
+function verificarExpiracao(){
+  if(planoAtual()!=='expirado') return;
+  const div = document.createElement('div');
+  div.id = 'telaExpirada';
+  div.style.cssText = 'position:fixed;inset:0;background:linear-gradient(150deg,#7c3aed,#ec4899 52%,#f97316);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
+  div.innerHTML = `<div class="caixa-login">
+    <h2 style="margin-bottom:8px">Seu teste de 7 dias acabou 🥲</h2>
+    <p>Gostou do Postou? A gente adoraria continuar com você! Fale com a Joice para assinar — seus dados estão guardados e voltam assim que você ativar.</p>
+    <a class="btn" style="display:block;text-decoration:none;margin-bottom:8px" href="https://instagram.com/joicepazotto" target="_blank">💜 Falar com a Joice e assinar</a>
+    <button class="btn-claro" style="width:100%;margin-bottom:8px" onclick="exportar()">⬇ Baixar meus dados</button>
+    <button class="btn-claro" style="width:100%" onclick="sair()">Sair</button>
+  </div>`;
+  document.body.appendChild(div);
+}
+async function sair(){
+  await sb.auth.signOut();
+  location.reload();
+}
+function setSync(estado){
+  const el = document.getElementById('statusSync');
+  el.classList.remove('erro');
+  if(estado==='salvo') el.textContent = '☁️ Tudo salvo';
+  else if(estado==='salvando') el.textContent = '🔄 Salvando…';
+  else if(estado==='carregando') el.textContent = '☁️ Carregando…';
+  else { el.textContent = '⚠️ Sem conexão — tentando de novo'; el.classList.add('erro'); }
+}
+async function carregarDados(){
+  setSync('carregando');
+  const { data, error } = await sb.from('organizador').select('conteudo,atualizado').eq('user_id', usuarioId).maybeSingle();
+  if(error){ setSync('erro'); return; }
+  if(data && data.conteudo){
+    const migrado = migrar(data.conteudo);
+    const precisaSalvar = data.conteudo.versao!==2;
+    dados = migrado;
+    if(!dados.prox) dados.prox = 1000;
+    if(!dados.vendas) dados.vendas = [];
+    ultimaAtualizacao = data.atualizado;
+    setSync('salvo');
+    if(precisaSalvar) await salvarAgora();
+  } else {
+    dados = JSON.parse(JSON.stringify(DADOS_INICIAIS));
+    dados.assinatura = { plano:'trial', inicio:hojeISO(), nome:usuarioMeta.nome||'', zap:usuarioMeta.zap||'', interesse:usuarioMeta.interesse||'' };
+    await salvarAgora();
+  }
+}
+function agendarSalvar(){
+  setSync('salvando');
+  clearTimeout(timerSalvar);
+  timerSalvar = setTimeout(salvarAgora, 800);
+}
+async function salvarAgora(){
+  salvando = true;
+  const agora = new Date().toISOString();
+  const { error } = await sb.from('organizador').upsert({ user_id: usuarioId, conteudo:dados, atualizado:agora });
+  salvando = false;
+  if(error){ setSync('erro'); setTimeout(salvarAgora, 5000); return; }
+  ultimaAtualizacao = agora;
+  setSync('salvo');
+}
+async function verificarRemoto(){
+  if(salvando) return;
+  const { data, error } = await sb.from('organizador').select('atualizado').eq('user_id', usuarioId).maybeSingle();
+  if(!error && data && ultimaAtualizacao && data.atualizado > ultimaAtualizacao){
+    await carregarDados();
+    render();
+  }
+}
+setInterval(verificarRemoto, 20000);
+window.addEventListener('focus', verificarRemoto);
+
+function tocar(){ render(); agendarSalvar(); }
+
+function trocarAba(aba){
+  abaAtual = aba;
+  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('ativo', b.dataset.aba===aba));
+  ['hoje','clientes','calendario','tarefas','ideias','quadro','vendas','ajuda'].forEach(a=>{
+    document.getElementById('aba-'+a).style.display = a===aba?'':'none';
+  });
+  render();
+}
+
+function render(){
+  aplicarPlano();
+  renderFiltro();
+  renderHoje();
+  renderRelatorioSemanal();
+  renderClientes();
+  renderCalendario();
+  renderTarefas();
+  renderIdeias();
+  renderQuadro();
+  renderVendas();
+}
+
+/* ---------- VENDAS ---------- */
+const CANAIS_EXTRA = {loja:{nome:'Loja física', sigla:'LOJA', cor:'#6b7280'}, site:{nome:'Site próprio', sigla:'SITE', cor:'#0f766e'}};
+function canalInfo(k){ return REDES[k] || CANAIS_EXTRA[k] || REDES.outra; }
+function lerDinheiro(v){ return parseFloat(String(v||'').replace(/\./g,'').replace(',','.'))||0; }
+function addVenda(){
+  const valor = lerDinheiro(document.getElementById('vValor').value);
+  const desc = document.getElementById('vDesc').value.trim();
+  if(!valor || !desc){ alertaCampo(valor?'vDesc':'vValor'); return; }
+  dados.vendas.push({
+    id: novoId(),
+    clienteId: parseInt(document.getElementById('vCliente').value)||0,
+    data: document.getElementById('vData').value || hojeISO(),
+    canal: document.getElementById('vCanal').value,
+    desc,
+    valor,
+    custo: lerDinheiro(document.getElementById('vCusto').value)
+  });
+  document.getElementById('vDesc').value=''; document.getElementById('vValor').value=''; document.getElementById('vCusto').value='';
+  tocar();
+}
+function excluirVenda(id){ dados.vendas = dados.vendas.filter(v=>v.id!==id); tocar(); }
+function repetirVenda(id){
+  const v = dados.vendas.find(x=>x.id===id);
+  if(!v) return;
+  dados.vendas.push(Object.assign({}, v, {id:novoId(), data:hojeISO()}));
+  tocar();
+}
+function setFin(campo, valor){
+  if(!dados.fin) dados.fin = {reservaPct:8, limiteAnual:81000};
+  const n = lerDinheiro(valor);
+  if(campo==='reservaPct') dados.fin.reservaPct = Math.min(100, Math.max(0, n));
+  else dados.fin.limiteAnual = Math.max(0, n);
+  tocar();
+}
+function dicaContador(fat, custos, lucro, semCusto, pctLimite){
+  if(!fat) return 'Registre suas vendas (com o custo!) e eu te mostro lucro, margem e quanto guardar. Vamos começar? 💪';
+  if(pctLimite>=100) return '🚨 Atenção: seu faturamento no ano passou o limite configurado! Se você é MEI, converse com um contador sobre migrar de categoria.';
+  if(pctLimite>=80) return '⚠️ Você já usou '+Math.round(pctLimite)+'% do seu limite anual de faturamento. Se você é MEI, fique de olho para não estourar — vale conversar com um contador.';
+  if(semCusto) return 'Dica: algumas vendas do mês estão sem o custo preenchido. Sem o custo, o "lucro" fica maior do que é de verdade. Edite ou registre as próximas com custo! 📝';
+  const margem = fat ? (lucro/fat)*100 : 0;
+  if(margem < 20) return 'Sua margem de lucro este mês está em '+Math.round(margem)+'%. Está apertada: veja se dá para negociar custos ou ajustar seus preços. 💡';
+  if(margem > 60) return 'Margem de '+Math.round(margem)+'% — excelente! 👏 Aproveite o bom momento para guardar a reserva sugerida e investir em divulgação.';
+  return 'Lucro não é o que entra, é o que sobra: separe a reserva sugerida antes de gastar. Seu eu do futuro agradece! 🐷';
+}
+function renderVendas(){
+  const selC = document.getElementById('vCliente');
+  if(selC && !selC.options.length || selC && selC.options.length !== dados.clientes.length){
+    const v = selC.value;
+    selC.innerHTML = dados.clientes.map(c=>`<option value="${c.id}">${escapar(c.nome)}</option>`).join('');
+    if([...selC.options].some(o=>o.value===v)) selC.value = v;
+  }
+  const selCanal = document.getElementById('vCanal');
+  if(selCanal && !selCanal.options.length){
+    selCanal.innerHTML = Object.entries(Object.assign({}, REDES, CANAIS_EXTRA)).filter(([k])=>k!=='outra')
+      .map(([k,v])=>`<option value="${k}">${v.nome}</option>`).join('') + '<option value="outra">Outro canal</option>';
+    selCanal.value = 'whatsapp';
+  }
+  const vData = document.getElementById('vData');
+  if(vData && !vData.value) vData.value = hojeISO();
+
+  const f = filtroAtivo();
+  const vendas = (dados.vendas||[]).filter(v=>!f||v.clienteId===f);
+  const ym = hojeISO().slice(0,7);
+  const doMes = vendas.filter(v=>v.data.startsWith(ym));
+  const fat = doMes.reduce((s,v)=>s+v.valor,0);
+  const lucro = doMes.reduce((s,v)=>s+(v.valor-(v.custo||0)),0);
+  document.getElementById('tilesVendas').innerHTML = `
+    <div class="tile"><div class="num" style="font-size:1.25rem;line-height:2.2">${dinheiro(fat)}</div><div class="rot">faturamento do mês</div></div>
+    <div class="tile"><div class="num" style="font-size:1.25rem;line-height:2.2">${dinheiro(lucro)}</div><div class="rot">lucro do mês</div></div>
+    <div class="tile"><div class="num">${doMes.length}</div><div class="rot">vendas no mês</div></div>`;
+
+  // 🧮 Contador ajudante
+  if(!dados.fin) dados.fin = {reservaPct:8, limiteAnual:81000};
+  const custos = doMes.reduce((s,v)=>s+(v.custo||0),0);
+  const margem = fat ? Math.round((lucro/fat)*100) : 0;
+  const ticket = doMes.length ? fat/doMes.length : 0;
+  const dtm = new Date();
+  const ymAnt = new Date(dtm.getFullYear(), dtm.getMonth()-1, 1);
+  const chaveAnt = ymAnt.getFullYear()+'-'+String(ymAnt.getMonth()+1).padStart(2,'0');
+  const fatAnt = vendas.filter(v=>v.data.startsWith(chaveAnt)).reduce((s,v)=>s+v.valor,0);
+  let compara = '—';
+  if(fatAnt>0){ const d = Math.round(((fat-fatAnt)/fatAnt)*100); compara = (d>=0?'▲ +':'▼ ')+d+'% vs mês passado'; }
+  else if(fat>0){ compara = 'mês passado sem vendas'; }
+  const porCanal = {};
+  doMes.forEach(v=>{ porCanal[v.canal]=(porCanal[v.canal]||0)+v.valor; });
+  const topCanal = Object.entries(porCanal).sort((a,b)=>b[1]-a[1])[0];
+  const reserva = lucro>0 ? lucro*(dados.fin.reservaPct/100) : 0;
+  const fatAno = vendas.filter(v=>v.data.startsWith(String(dtm.getFullYear()))).reduce((s,v)=>s+v.valor,0);
+  const pctLimite = dados.fin.limiteAnual>0 ? (fatAno/dados.fin.limiteAnual)*100 : 0;
+  const corBarra = pctLimite>=90?'#b91c1c':(pctLimite>=70?'#d97706':'#15803d');
+  const semCusto = doMes.some(v=>!v.custo);
+  document.getElementById('contadorAjudante').innerHTML = `
+    <h3 style="font-size:.95rem;margin-bottom:8px">🧮 Contador ajudante</h3>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem;margin-bottom:10px">
+      <div>📉 Custos do mês: <b>${dinheiro(custos)}</b></div>
+      <div>📊 Margem de lucro: <b>${margem}%</b></div>
+      <div>🎯 Ticket médio: <b>${dinheiro(ticket)}</b></div>
+      <div>📈 ${compara}</div>
+      ${topCanal?`<div>🏆 Melhor canal: <b>${canalInfo(topCanal[0]).nome}</b> (${dinheiro(topCanal[1])})</div>`:''}
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:.85rem;margin-bottom:10px">
+      <div>🐷 Guardar do lucro: <input value="${dados.fin.reservaPct}" onchange="setFin('reservaPct',this.value)" style="width:44px;text-align:center;padding:4px">% → reserve <b>${dinheiro(reserva)}</b> este mês (impostos + emergência)</div>
+    </div>
+    <div style="font-size:.85rem;margin-bottom:4px">📅 Faturamento no ano: <b>${dinheiro(fatAno)}</b> de <input value="${String(dados.fin.limiteAnual).replace('.',',')}" onchange="setFin('limiteAnual',this.value)" style="width:90px;text-align:center;padding:4px"> (limite anual — padrão MEI; confira o valor vigente e ajuste se precisar)</div>
+    <div style="background:#eee;border-radius:8px;height:12px;overflow:hidden;margin-bottom:10px"><div style="width:${Math.min(100,pctLimite)}%;height:100%;background:${corBarra}"></div></div>
+    <div style="font-size:.85rem;background:#f5f3ff;border-radius:10px;padding:8px 10px">💬 <b>Dica do contador:</b> ${dicaContador(fat, custos, lucro, semCusto, pctLimite)}</div>`;
+
+  // gráfico: faturamento dos últimos 6 meses
+  const meses = [];
+  const dt = new Date();
+  for(let i=5;i>=0;i--){ const d=new Date(dt.getFullYear(), dt.getMonth()-i, 1); meses.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); }
+  const totais = meses.map(m=>vendas.filter(v=>v.data.startsWith(m)).reduce((s,v)=>s+v.valor,0));
+  const maxT = Math.max(...totais, 1);
+  const W=460, H=170, L=14, B=26, T=22, larg=54, gap=(W-2*L-6*larg)/5;
+  let svg = `<h3 style="font-size:.95rem;margin-bottom:4px">Faturamento — últimos 6 meses</h3><svg viewBox="0 0 ${W} ${H}" style="width:100%" role="img" aria-label="Faturamento mensal">`;
+  totais.forEach((t,i)=>{
+    const h = Math.max(2, (t/maxT)*(H-T-B));
+    const x = L + i*(larg+gap);
+    const y = H-B-h;
+    svg += `<rect x="${x}" y="${y}" width="${larg}" height="${h}" rx="4" fill="#7c3aed"><title>${meses[i].slice(5)}/${meses[i].slice(2,4)}: ${dinheiro(t)}</title></rect>`;
+    if(t>0) svg += `<text x="${x+larg/2}" y="${y-5}" text-anchor="middle" font-size="9" fill="#241f2e">${t>=1000?(Math.round(t/100)/10)+'k':Math.round(t)}</text>`;
+    svg += `<text x="${x+larg/2}" y="${H-8}" text-anchor="middle" font-size="9" fill="#8b8496">${meses[i].slice(5)}/${meses[i].slice(2,4)}</text>`;
+  });
+  svg += '</svg>';
+  document.getElementById('graficoVendas').innerHTML = svg;
+
+  const el = document.getElementById('listaVendas');
+  if(!doMes.length){ el.innerHTML = '<div class="vazio">Nenhuma venda registrada neste mês ainda. Registre a primeira ali em cima! 💵</div>'; return; }
+  el.innerHTML = '<table class="tab-met"><tr><th>Data</th><th>Usuário</th><th>Canal</th><th>Venda</th><th>Valor</th><th>Custo</th><th>Lucro</th><th></th></tr>' +
+    doMes.slice().sort((a,b)=>b.data.localeCompare(a.data)).map(v=>{
+      const c = clientePorId(v.clienteId);
+      const cat = canalInfo(v.canal);
+      return `<tr><td>${dataBR(v.data)}</td><td>${c?escapar(c.nome):'—'}</td><td><span class="badge" style="background:${cat.cor}">${cat.sigla}</span></td><td>${escapar(v.desc)}</td><td>${dinheiro(v.valor)}</td><td>${v.custo?dinheiro(v.custo):'—'}</td><td><b>${dinheiro(v.valor-(v.custo||0))}</b></td><td style="white-space:nowrap"><button class="btn-mini" title="Repetir esta venda hoje" onclick="repetirVenda(${v.id})">↻</button> <button class="btn-mini perigo" onclick="excluirVenda(${v.id})">🗑</button></td></tr>`;
+    }).join('') + '</table>';
+}
+
+function renderFiltro(){
+  const sel = document.getElementById('filtroCliente');
+  const valor = sel.value;
+  sel.innerHTML = '<option value="todos">Todos os usuários</option>' +
+    dados.clientes.map(p=>`<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
+  if([...sel.options].some(o=>o.value===valor)) sel.value = valor;
+  const selT = document.getElementById('tarefaCliente');
+  const vT = selT.value;
+  selT.innerHTML = dados.clientes.map(p=>`<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
+  if([...selT.options].some(o=>o.value===vT)) selT.value = vT;
+}
+
+function badgesRedes(cliente, redesPost){
+  return (redesPost||[]).map(r=>{
+    const cat = REDES[r]||REDES.outra;
+    const cad = cliente ? (cliente.redes||[]).find(x=>x.tipo===r) : null;
+    const link = cad ? linkRede(cad) : '';
+    return link
+      ? `<a class="badge" style="background:${cat.cor}" href="${escapar(link)}" target="_blank" title="Abrir ${cat.nome}">${cat.sigla}</a>`
+      : `<span class="badge" style="background:${cat.cor}">${cat.sigla}</span>`;
+  }).join('');
+}
+
+/* ---------- HOJE ---------- */
+function renderRelatorioSemanal(){
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const start = new Date(hoje);
+  const fim = new Date(hoje); fim.setDate(fim.getDate() + 7);
+
+  const f = filtroAtivo();
+  const posts = dados.posts.filter(p=>!f||p.clienteId===f);
+  const semana = posts.filter(p=>{
+    const dt = new Date(p.data); dt.setHours(0,0,0,0);
+    return dt>=hoje && dt<fim && p.status!=='publicado';
+  }).sort((a,b)=>a.data.localeCompare(b.data));
+
+  if(!semana.length){
+    document.getElementById('relatorioSemanal').innerHTML = '<div class="vazio">Nenhum post agendado para os próximos 7 dias. Que tal sugerir uma agenda? 🗓</div>';
+    return;
+  }
+
+  let html = '<div style="display:grid;gap:8px">';
+  const porData = {};
+  semana.forEach(p=>{
+    if(!porData[p.data]) porData[p.data] = [];
+    porData[p.data].push(p);
+  });
+
+  Object.entries(porData).forEach(([data, posts])=>{
+    const dt = new Date(data);
+    const dia = DIAS_SEMANA[dt.getDay()];
+    const dataFormatada = dataBR(data);
+    const total = posts.length;
+    html += `<div style="border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:linear-gradient(90deg, #faf8fc, #fff)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">
+        <b style="font-size:.9rem">${dataFormatada} (${dia})</b>
+        <span style="font-size:.8rem;background:var(--g1);color:#fff;padding:2px 8px;border-radius:6px">${total} post${total>1?'s':''}</span>
+      </div>
+      <div style="font-size:.8rem;color:var(--muted)">
+        ${posts.map(p=>{
+          const c = clientePorId(p.clienteId);
+          const redesStr = (p.redes||[]).map(r=>(REDES[r]||REDES.outra).sigla).join('/');
+          return `<div>• ${c?escapar(c.nome):''} → ${redesStr}</div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+  html += '</div>';
+  document.getElementById('relatorioSemanal').innerHTML = html;
+}
+
+function renderHoje(){
+  const f = filtroAtivo();
+  const hoje = hojeISO();
+  const posts = dados.posts.filter(p=>(!f||p.clienteId===f));
+  const deHoje = posts.filter(p=>p.data===hoje && p.status!=='publicado').sort((a,b)=>(a.hora||'99').localeCompare(b.hora||'99'));
+  const atrasados = posts.filter(p=>p.data<hoje && p.status!=='publicado').sort((a,b)=>a.data.localeCompare(b.data));
+  const tarefasPend = dados.tarefas.filter(t=>(!f||t.clienteId===f) && !t.feita && t.prazo && t.prazo<=hoje);
+  const ym = hoje.slice(0,7);
+  const hojeData = new Date(parseInt(hoje.slice(0,4)), parseInt(hoje.slice(5,7))-1, parseInt(hoje.slice(8,10)));
+  const cobrancas = dados.clientes.filter(c=>(!f||c.id===f) && c.valor>0 && c.diaPagamento>0 && !(c.pagamentos&&c.pagamentos[ym]))
+    .map(c=>{
+      const venc = new Date(hojeData.getFullYear(), hojeData.getMonth(), Math.min(c.diaPagamento, new Date(hojeData.getFullYear(), hojeData.getMonth()+1, 0).getDate()));
+      const dias = Math.round((venc-hojeData)/864e5);
+      return {c, venc, dias};
+    }).filter(x=>x.dias<=5).sort((a,b)=>a.dias-b.dias);
+  const aReceber = dados.clientes.filter(c=>(!f||c.id===f) && c.valor>0 && !(c.pagamentos&&c.pagamentos[ym])).reduce((s,c)=>s+c.valor,0);
+
+  document.getElementById('tilesHoje').innerHTML = `
+    <div class="tile"><div class="num">${deHoje.length}</div><div class="rot">postagens para hoje</div></div>
+    <div class="tile"><div class="num">${atrasados.length}</div><div class="rot">postagens atrasadas</div></div>
+    <div class="tile"><div class="num">${tarefasPend.length}</div><div class="rot">tarefas para hoje</div></div>
+    <div class="tile"><div class="num">${dados.clientes.length}</div><div class="rot">usuários ativos</div></div>
+    ${aReceber>0?`<div class="tile"><div class="num" style="font-size:1.25rem;line-height:2.2">${dinheiro(aReceber)}</div><div class="rot">a receber no mês</div></div>`:''}`;
+
+  function linhaPost(p, atrasado){
+    const c = clientePorId(p.clienteId);
+    const botoesPostar = (p.redes||[]).map(r=>{
+      const cat = REDES[r]||REDES.outra;
+      const cad = c ? (c.redes||[]).find(x=>x.tipo===r) : null;
+      const url = cat.postar || (cad ? (cad.link||'') : '');
+      if(!url) return '';
+      return `<button class="btn-rede" style="background:${cat.cor}" onclick="postarAgora(${p.id},'${r}')">🚀 ${cat.nome}</button>`;
+    }).join('');
+    return `<div class="post-linha" style="--cor:${c?c.cor:'#999'}">
+      <div class="titulo-linha">
+        ${p.hora?`<b>${p.hora}</b> ·`:''} <b>${escapar(p.titulo)}</b>
+        ${badgesRedes(c, p.redes)}
+        ${atrasado?`<span class="atrasado-tag">⚠ era ${dataBR(p.data)}</span>`:''}
+      </div>
+      <div class="meta">${c?escapar(c.nome):''} · ${TIPOS[p.tipo]||''} · ${STATUS_NOME[p.status]}</div>
+      <div class="acoes-post">
+        ${p.legenda?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="copiarLegenda(${p.id});this.textContent='✔ Legenda copiada!'">📋 Copiar legenda</button>`:''}
+        ${botoesPostar}
+        <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="marcarPublicado(${p.id})">✅ Publicado!</button>
+        <button class="btn-mini" onclick="abrirModalPost(${p.id})">✏️</button>
+      </div>
+    </div>`;
+  }
+
+  let html = '';
+  html += `<div class="hoje-grupo"><h3>📌 Postagens de hoje</h3>` +
+    (deHoje.length ? deHoje.map(p=>linhaPost(p,false)).join('') : '<div class="vazio">Nada agendado para hoje. Que tal planejar no calendário? 📅</div>') + '</div>';
+  if(atrasados.length){
+    html += `<div class="hoje-grupo"><h3>⚠️ Precisa de andamento (atrasadas)</h3>` + atrasados.map(p=>linhaPost(p,true)).join('') + '</div>';
+  }
+  const nivers = proximosAniversarios(7).filter(x=>!f||x.c.id===f);
+  if(nivers.length){
+    html += `<div class="hoje-grupo"><h3>🎂 Aniversários chegando</h3>` + nivers.map(x=>`
+      <div class="pag-linha">
+        <span class="bolinha" style="background:${x.c.cor}"></span>
+        <span style="flex:1">${x.emoji} <b>${escapar(x.rotulo)}</b></span>
+        <span class="venc">${x.diff===0?'É HOJE! 🎉':x.diff===1?'amanhã':'em '+x.diff+' dias'}</span>
+        ${x.ehCliente?`<button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="parabenizar(${x.c.id})">🎂 Enviar parabéns</button>`:''}
+      </div>`).join('') + '</div>';
+  }
+  if(cobrancas.length){
+    html += `<div class="hoje-grupo"><h3>💰 Pagamentos por vir</h3>` + cobrancas.map(x=>`
+      <div class="pag-linha">
+        <span class="bolinha" style="background:${x.c.cor}"></span>
+        <span style="flex:1"><b>${escapar(x.c.nome)}</b> — ${dinheiro(x.c.valor)}</span>
+        <span class="venc ${x.dias<0?'atrasado':''}">${x.dias<0?'venceu dia '+x.c.diaPagamento+' ⚠️':x.dias===0?'vence HOJE':'vence em '+x.dias+' dia'+(x.dias>1?'s':'')}</span>
+        <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="marcarPago(${x.c.id})">✔ Recebido</button>
+      </div>`).join('') + '</div>';
+  }
+  html += `<div class="hoje-grupo"><h3>✅ Tarefas de hoje</h3>` +
+    (tarefasPend.length ? tarefasPend.map(t=>{
+      const c = clientePorId(t.clienteId);
+      return `<div class="tarefa">
+        <input type="checkbox" onchange="marcarTarefa(${t.id})">
+        <span class="texto">${escapar(t.texto)}</span>
+        <span class="prazo ${t.prazo<hojeISO()?'atrasada':''}">${c?escapar(c.nome):''} · 📅 ${dataBR(t.prazo)}</span>
+      </div>`;
+    }).join('') : '<div class="vazio">Nenhuma tarefa com prazo para hoje 🎉</div>') + '</div>';
+  document.getElementById('listaHoje').innerHTML = html;
+}
+function copiarLegenda(id){
+  const p = dados.posts.find(x=>x.id===id);
+  if(p && navigator.clipboard) navigator.clipboard.writeText(p.legenda||'');
+}
+function urlPostar(rede, legenda){
+  const cat = REDES[rede]||REDES.outra;
+  const txt = encodeURIComponent(legenda||'');
+  if(legenda){
+    if(rede==='x') return 'https://x.com/intent/post?text='+encodeURIComponent((legenda||'').slice(0,280));
+    if(rede==='linkedin') return 'https://www.linkedin.com/feed/?shareActive=true&text='+txt;
+    if(rede==='pinterest') return 'https://www.pinterest.com/pin-builder/?description='+txt;
+    if(rede==='whatsapp') return 'https://wa.me/?text='+txt;
+    if(rede==='telegram') return 'https://t.me/share/url?url=%E2%80%8B&text='+txt;
+  }
+  return cat.postar || '';
+}
+const REDES_PRONTAS = ['x','linkedin','pinterest','whatsapp','telegram'];
+function postarAgora(id, rede){
+  const p = dados.posts.find(x=>x.id===id);
+  const c = clientePorId(p.clienteId);
+  const legDaRede = legendaPara(p, rede);
+  if(legDaRede && navigator.clipboard) navigator.clipboard.writeText(legDaRede);
+  const cat = REDES[rede]||REDES.outra;
+  const cad = c ? (c.redes||[]).find(x=>x.tipo===rede) : null;
+  const jaPreenchida = REDES_PRONTAS.includes(rede) && legDaRede;
+  let url = urlPostar(rede, legDaRede) || (cad?cad.link:'') || '';
+  if(url) window.open(url, '_blank');
+  const podeCompartilhar = !!navigator.share && !!p.legenda;
+  abrirModal(`<h3>🚀 ${jaPreenchida?'Legenda já vai preenchida!':'Legenda copiada!'}</h3>
+    <p style="font-size:.9rem">${jaPreenchida
+      ? `Abri o ${cat.nome} com o seu texto <b>já pronto na tela</b> — é só conferir e publicar!`
+      : `Abri o ${cat.nome} numa nova aba. É só <b>colar a legenda</b> (Ctrl+V ou segurar o dedo → Colar) e publicar.`}</p>
+    ${podeCompartilhar?`<p style="margin-top:10px"><button class="btn-claro" style="width:100%" onclick="compartilharPost(${p.id})">📤 Ou compartilhar direto pelo celular</button></p>`:''}
+    <p style="font-size:.85rem;color:var(--muted);margin-top:8px">Quando terminar, volta aqui e marca como publicado. 😉</p>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Ainda não</button>
+      <button class="btn" onclick="marcarPublicado(${p.id});fecharModal()">✅ Já publiquei!</button>
+    </div>`);
+}
+async function compartilharPost(id){
+  const p = dados.posts.find(x=>x.id===id);
+  try{ await navigator.share({ text: p.legenda||p.titulo }); }catch(e){}
+}
+function marcarPublicado(id){
+  const p = dados.posts.find(x=>x.id===id);
+  p.status = 'publicado';
+  tocar();
+  const c = clientePorId(p.clienteId);
+  if(c && c.avisar && c.zap){
+    const redesNomes = (p.redes||[]).map(r=>(REDES[r]||REDES.outra).nome).join(', ');
+    const msg = `Olá, ${c.nome}! 💜\n\nNovidade no ar: acabamos de publicar *"${p.titulo}"*${redesNomes?' em: '+redesNomes:''}. ✅\n\nQualquer ajuste ou ideia, é só me chamar!\n\n_— enviado via Postou_`;
+    abrirModal(`<h3>📣 Avisar o usuário?</h3>
+      <p style="font-size:.88rem">${escapar(c.nome)} pediu para receber avisos. A mensagem já está pronta:</p>
+      <textarea id="mMsgAviso" style="min-height:130px;margin-top:8px">${escapar(msg)}</textarea>
+      <div class="rodape">
+        <button class="btn-claro" onclick="fecharModal()">Agora não</button>
+        <button class="btn" onclick="enviarZap('${c.zap}', document.getElementById('mMsgAviso').value);fecharModal()">📱 Abrir WhatsApp</button>
+      </div>`);
+  } else {
+    fecharModal();
+  }
+}
+function enviarZap(numero, texto){
+  window.open('https://wa.me/'+String(numero).replace(/\D/g,'')+'?text='+encodeURIComponent(texto), '_blank');
+}
+function dataBRcompleta(iso){ if(!iso) return ''; const p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function dinheiro(v){ const n=Number(v); return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits: n%1?2:0, maximumFractionDigits:2}); }
+function marcarPago(cid){
+  const c = clientePorId(cid);
+  c.pagamentos = c.pagamentos||{};
+  c.pagamentos[hojeISO().slice(0,7)] = true;
+  tocar();
+}
+/* ---------- MÉTRICAS ---------- */
+function abrirMetricas(id){
+  const c = clientePorId(id);
+  c.metricas = c.metricas||[];
+  const tipos = [...new Set((c.redes||[]).map(r=>r.tipo))];
+  const ymAtual = hojeISO().slice(0,7);
+  abrirModal(`
+    <h3>📈 Métricas — ${escapar(c.nome)}</h3>
+    <p style="font-size:.8rem;color:var(--muted)">Anote 1x por mês os números de cada rede e acompanhe o crescimento.</p>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <select id="metRede" style="width:auto">${tipos.map(t=>`<option value="${t}">${(REDES[t]||REDES.outra).nome}</option>`).join('')}</select>
+      <input type="month" id="metMes" value="${ymAtual}" style="width:auto">
+      <input type="number" id="metSeg" placeholder="Seguidores" style="width:110px">
+      <input type="number" id="metAlc" placeholder="Alcance (opcional)" style="width:140px">
+      <button class="btn" onclick="addMetrica(${id})">+ Anotar</button>
+    </div>
+    <div id="areaMetricas"></div>
+    <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Fechar</button></div>`);
+  desenharMetricas(id);
+}
+const MARCOS = [100,500,1000,2000,5000,10000,20000,50000,100000,200000,500000,1000000];
+function nomeMarco(n){
+  if(n>=1000000) return (n/1000000)+' milhão'+(n>=2000000?'es':'');
+  if(n>=1000) return (n/1000)+' mil';
+  return String(n);
+}
+function addMetrica(id){
+  const c = clientePorId(id);
+  const seg = parseInt(document.getElementById('metSeg').value);
+  const mes = document.getElementById('metMes').value;
+  if(!seg || !mes){ alertaCampo('metSeg'); return; }
+  const rede = document.getElementById('metRede').value;
+  const alc = parseInt(document.getElementById('metAlc').value)||0;
+  const anteriores = (c.metricas||[]).filter(m=>m.rede===rede && !(m.mes===mes));
+  const maxAntes = anteriores.length ? Math.max(...anteriores.map(m=>m.seguidores)) : 0;
+  c.metricas = (c.metricas||[]).filter(m=>!(m.mes===mes && m.rede===rede));
+  c.metricas.push({mes, rede, seguidores:seg, alcance:alc});
+  document.getElementById('metSeg').value=''; document.getElementById('metAlc').value='';
+  agendarSalvar();
+  desenharMetricas(id);
+  const cruzados = MARCOS.filter(m=>seg>=m && maxAntes<m);
+  if(cruzados.length && maxAntes>0) comemorarMarco(id, rede, cruzados[cruzados.length-1], seg);
+}
+function comemorarMarco(cid, rede, marco, atual){
+  const c = clientePorId(cid);
+  const cat = REDES[rede]||REDES.outra;
+  abrirModal(`<h3>🏆🎉 CONQUISTA DESBLOQUEADA!</h3>
+    <p style="font-size:1rem;margin-top:6px"><b>${escapar(c.nome)}</b> passou de <b>${nomeMarco(marco)} seguidores</b> no ${cat.nome}! (${atual.toLocaleString('pt-BR')} agora)</p>
+    <p style="font-size:.85rem;color:var(--muted);margin-top:8px">Que tal comemorar com o usuário e com a audiência?</p>
+    <div class="rodape" style="flex-wrap:wrap">
+      <button class="btn-claro" onclick="abrirMetricas(${cid})">Depois</button>
+      ${c.zap?`<button class="btn-claro" onclick="enviarZap('${c.zap}', 'Temos motivo pra festa! 🏆🎉 Sua página no ${cat.nome} acabou de passar de *${nomeMarco(marco)} seguidores*!! Parabéns pela confiança no nosso trabalho — e rumo ao próximo marco! 🚀💜')">📱 Parabenizar o cliente</button>`:''}
+      <button class="btn" onclick="criarPostComemorativo(${cid}, '${rede}', ${marco})">📌 Criar post comemorativo</button>
+    </div>`);
+}
+function criarPostComemorativo(cid, rede, marco){
+  const c = clientePorId(cid);
+  dados.posts.push({id:novoId(), clienteId:cid, redes:[rede], data:hojeISO(), hora:'',
+    tipo:'foto', titulo:'🏆 Comemoração: '+nomeMarco(marco)+' seguidores!',
+    legenda:'CHEGAMOS A '+nomeMarco(marco).toUpperCase()+' SEGUIDORES!! 🏆🎉\n\nIsso só foi possível por causa de VOCÊS! Obrigado(a) por cada curtida, comentário e compartilhamento. 💜\n\nVem muita novidade por aí... #obrigado #'+nomeMarco(marco).replace(/[^a-z0-9]/gi,'')+'seguidores',
+    legendas:{}, status:'rascunho'});
+  agendarSalvar();
+  trocarAba('quadro');
+  fecharModal();
+}
+function excluirMetrica(id, mes, rede){
+  const c = clientePorId(id);
+  c.metricas = (c.metricas||[]).filter(m=>!(m.mes===mes && m.rede===rede));
+  agendarSalvar();
+  desenharMetricas(id);
+}
+function desenharMetricas(id){
+  const c = clientePorId(id);
+  const area = document.getElementById('areaMetricas');
+  const mets = (c.metricas||[]).slice().sort((a,b)=>a.mes.localeCompare(b.mes));
+  if(!mets.length){ area.innerHTML = '<div class="vazio">Nenhuma anotação ainda. Comece anotando os seguidores de hoje! 📈</div>'; return; }
+  const meses = [...new Set(mets.map(m=>m.mes))].sort();
+  const porRede = {};
+  mets.forEach(m=>{ (porRede[m.rede]=porRede[m.rede]||[]).push(m); });
+  const maxV = Math.max(...mets.map(m=>m.seguidores));
+  const W=440, H=190, L=52, R=42, T=12, B=26;
+  const teto = maxV*1.08 || 1;
+  const x = i => meses.length===1 ? L+(W-L-R)/2 : L + i*(W-L-R)/(meses.length-1);
+  const y = v => T + (1 - v/teto)*(H-T-B);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;margin-top:10px" role="img" aria-label="Evolução de seguidores">`;
+  [0, .5, 1].forEach(fr=>{
+    const vy = y(teto*fr);
+    svg += `<line x1="${L}" y1="${vy}" x2="${W-R}" y2="${vy}" stroke="#eae5f0" stroke-width="1"/>`;
+    svg += `<text x="${L-6}" y="${vy+3}" text-anchor="end" font-size="9" fill="#8b8496">${Math.round(teto*fr).toLocaleString('pt-BR')}</text>`;
+  });
+  meses.forEach((m,i)=>{ svg += `<text x="${x(i)}" y="${H-8}" text-anchor="middle" font-size="9" fill="#8b8496">${m.slice(5)+'/'+m.slice(2,4)}</text>`; });
+  Object.entries(porRede).forEach(([rede, lista])=>{
+    const cat = REDES[rede]||REDES.outra;
+    const ord = lista.slice().sort((a,b)=>a.mes.localeCompare(b.mes));
+    const pts = ord.map(m=>x(meses.indexOf(m.mes))+','+y(m.seguidores)).join(' ');
+    svg += `<polyline points="${pts}" fill="none" stroke="${cat.cor}" stroke-width="2" stroke-linejoin="round"/>`;
+    ord.forEach(m=>{ svg += `<circle cx="${x(meses.indexOf(m.mes))}" cy="${y(m.seguidores)}" r="4" fill="${cat.cor}" stroke="#fff" stroke-width="2"><title>${cat.nome} ${m.mes.slice(5)}/${m.mes.slice(2,4)}: ${m.seguidores.toLocaleString('pt-BR')} seguidores</title></circle>`; });
+    const ult = ord[ord.length-1];
+    svg += `<text x="${x(meses.indexOf(ult.mes))+8}" y="${y(ult.seguidores)+3}" font-size="10" font-weight="700" fill="#241f2e">${cat.sigla}</text>`;
+  });
+  svg += '</svg>';
+  let tabela = '<table class="tab-met"><tr><th>Mês</th><th>Rede</th><th>Seguidores</th><th>Alcance</th><th></th></tr>' +
+    mets.slice().reverse().map(m=>`<tr><td>${m.mes.slice(5)+'/'+m.mes.slice(0,4)}</td><td>${(REDES[m.rede]||REDES.outra).nome}</td><td>${m.seguidores.toLocaleString('pt-BR')}</td><td>${m.alcance?m.alcance.toLocaleString('pt-BR'):'—'}</td><td><button class="btn-mini perigo" onclick="excluirMetrica(${id},'${m.mes}','${m.rede}')">🗑</button></td></tr>`).join('') + '</table>';
+  area.innerHTML = svg + tabela;
+}
+function resumoCliente(id){
+  const c = clientePorId(id);
+  const hoje = hojeISO();
+  const seteDias = new Date(); seteDias.setDate(seteDias.getDate()-7);
+  const desde = seteDias.getFullYear()+'-'+String(seteDias.getMonth()+1).padStart(2,'0')+'-'+String(seteDias.getDate()).padStart(2,'0');
+  const publicados = dados.posts.filter(p=>p.clienteId===id && p.status==='publicado' && p.data>=desde);
+  const proximos = dados.posts.filter(p=>p.clienteId===id && p.status!=='publicado' && p.data>=hoje).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,5);
+  let msg = `Olá, ${c.nome}! 💜 Resumo das suas redes sociais:\n`;
+  msg += `\n✅ *Publicados nos últimos 7 dias (${publicados.length}):*\n`;
+  msg += publicados.length ? publicados.map(p=>`• ${p.titulo} (${dataBR(p.data)})`).join('\n') : '• (nenhum neste período)';
+  msg += `\n\n⏰ *Próximas postagens programadas:*\n`;
+  msg += proximos.length ? proximos.map(p=>`• ${p.titulo} — ${dataBRcompleta(p.data)}${p.hora?' às '+p.hora:''}`).join('\n') : '• (em planejamento)';
+  msg += `\n\nQualquer ideia ou ajuste, me chama!\n\n_— enviado via Postou_`;
+  abrirModal(`<h3>📊 Resumo para ${escapar(c.nome)}</h3>
+    <p style="font-size:.85rem;color:var(--muted)">Revise e edite à vontade antes de enviar:</p>
+    <textarea id="mMsgResumo" style="min-height:180px;margin-top:8px">${escapar(msg)}</textarea>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      ${c.zap?`<button class="btn" onclick="enviarZap('${c.zap}', document.getElementById('mMsgResumo').value);fecharModal()">📱 Abrir WhatsApp</button>`:`<button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('mMsgResumo').value);this.textContent='✔ Copiado!'">📋 Copiar</button>`}
+    </div>`);
+}
+
+/* ---------- CLIENTES ---------- */
+function renderClientes(){
+  const f = filtroAtivo();
+  const lista = dados.clientes.filter(p=>!f||p.id===f);
+  const el = document.getElementById('listaClientes');
+  if(!lista.length){ el.innerHTML = '<div class="vazio">Nenhum usuário ainda. Clique em “+ Novo usuário” para começar!</div>'; return; }
+  el.innerHTML = lista.map(p=>{
+    const nPosts = dados.posts.filter(x=>x.clienteId===p.id && x.status!=='publicado').length;
+    const nTar = dados.tarefas.filter(x=>x.clienteId===p.id && !x.feita).length;
+    const nId = dados.ideias.filter(x=>x.clienteId===p.id).length;
+    const redesHtml = (p.redes||[]).map(r=>{
+      const cat = REDES[r.tipo]||REDES.outra;
+      const link = linkRede(r);
+      return `<a class="badge" style="background:${cat.cor}" href="${escapar(link)}" target="_blank" title="${cat.nome}: ${escapar(r.usuario)}">${cat.sigla}</a>`;
+    }).join('');
+    return `<div class="cartao cartao-cliente" style="--cor:${p.cor}">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:2px">${avatarHtml(p,46)}<h3 style="margin:0">${escapar(p.nome)}</h3></div>
+      ${p.nicho?`<span class="nicho">${NICHOS_PREDEFINIDOS[p.nicho]||'Nicho desconhecido'}</span>`:''}
+      ${p.nichos_tags && p.nichos_tags.length?`<span class="nicho" style="color:#7c3aed">+ ${p.nichos_tags.map(t=>NICHOS_PREDEFINIDOS[t]).filter(Boolean).join(', ')}</span>`:''}
+      <div class="redes-lista">${redesHtml||'<span style="font-size:.78rem;color:var(--muted)">nenhuma rede cadastrada</span>'}</div>
+      ${p.notas?`<div style="font-size:.82rem;color:var(--muted)">${escapar(p.notas)}</div>`:''}
+      <div class="contagens">
+        <span>📌 <b>${nPosts}</b> pendentes</span>
+        <span>✅ <b>${nTar}</b> tarefas</span>
+        <span>💡 <b>${nId}</b> ideias</span>
+      </div>
+      ${p.metaPosts?(()=>{ const ym=hojeISO().slice(0,7); const pub=dados.posts.filter(x=>x.clienteId===p.id&&x.status==='publicado'&&x.data.startsWith(ym)).length; const pct=Math.min(100,Math.round(pub/p.metaPosts*100)); return `<div class="meta-prog"><div class="meta-barra"><div style="width:${pct}%"></div></div><span><b>${pub}/${p.metaPosts}</b> posts no mês</span></div>`; })():''}
+      ${p.valor?(()=>{ const ym=hojeISO().slice(0,7); const pago=p.pagamentos&&p.pagamentos[ym]; return `<div style="font-size:.78rem;color:var(--muted);margin-top:6px">💰 ${dinheiro(p.valor)}/mês${p.diaPagamento?' · vence dia '+p.diaPagamento:''} ${pago?'· <b style="color:var(--ok)">✔ recebido</b>':''}</div>`; })():''}
+      <div class="acoes">
+        <button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>
+        <button class="btn-mini" onclick="abrirMetricas(${p.id})">📈 Métricas</button>
+        <button class="btn-mini" onclick="resumoCliente(${p.id})">📊 Resumo p/ usuário</button>
+        <button class="btn-mini" onclick="abrirModalCliente(${p.id})">✏️ Editar</button>
+        <button class="btn-mini perigo" onclick="excluirCliente(${p.id})">🗑 Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function linhaRedeHtml(i){
+  const r = redesTemp[i];
+  const info = REDE_DICA[r.tipo] || REDE_DICA.outra;
+  return `<div>
+    <div class="rede-item">
+      <select onchange="redesTemp[${i}].tipo=this.value;desenharRedes()">${Object.entries(REDES).map(([k,v])=>`<option value="${k}" ${r.tipo===k?'selected':''}>${v.nome}</option>`).join('')}</select>
+      <input placeholder="${escapar(info.ex)}" value="${escapar(r.usuario)}" oninput="redesTemp[${i}].usuario=this.value">
+      <button class="btn-mini perigo" onclick="redesTemp.splice(${i},1);desenharRedes()">🗑</button>
+    </div>
+    <div class="rede-dica">💡 ${escapar(info.dica)}</div>
+  </div>`;
+}
+function desenharRedes(){
+  document.getElementById('mRedes').innerHTML = redesTemp.map((_,i)=>linhaRedeHtml(i)).join('') +
+    `<button class="btn-claro" style="margin-top:4px" onclick="redesTemp.push({tipo:'instagram',usuario:'',link:''});desenharRedes()">+ Adicionar rede</button>`;
+}
+function abrirModalCliente(id){
+  if(!id){
+    const conf = planoConfig();
+    if(dados.clientes.length >= conf.maxClientes){
+      abrirModal(`<h3>🚀 Hora de crescer!</h3>
+        <p style="font-size:.9rem">Seu plano atual permite ${conf.maxClientes===1?'1 perfil (a sua própria conta)':conf.maxClientes+' contas'}. Para gerenciar mais, fale com a Joice e migre para o <b>Postou Business</b>!</p>
+        <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Ok</button><a class="btn" style="text-decoration:none" href="https://instagram.com/joicepazotto" target="_blank">💜 Falar com a Joice</a></div>`);
+      return;
+    }
+  }
+  const p = id?clientePorId(id):null;
+  const cor = p?p.cor:CORES[dados.clientes.length % CORES.length];
+  redesTemp = p ? JSON.parse(JSON.stringify(p.redes||[])) : [{tipo:'instagram',usuario:'',link:''}];
+  abrirModal(`
+    <h3>${p?'Editar usuário':'Novo usuário'}</h3>
+    <label>Nome do usuário / marca</label>
+    <input id="mNome" value="${p?escapar(p.nome):''}" placeholder="Ex.: Loja da Maria">
+    <label>Nicho principal</label>
+    <select id="mNicho" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px">
+      <option value="">— Selecione o nicho principal —</option>
+      ${Object.entries(NICHOS_PREDEFINIDOS).map(([k,v])=>`<option value="${k}" ${p&&p.nicho===k?'selected':''}>${v}</option>`).join('')}
+    </select>
+    <label>Nichos secundários (marque os que também se aplicam)</label>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;padding:12px;background:#faf8fc">
+      ${Object.entries(NICHOS_PREDEFINIDOS).map(([k,v])=>`
+        <label style="display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:0;cursor:pointer;font-size:.85rem;line-height:1.2;text-align:left">
+          <input type="checkbox" id="mNichoSec_${k}" value="${k}" style="flex:none;width:16px;height:16px;margin:0" ${p&&p.nichos_tags&&p.nichos_tags.includes(k)?'checked':''}>
+          <span style="flex:1;text-align:left">${v.split(' ').slice(1).join(' ')}</span>
+        </label>
+      `).join('')}
+    </div>
+    <label>WhatsApp do usuário (com código do país — EUA +1, Brasil +55)</label>
+    <input id="mZap" value="${p?escapar(p.zap||''):''}" placeholder="Ex.: +15085551234 (EUA) ou +5511999998888">
+    <label>E-mail do usuário (opcional)</label>
+    <input id="mEmailCli" value="${p?escapar(p.email||''):''}" placeholder="cliente@email.com">
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink)">
+      <input type="checkbox" id="mAvisar" style="width:18px;height:18px" ${p&&p.avisar?'checked':''}>
+      O usuário quer receber aviso no WhatsApp quando um post for publicado
+    </label>
+    ${planoConfig().umaPorRede ? `
+    <div class="linha-flex">
+      <div style="flex:1"><label>🎂 Seu aniversário</label><input type="date" id="mAniv" value="${p&&p.aniversario?p.aniversario:''}"></div>
+      <div style="flex:1"><label>Meta de posts/mês</label><input type="number" id="mMeta" min="0" value="${p&&p.metaPosts?p.metaPosts:''}" placeholder="Ex.: 12"></div>
+    </div>` : `
+    <div class="linha-flex">
+      <div style="flex:1"><label>🎂 Aniversário do usuário</label><input type="date" id="mAniv" value="${p&&p.aniversario?p.aniversario:''}"></div>
+      <div style="flex:1"><label>🎈 Aniversário da página/perfil</label><input type="date" id="mAnivPag" value="${p&&p.aniversarioPagina?p.aniversarioPagina:''}"></div>
+    </div>
+    <div class="linha-flex">
+      <div style="flex:1"><label>Meta de posts/mês</label><input type="number" id="mMeta" min="0" value="${p&&p.metaPosts?p.metaPosts:''}" placeholder="Ex.: 12"></div>
+      <div style="flex:1"><label>Valor mensal (R$)</label><input id="mValor" value="${p&&p.valor?String(p.valor).replace('.',','):''}" placeholder="Ex.: 800"></div>
+      <div style="flex:1"><label>Dia do pagamento</label><input type="number" id="mDiaPag" min="1" max="31" value="${p&&p.diaPagamento?p.diaPagamento:''}" placeholder="Ex.: 5"></div>
+    </div>`}
+    <label>Redes sociais (o usuário sem o @ — ou cole o link completo da página, ex. Facebook)</label>
+    <div id="mRedes"></div>
+    <div id="avisoPlanoRedes" style="display:none;color:#b91c1c;font-size:.8rem;margin-top:4px">⚠️ Seu plano permite <b>1 conta por rede social</b> — remova a repetida. Precisa de mais? Fale com a Joice e migre para o Postou Business! 💜</div>
+    <label>Anotações</label>
+    <textarea id="mNotas" placeholder="Combinados, frequência de posts, senha do mídia kit...">${p?escapar(p.notas):''}</textarea>
+    <label>Foto / logo (opcional — sem isso, usamos a foto da página do Facebook 💛)</label>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+      <div id="mFotoPreview"></div>
+      <div style="flex:1">
+        <input id="mFoto" value="${p?escapar(p.foto||''):''}" placeholder="cole o link de uma imagem" oninput="atualizarFotoPreview()">
+        <input type="file" accept="image/*" onchange="carregarFotoArquivo(this)" style="margin-top:4px;font-size:.8rem">
+      </div>
+    </div>
+    <label>Cor de identificação</label>
+    <div class="cores">${CORES.map(c=>`<div class="cor-opcao ${c===cor?'escolhida':''}" style="background:${c}" data-cor="${c}" onclick="escolherCor(this)"></div>`).join('')}</div>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn" onclick="salvarCliente(${p?p.id:0})">Salvar</button>
+    </div>`);
+  desenharRedes();
+  atualizarFotoPreview();
+}
+function escolherCor(el){ document.querySelectorAll('.cor-opcao').forEach(c=>c.classList.remove('escolhida')); el.classList.add('escolhida'); }
+function fotoPreviewObj(){
+  return { nome: (document.getElementById('mNome')||{}).value || '', cor: (document.querySelector('.cor-opcao.escolhida')||{dataset:{}}).dataset.cor || '#7c3aed',
+    foto: (document.getElementById('mFoto')||{}).value || '', redes: redesTemp };
+}
+function atualizarFotoPreview(){
+  const el = document.getElementById('mFotoPreview');
+  if(el) el.innerHTML = avatarHtml(fotoPreviewObj(), 48);
+}
+function carregarFotoArquivo(input){
+  const f = input.files && input.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 140; let w = img.width, h = img.height;
+      if(w>h){ if(w>max){ h=Math.round(h*max/w); w=max; } } else { if(h>max){ w=Math.round(w*max/h); h=max; } }
+      const cv = document.createElement('canvas'); cv.width=w; cv.height=h;
+      cv.getContext('2d').drawImage(img,0,0,w,h);
+      document.getElementById('mFoto').value = cv.toDataURL('image/jpeg', 0.72);
+      atualizarFotoPreview();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(f);
+}
+function salvarCliente(id){
+  const nome = document.getElementById('mNome').value.trim();
+  if(!nome){ alertaCampo('mNome'); return; }
+  const cor = document.querySelector('.cor-opcao.escolhida').dataset.cor;
+  const nicho = document.getElementById('mNicho').value.trim();
+  if(!nicho){ alertaCampo('mNicho'); return; }
+  const nichos_tags = Array.from(document.querySelectorAll('input[id^="mNichoSec_"]:checked')).map(el=>el.value);
+  const notas = document.getElementById('mNotas').value.trim();
+  const zap = document.getElementById('mZap').value.replace(/[^\d+]/g,'');
+  const email = document.getElementById('mEmailCli').value.trim();
+  const avisar = document.getElementById('mAvisar').checked;
+  const foto = document.getElementById('mFoto') ? document.getElementById('mFoto').value.trim() : '';
+  const pegaCampo = cid => { const el = document.getElementById(cid); return el ? el.value : ''; };
+  const aniversario = pegaCampo('mAniv') || '';
+  const aniversarioPagina = pegaCampo('mAnivPag') || (id&&clientePorId(id).aniversarioPagina) || '';
+  const metaPosts = parseInt(pegaCampo('mMeta'))||0;
+  const valor = parseFloat(String(pegaCampo('mValor')).replace(/\./g,'').replace(',','.')) || (id&&clientePorId(id).valor) || 0;
+  const diaPagamento = Math.min(31, Math.max(0, parseInt(pegaCampo('mDiaPag'))|| (id&&clientePorId(id).diaPagamento) || 0));
+  const redes = redesTemp
+    .map(r=>({tipo:r.tipo, usuario:String(r.usuario||'').trim().replace(/^@/,''), link:r.tipo==='outra'?String(r.usuario||'').trim():''}))
+    .filter(r=>r.usuario);
+  if(planoConfig().umaPorRede){
+    const tipos = redes.map(r=>r.tipo);
+    if(new Set(tipos).size < tipos.length){
+      const aviso = document.getElementById('avisoPlanoRedes');
+      if(aviso){ aviso.style.display='block'; aviso.scrollIntoView({block:'center'}); }
+      return;
+    }
+  }
+  if(id){ Object.assign(clientePorId(id), {nome,nicho,nichos_tags,notas,cor,redes,zap,email,avisar,foto,metaPosts,valor,diaPagamento,aniversario,aniversarioPagina}); }
+  else { dados.clientes.push({id:novoId(), nome, nicho, nichos_tags, notas, cor, redes, zap, email, avisar, foto, metaPosts, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
+  fecharModal(); tocar();
+}
+function excluirCliente(id){
+  const p = clientePorId(id);
+  abrirModal(`<h3>Excluir usuário</h3>
+    <p>Excluir <b>${escapar(p.nome)}</b>? Todas as postagens, tarefas e ideias dele também serão apagadas.</p>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn" style="background:#b91c1c" onclick="confirmarExclusaoCliente(${id})">Excluir</button>
+    </div>`);
+}
+function confirmarExclusaoCliente(id){
+  dados.clientes = dados.clientes.filter(p=>p.id!==id);
+  dados.posts = dados.posts.filter(x=>x.clienteId!==id);
+  dados.tarefas = dados.tarefas.filter(x=>x.clienteId!==id);
+  dados.ideias = dados.ideias.filter(x=>x.clienteId!==id);
+  fecharModal(); tocar();
+}
+
+/* ---------- DATAS COMEMORATIVAS ---------- */
+let cacheFeriados = {};
+function pascoa(ano){ const a=ano%19,b=Math.floor(ano/100),c=ano%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),mes=Math.floor((h+l-7*m+114)/31),dia=((h+l-7*m+114)%31)+1; return new Date(ano,mes-1,dia); }
+function nSemana(ano,mes,diaSemana,n){ const d=new Date(ano,mes,1); let cont=0; while(true){ if(d.getDay()===diaSemana){cont++; if(cont===n) return new Date(d);} d.setDate(d.getDate()+1); } }
+function feriadosAno(ano){
+  if(cacheFeriados[ano]) return cacheFeriados[ano];
+  const m = {};
+  const add = (dt,nome)=>{ m[dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')] = nome; };
+  const fixas = {'01-01':'Ano Novo 🎆','03-08':'Dia da Mulher','03-15':'Dia do Consumidor','06-12':'Dia dos Namorados 💕','06-24':'São João 🎪','07-20':'Dia do Amigo','09-07':'Independência 🇧🇷','09-15':'Dia do Cliente','10-12':'Dia das Crianças','10-15':'Dia dos Professores','10-31':'Halloween 🎃','11-20':'Consciência Negra','12-25':'Natal 🎄','12-31':'Réveillon 🥂'};
+  Object.entries(fixas).forEach(([md,nome])=>{ const p=md.split('-'); add(new Date(ano, parseInt(p[0])-1, parseInt(p[1])), nome); });
+  const pa = pascoa(ano); add(pa,'Páscoa 🐣');
+  const carna = new Date(pa); carna.setDate(pa.getDate()-47); add(carna,'Carnaval 🎭');
+  add(nSemana(ano,4,0,2),'Dia das Mães 💐');
+  add(nSemana(ano,7,0,2),'Dia dos Pais');
+  const bf = nSemana(ano,10,4,4); const bfr = new Date(bf); bfr.setDate(bf.getDate()+1); add(bfr,'Black Friday 🛍️');
+  cacheFeriados[ano] = m; return m;
+}
+
+/* ---------- ANIVERSÁRIOS ---------- */
+function aniversariosDoDia(iso){
+  const md = iso.slice(5);
+  const lista = [];
+  dados.clientes.forEach(c=>{
+    if(c.aniversario && c.aniversario.slice(5)===md) lista.push('🎂 Aniversário: '+c.nome);
+    if(c.aniversarioPagina && c.aniversarioPagina.slice(5)===md) lista.push('🎈 Aniv. da página: '+c.nome);
+  });
+  return lista;
+}
+function proximosAniversarios(dias){
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const res = [];
+  dados.clientes.forEach(c=>{
+    [['aniversario','🎂', c.nome], ['aniversarioPagina','🎈', 'página de '+c.nome]].forEach(([campo, emoji, rotulo])=>{
+      if(!c[campo]) return;
+      const md = c[campo].slice(5);
+      let prox = new Date(hoje.getFullYear(), parseInt(md.slice(0,2))-1, parseInt(md.slice(3)));
+      if(prox < hoje) prox = new Date(hoje.getFullYear()+1, parseInt(md.slice(0,2))-1, parseInt(md.slice(3)));
+      const diff = Math.round((prox-hoje)/864e5);
+      if(diff<=dias) res.push({c, emoji, rotulo, diff, ehCliente: campo==='aniversario'});
+    });
+  });
+  return res.sort((a,b)=>a.diff-b.diff);
+}
+function parabenizar(cid){
+  const c = clientePorId(cid);
+  const msg = `🎉🎂 Feliz aniversário, ${c.nome}!!\n\nDesejamos um ano incrível, cheio de conquistas — e de muitos seguidores também! 😄💜\n\nUm grande abraço!`;
+  abrirModal(`<h3>🎂 Parabéns para ${escapar(c.nome)}</h3>
+    <textarea id="mMsgNiver" style="min-height:120px;margin-top:8px">${escapar(msg)}</textarea>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      ${c.zap?`<button class="btn" onclick="enviarZap('${c.zap}', document.getElementById('mMsgNiver').value);fecharModal()">📱 Abrir WhatsApp</button>`:`<button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('mMsgNiver').value);this.textContent='✔ Copiado!'">📋 Copiar</button>`}
+    </div>`);
+}
+
+/* ---------- CALENDÁRIO ---------- */
+function mudarMes(n){ mesAtual.setMonth(mesAtual.getMonth()+n); render(); }
+function renderCalendario(){
+  const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+  document.getElementById('tituloMes').textContent = meses[mesAtual.getMonth()]+' de '+mesAtual.getFullYear();
+  const f = filtroAtivo();
+  const ano = mesAtual.getFullYear(), mes = mesAtual.getMonth();
+  const primeiro = new Date(ano, mes, 1).getDay();
+  const nDias = new Date(ano, mes+1, 0).getDate();
+  const hoje = hojeISO();
+  let html = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(d=>`<div class="cal-dia-semana">${d}</div>`).join('');
+  for(let i=0;i<primeiro;i++) html += '<div class="cal-celula fora"></div>';
+  const fer = feriadosAno(ano);
+  for(let d=1; d<=nDias; d++){
+    const iso = ano+'-'+String(mes+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const posts = dados.posts.filter(p=>p.data===iso && (!f||p.clienteId===f));
+    const visiveis = posts.slice(0,3);
+    html += `<div class="cal-celula ${iso===hoje?'hoje':''}" onclick="abrirModalPost(0,'${iso}')">
+      <div class="cal-num">${d}</div>
+      ${fer[iso]?`<div class="data-comem">🎉 ${fer[iso]}</div>`:''}
+      ${aniversariosDoDia(iso).map(a=>`<div class="data-comem">${a}</div>`).join('')}
+      ${visiveis.map(p=>{
+        const c = clientePorId(p.clienteId);
+        const siglas = (p.redes||[]).map(r=>(REDES[r]||REDES.outra).sigla).join('·');
+        return `<button class="chip" style="background:${c?c.cor:'#999'}" onclick="event.stopPropagation();abrirModalPost(${p.id})">${siglas?siglas+' ':''}${escapar(p.titulo)}</button>`;
+      }).join('')}
+      ${posts.length>3?`<div class="mais">+${posts.length-3} mais</div>`:''}
+    </div>`;
+  }
+  document.getElementById('gradeCal').innerHTML = html;
+}
+
+/* ---------- POSTAGENS ---------- */
+function checkboxesRedes(cliente, marcadas){
+  if(!cliente || !(cliente.redes||[]).length) return '<span style="font-size:.8rem;color:var(--muted)">Este usuário ainda não tem redes cadastradas — edite o usuário para adicionar.</span>';
+  return cliente.redes.map(r=>{
+    const cat = REDES[r.tipo]||REDES.outra;
+    const on = marcadas ? marcadas.includes(r.tipo) : true;
+    return `<label><input type="checkbox" class="chk-rede" value="${r.tipo}" ${on?'checked':''}> <span class="badge" style="background:${cat.cor}">${cat.sigla}</span> ${cat.nome}</label>`;
+  }).join('');
+}
+function trocaClientePost(){
+  const c = clientePorId(parseInt(document.getElementById('mCliente').value));
+  document.getElementById('mChkRedes').innerHTML = checkboxesRedes(c, null);
+}
+function abrirModalPost(id, dataPre){
+  if(!dados.clientes.length){ abrirModal('<h3>Ops!</h3><p>Cadastre um usuário primeiro, na aba Usuários.</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
+  const p = id?dados.posts.find(x=>x.id===id):null;
+  const cliInicial = p ? clientePorId(p.clienteId) : dados.clientes[0];
+  abrirModal(`
+    <h3>${p?'Editar postagem':'Nova postagem'}</h3>
+    <label>Usuário</label>
+    <select id="mCliente" onchange="trocaClientePost()">${dados.clientes.map(x=>`<option value="${x.id}" ${p&&p.clienteId===x.id?'selected':''}>${escapar(x.nome)}</option>`).join('')}</select>
+    <label>Publicar em quais redes?</label>
+    <div class="check-redes" id="mChkRedes" onchange="aoMudarRedes()">${checkboxesRedes(cliInicial, p?p.redes:null)}</div>
+    <label>Título / assunto</label>
+    <input id="mTitulo" value="${p?escapar(p.titulo):''}" placeholder="Ex.: Promoção de sexta">
+    <label>Data e hora</label>
+    <div class="linha-flex">
+      <input type="date" id="mData" value="${p?p.data:(dataPre||hojeISO())}" style="flex:1">
+      <input type="time" id="mHora" value="${p?(p.hora||''):''}" style="flex:1">
+    </div>
+    <label>Tipo de conteúdo</label>
+    <select id="mTipo">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${p&&p.tipo===k?'selected':''}>${v}</option>`).join('')}</select>
+    <label>Status</label>
+    <select id="mStatus">${STATUS.map(s=>`<option value="${s}" ${p&&p.status===s?'selected':''}>${STATUS_NOME[s]}</option>`).join('')}</select>
+    <label>Legenda / roteiro</label>
+    <textarea id="mLegenda" placeholder="Legenda pronta, hashtags, roteiro do vídeo..." oninput="atualizarContadores()">${p?escapar(p.legenda):''}</textarea>
+    <div class="contadores" id="contadores"></div>
+    <button class="btn-claro" style="margin-top:8px;font-size:.8rem" onclick="alternarPorRede()">✏️ Personalizar texto por rede</button>
+    <div id="porRede" style="display:none"></div>
+    <div class="rodape">
+      ${p?`<button class="btn-mini perigo" style="margin-right:auto" onclick="excluirPost(${p.id})">🗑 Excluir</button><button class="btn-mini" onclick="duplicarPost(${p.id})">⧉ Duplicar</button>`:''}
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn" onclick="salvarPost(${p?p.id:0})">Salvar</button>
+    </div>`);
+  legendasTemp = p && p.legendas ? JSON.parse(JSON.stringify(p.legendas)) : {};
+  atualizarContadores();
+}
+let legendasTemp = {};
+function redesMarcadas(){ return [...document.querySelectorAll('.chk-rede:checked')].map(c=>c.value); }
+function aoMudarRedes(){ desenharPorRede(); atualizarContadores(); }
+function alternarPorRede(){
+  const d = document.getElementById('porRede');
+  d.style.display = d.style.display==='none' ? 'block' : 'none';
+  desenharPorRede();
+}
+function desenharPorRede(){
+  const d = document.getElementById('porRede');
+  if(!d || d.style.display==='none') return;
+  d.querySelectorAll('textarea[data-rede]').forEach(t=>{ legendasTemp[t.dataset.rede] = t.value; });
+  d.innerHTML = redesMarcadas().map(r=>{
+    const cat = REDES[r]||REDES.outra;
+    return `<label>Texto só para ${cat.nome} (vazio = usa a legenda principal)</label>
+      <textarea data-rede="${r}" style="min-height:56px" oninput="legendasTemp['${r}']=this.value;atualizarContadores()" placeholder="Opcional — versão para ${cat.nome}">${escapar(legendasTemp[r]||'')}</textarea>`;
+  }).join('');
+}
+function atualizarContadores(){
+  const el = document.getElementById('contadores');
+  const leg = document.getElementById('mLegenda');
+  if(!el || !leg) return;
+  const principal = leg.value;
+  el.innerHTML = redesMarcadas().map(r=>{
+    const lim = LIMITES[r];
+    if(!lim) return '';
+    const cat = REDES[r]||REDES.outra;
+    const txt = (legendasTemp[r]&&legendasTemp[r].trim()) ? legendasTemp[r] : principal;
+    return `<span class="cont ${txt.length>lim?'estourou':''}" title="${cat.nome}">${cat.sigla} ${txt.length}/${lim}</span>`;
+  }).join('');
+}
+function legendaPara(p, rede){
+  return (p.legendas && p.legendas[rede] && p.legendas[rede].trim()) ? p.legendas[rede] : p.legenda;
+}
+function duplicarPost(id){
+  const p = dados.posts.find(x=>x.id===id);
+  const c = JSON.parse(JSON.stringify(p));
+  c.id = novoId();
+  c.titulo = p.titulo + ' (cópia)';
+  c.status = 'rascunho';
+  dados.posts.push(c);
+  agendarSalvar();
+  abrirModalPost(c.id);
+}
+function salvarPost(id){
+  const titulo = document.getElementById('mTitulo').value.trim();
+  if(!titulo){ alertaCampo('mTitulo'); return; }
+  const redes = [...document.querySelectorAll('.chk-rede:checked')].map(c=>c.value);
+  const porRedeDiv = document.getElementById('porRede');
+  if(porRedeDiv) porRedeDiv.querySelectorAll('textarea[data-rede]').forEach(t=>{ legendasTemp[t.dataset.rede] = t.value; });
+  const legendas = {};
+  redes.forEach(r=>{ if(legendasTemp[r] && legendasTemp[r].trim()) legendas[r] = legendasTemp[r]; });
+  const novo = {
+    clienteId: parseInt(document.getElementById('mCliente').value),
+    redes,
+    titulo,
+    data: document.getElementById('mData').value || hojeISO(),
+    hora: document.getElementById('mHora').value || '',
+    tipo: document.getElementById('mTipo').value,
+    status: document.getElementById('mStatus').value,
+    legenda: document.getElementById('mLegenda').value,
+    legendas
+  };
+  if(id){ Object.assign(dados.posts.find(x=>x.id===id), novo); }
+  else { dados.posts.push(Object.assign({id:novoId()}, novo)); }
+  fecharModal(); tocar();
+}
+function excluirPost(id){ dados.posts = dados.posts.filter(x=>x.id!==id); fecharModal(); tocar(); }
+
+/* ---------- TAREFAS ---------- */
+function addTarefa(){
+  const texto = document.getElementById('tarefaTexto').value.trim();
+  if(!texto || !dados.clientes.length) return;
+  dados.tarefas.push({
+    id:novoId(),
+    clienteId: parseInt(document.getElementById('tarefaCliente').value),
+    texto,
+    prazo: document.getElementById('tarefaPrazo').value,
+    feita:false
+  });
+  document.getElementById('tarefaTexto').value='';
+  document.getElementById('tarefaPrazo').value='';
+  tocar();
+}
+function marcarTarefa(id){ const t=dados.tarefas.find(x=>x.id===id); t.feita=!t.feita; tocar(); }
+function excluirTarefa(id){ dados.tarefas = dados.tarefas.filter(x=>x.id!==id); tocar(); }
+function renderTarefas(){
+  const f = filtroAtivo();
+  const el = document.getElementById('listaTarefas');
+  const clientes = dados.clientes.filter(p=>!f||p.id===f);
+  const hoje = hojeISO();
+  let html = '';
+  clientes.forEach(p=>{
+    const ts = dados.tarefas.filter(t=>t.clienteId===p.id).sort((a,b)=>a.feita-b.feita);
+    if(!ts.length) return;
+    html += `<div class="grupo-tarefas"><h3><span class="bolinha" style="background:${p.cor}"></span>${escapar(p.nome)}</h3>` +
+      ts.map(t=>`<div class="tarefa ${t.feita?'feita':''}">
+        <input type="checkbox" ${t.feita?'checked':''} onchange="marcarTarefa(${t.id})">
+        <span class="texto">${escapar(t.texto)}</span>
+        ${t.prazo?`<span class="prazo ${!t.feita&&t.prazo<hoje?'atrasada':''}">📅 ${dataBR(t.prazo)}${!t.feita&&t.prazo<hoje?' — atrasada!':''}</span>`:''}
+        <button class="btn-mini perigo" onclick="excluirTarefa(${t.id})">🗑</button>
+      </div>`).join('') + '</div>';
+  });
+  el.innerHTML = html || '<div class="vazio">Nenhuma tarefa por aqui. Adicione a primeira acima! 🎉</div>';
+}
+
+/* ---------- IDEIAS ---------- */
+/* ---------- NICHOS PREDEFINIDOS ---------- */
+const NICHOS_PREDEFINIDOS = {
+  moda: '👗 Moda e acessórios',
+  beleza: '💅 Beleza e estética',
+  comida: '🍕 Comida e restaurantes',
+  fitness: '💪 Fitness e saúde',
+  lojinha: '🛍 Loja e revenda',
+  servicos: '🔧 Serviços e profissionais',
+  pets: '🐶 Pets',
+  educacao: '📚 Educação e cursos',
+  artesanato: '🎨 Artesanato e criativos',
+  general: '⭐ Conteúdo geral',
+  sociopolitico: '🗣 Social e política'
+};
+
+/* ---------- SUGESTÕES POR NICHO ---------- */
+const SUGESTOES_NICHO = {
+  moda: {nome:'👗 Moda e acessórios', kw:['moda','roupa','look','acessorio','boutique','brecho','calcado','sapato','bolsa'], ideias:[
+    {t:'Look do dia (OOTD)', d:'Mostre uma combinação completa da loja, da cabeça aos pés, e conte onde usar: trabalho, festa ou dia a dia. Termine perguntando: qual peça você levaria?', h:'#lookdodia #ootd #moda #estilo'},
+    {t:'1 peça, 3 looks', d:'Pegue uma peça-chave e monte 3 combinações diferentes com ela. Mostra versatilidade e ajuda o cliente a imaginar o uso.', h:'#dicasdemoda #looks #modafeminina'},
+    {t:'Chegou novidade!', d:'Vídeo curto abrindo a caixa das peças novas, com a primeira reação. Gera curiosidade e senso de novidade.', h:'#newin #novidades #recebidos'},
+    {t:'Antes e depois do look', d:'Cliente ou modelo com roupa comum → transição para o look completo. Formato de transição funciona muito em vídeo curto.', h:'#transformacao #antesedepois #moda'},
+    {t:'Bastidores da loja', d:'Mostre a arrumação da vitrine, a escolha das peças, a embalagem dos pedidos. Pessoas amam ver o processo por trás.', h:'#bastidores #lojinha #empreendedorismo'},
+    {t:'Como combinar com o que você já tem', d:'Cliente tem peça no guarda-roupa que não sabe como usar? Mostre 3-5 combinações práticas com roupas que ela já tem.', h:'#reutilize #dicademoda #sustentavel'},
+    {t:'Dica: peças atemporais vs tendência', d:'Mostre a diferença entre uma peça clássica que dura anos e uma trend passageira. Ajude seu cliente a fazer escolhas inteligentes.', h:'#modainteligente #sustentabilidade'},
+    {t:'Unboxing de pedido', d:'Gravem uma cliente abrindo a encomenda, mostrando o passo a passo. Pessoal e emocionante.', h:'#unboxing #encomenda #compraonline'},
+    {t:'Provador em 360°', d:'Gire lentamente na frente da câmera mostrando o caimento de todas as ângulos. Muito melhor que foto parada para quem compra online.', h:'#provador #tryon #360'},
+    {t:'Top 5 peças que vendem este mês', d:'Ranking dos best-sellers com foto, preço e como pedir. Prova social funciona muito.', h:'#maisvendidos #top5 #favoritos'},
+    {t:'Dica: qual tipo de roupa é para seu corpo', d:'Explique em 2-3 minutos qual corte/estilo funciona melhor pra diferentes tipos de corpo. Conteúdo educativo que salva.', h:'#dicademoda #bodypositivity #tutorialdemoda'},
+    {t:'Transformação de acessório', d:'Mostre como um simples cinto, lenço ou bolsa muda completamente o visual do mesmo look.', h:'#acessorios #dicademoda #styling'},
+    {t:'Ofertas relâmpago / flash sale', d:'Avise de forma urgente uma oferta limitada. Use contadores regressivos para criar urgência.', h:'#flashsale #oferta #pressa'},
+    {t:'Dúvida comum dos clientes', d:'Perguntas tipo "posso misturar padrões?", "que cor combina com tudo?" — responda de forma clara e prática.', h:'#duvidas #dicademoda #perguntas'},
+    {t:'Estilo de influenciadora / celebridade', d:'Recrie o look de uma influencer que as pessoas amam. Fácil engajar com base em algo que está na moda agora.', h:'#inspiracao #influencer #estilodelive'},
+    {t:'Antes e depois estilístico', d:'Pegue uma cliente comum e mostre como você a deixaria ainda mais linda com outras combinações.', h:'#makeover #antesedepois #transformacao'},
+    {t:'Coleção por tema', d:'Organize peças por tema: "looks de praia", "roupa de trabalho confortável", "saída casual chique". Facilita o cliente escolher.', h:'#colecao #roupasparaunicao #portemadeoutfit'},
+    {t:'Cuidado com a roupa', d:'Como lavar, guardar e manter a roupa durável. Conteúdo muito útil que as pessoas salvam.', h:'#dicasdelimpeza #cuidados #sustentabilidade'},
+    {t:'Collab com outro negócio', d:'Parceire com uma marca complementar (maquiagem, acessórios, bolsas). Conteúdo junto = mais alcance pra ambos.', h:'#collab #parceria #amigas'},
+    {t:'Quiz: qual é seu estilo?', d:'Teste de estilo rápido: perguntas nos stories que levam a um resultado engraçado. Muito engajamento.', h:'#quiz #desafio #meuestilo'},
+    {t:'Tendência da semana', d:'Algum look ou acessório que está super em alta? Mostre como usar de forma acessível e personalizada.', h:'#tendencia #novidade #moda'},
+    {t:'Combinação inusitada', d:'Misture dois estilos que ninguém esperaria: clássico com sportwear, elegante com casual. Criativo demais.', h:'#criatividade #dicademoda #ousadia'},
+    {t:'Erro de moda comum', d:'"Não faça isso ao escolher roupa..." — video que prende porque todo mundo vê a gafe nos outros.', h:'#dicademoda #errodemod #dica'},
+    {t:'Lançamento exclusivo', d:'Você é primeira a ter uma peça nova? Avise em primeira mão — cria poder de exclusividade.', h:'#exclusivo #lancamento #primeiramaodebrasil'},
+    {t:'Customização DIY', d:'Pegue uma peça comum e customize: tira, pinta, bota aviamento. Transforma e dá vida nova.', h:'#DIY #customizacao #reutilize'},
+    {t:'Compatilhamento de economia', d:'Dê dicas de como ficar chique gastando pouco: brechós, liquidações, combinações criativas.', h:'#economico #dicasdegrana #modaacessivel'},
+    {t:'Peça que combina com TUDO', d:'Encontre uma peça versátil da sua loja e mostre 10 jeitos diferentes de usar.', h:'#versatil #essencial #wardrobe'},
+    {t:'Regra de proporções', d:'Explique de forma simples: proporcionar roupa pro seu corpo é a melhor moda hack. Mostra seu senso de estilo profissional.', h:'#dica #estilo #proporcao'}]},
+  beleza: {nome:'💅 Beleza e estética', kw:['beleza','estetica','unha','manicure','cabelo','salao','sobrancelha','cilios','maquiagem','barbearia'], ideias:[
+    {t:'Antes e depois', d:'O clássico que nunca falha: foto ou vídeo do antes e depois do procedimento (com autorização do cliente!). Prova o resultado sem precisar dizer nada.', h:'#antesedepois #transformacao #autoestima'},
+    {t:'Mitos e verdades', d:'Escolha 3 mitos comuns do seu serviço e explique a verdade de forma simples. Posiciona você como especialista.', h:'#mitoseverdades #dicasdebeleza'},
+    {t:'Rotina de cuidados em casa', d:'Ensine 3 cuidados que o cliente deve ter em casa entre uma visita e outra. Conteúdo útil gera salvamentos e compartilhamentos.', h:'#skincare #autocuidado #dicas'},
+    {t:'Resultado em 15 segundos', d:'Vídeo acelerado (timelapse) do procedimento do início ao fim. Hipnotizante de assistir e mostra seu trabalho completo.', h:'#timelapse #satisfying #beleza'},
+    {t:'Agenda aberta da semana', d:'Post simples avisando os horários livres da semana com chamada para agendar pelo WhatsApp. Direto ao ponto e traz cliente.', h:'#agendaaberta #agendamento'},
+    {t:'Cliente do mês featured', d:'Conte a história de um cliente: sua jornada, transformação pessoal. Humaniza seu trabalho.', h:'#historia #transformacao #cliente'},
+    {t:'Dúvida frequente', d:'Pergunta que todo mundo faz tipo "quanto dura esse procedimento?" ou "dói?". Responda direto.', h:'#duvidas #faq #esclarecimento'},
+    {t:'Trending na sua especialidade', d:'Algo que todo mundo quer fazer agora? Nail art trendy, corte de cabelo viral, make artística. Mostre seu jeito.', h:'#trending #moda #novidade'},
+    {t:'Transformação completa de visual', d:'Cabelo + maquiagem + styling. Antes e depois que muda tudo. Impactante demais.', h:'#transformacao #visual #glow'},
+    {t:'Como fazer em casa (DIY fácil)', d:'Um procedimento simples que o cliente pode tentar em casa. Posiciona você como generosa e segura.', h:'#DIY #dica #emcasa'},
+    {t:'Produto que você recomenda', d:'Apresente aquele produto que você usa e ama. Justifique por que. Clientes querem saber que você aprova.', h:'#produtorecomendado #review #favorito'},
+    {t:'Testes antes de decidir', d:'Mostre por que é importante fazer teste de alergia, teste de tom, etc. Profissionalismo e cuidado.', h:'#seguranca #teste #profissionalismo'},
+    {t:'Combo: promoção para várias redes', d:'Que tal combinar serviços? Manicure + pedicure, cabelo + sobrancelha. Vende mais.', h:'#combo #promocao #oferta'},
+    {t:'Educação sobre pele', d:'Dica sobre tipos de pele, como identificar a sua, qual cuidado precisa. Conteúdo que viraliza.', h:'#skincare #tipospele #educacao'},
+    {t:'Speed tutorial de maquiagem', d:'Maquiagem rápida (30 seg) pra sair rápido da madrugada. Prático e salvável.', h:'#tutorial #makeup #rapido'},
+    {t:'Antes de vir ao salão', d:'Prepare-se assim para o atendimento ficar melhor. Você é prestativa e profissional.', h:'#dica #preparacao #profissionalismo'},
+    {t:'Procedimento + natureza', d:'Tudo natural, ecológico, sustentável? Seu serviço usa? Mostre.', h:'#natural #ecofriendly #sustentavel'},
+    {t:'Reação em tempo real do cliente', d:'Vídeo do cliente vendo o resultado final. A surpresa é genuína e emocionante.', h:'#reacao #emocao #vlog'},
+    {t:'Dica por tipo de cabelo', d:'Seu cabelo é cacheado, liso, ondulado, colorido? Cada um precisa de algo diferente. Ensine.', h:'#tipsdecabelo #cabelo #dica'},
+    {t:'Aquela cor que ficou perfeita', d:'Aquele tom que você criou que as pessoas amam? Destaque. As mulheres vão querer igual.', h:'#cor #transformacao #beleza'},
+    {t:'Erros que danificam o cabelo/pele', d:'Coisas que muita gente faz sem saber que prejudica. Seu conhecimento aparece.', h:'#dica #educacao #erro'},
+    {t:'Bom para quem tem pressa', d:'Você tem serviço que é rápido? Perfeito para executiva, mãe, quem é ocupado. Vende bem.', h:'#rapido #pratico #pressa'},
+    {t:'Mudança radical', d:'Aquela transformação que ninguém acreditava que ia dar certo, mas ficou TOP. Mostra confiança.', h:'#transformacao #radical #coragem'},
+    {t:'Dica de especialista para {dados.clientes[0]?.nome || "você"}', d:'Aquele conselho seu que apenas quem trabalha com beleza sabe. Você aparece como autoridade.', h:'#dicadeespecialista #profissional #beleza'},
+    {t:'Peça comentários dos clientes', d:'Dedique um post pra ler elogios e depoimentos ao vivo. As pessoas amam se sentir ouvidas.', h:'#depoimento #clientefeliz #gratidao'},
+    {t:'Próximas datas de abertura/evento', d:'Lançamento de novo serviço, horário novo, promoção especial. Crie expectativa.', h:'#novidade #evento #comingup'}]},
+  comida: {nome:'🍕 Comida e restaurantes', kw:['comida','restaurante','lanche','pizza','doce','bolo','confeitaria','marmita','hamburgue','acai','salgado','cafe'], ideias:[
+    {t:'Vídeo de dar água na boca', d:'Close do prato sendo finalizado: a calda escorrendo, o queijo puxando, o corte do bolo. Som ambiente real funciona melhor que música.', h:'#foodporn #aguanaboca #delicia'},
+    {t:'Por trás do prato', d:'Mostre o preparo na cozinha, do ingrediente cru ao prato pronto. Transparência gera confiança e fome!', h:'#bastidores #cozinha #feitocomamor'},
+    {t:'Item mais pedido', d:'Revele qual é o campeão de pedidos e por que todo mundo ama. Prova social pura: se todos pedem, deve ser bom.', h:'#maispedido #favorito #imperdivel'},
+    {t:'Promoção do dia/semana', d:'Post objetivo com a oferta, o preço e como pedir. Use foto real do produto, não banco de imagem.', h:'#promocao #oferta #pecajaoseu'},
+    {t:'Cliente aprovou', d:'Reposte um elogio ou print de avaliação de cliente (com permissão) junto com a foto do prato elogiado.', h:'#clientefeliz #avaliacao #obrigada'},
+    {t:'Como fazer em casa', d:'Receita fácil de um prato similar ao seu. Mostra que você sabe do que fala. Engaja muito.', h:'#receita #emcasa #ficafacil'},
+    {t:'Passo a passo da receita', d:'Vídeo montando o prato ou bolo desde o começo. As pessoas adoram ver o processo.', h:'#tutorial #receita #passoapasso'},
+    {t:'Combo/oferta relâmpago', d:'Kit promocional: 2 por 1, desconto se pedir 3. Urgência = mais vendas.', h:'#combo #oferta #hoje'},
+    {t:'Ingrediente premiado', d:'Um ingrediente específico que você usa de qualidade superior? Destaque. Justifica o preço.', h:'#qualidade #ingrediente #diferencial'},
+    {t:'Diferença entre versões', d:'Seu bolo tem versão chocolate e brigadeiro? Mostre lado a lado. Ajuda na decisão.', h:'#comparacao #opcoes #escolha'},
+    {t:'Temporada/sazonalidade', d:'Aquele prato que só existe em estação? Avise que é época. Cria urgência.', h:'#sazonal #temporada #limitado'},
+    {t:'Adaptações especiais', d:'Sem glúten, vegana, alérgico a lactose? Você consegue fazer? Cria mercado novo.', h:'#adaptacao #inclusao #especial'},
+    {t:'Unboxing de entrega', d:'Mostre como seu prato chega na casa do cliente. Embalagem linda, produto bem-cuidado.', h:'#unboxing #entrega #cuidado'},
+    {t:'Vídeo ASMR', d:'Som de comida sendo preparada ou degustada. Muito relaxante, muito visualizado.', h:'#asmr #satisfying #comida'},
+    {t:'Colaboração com influencer local', d:'Que tal convidar alguém popular pra provar? Seu alcance cresce.', h:'#collab #parceria #influencer'},
+    {t:'Cliente feliz comendo', d:'Vídeo genuíno de cliente provando e adorando. Emoção real convence mais.', h:'#reacao #testimonial #feliz'},
+    {t:'Dica de conservação', d:'Como guardar, quanto dura, melhor forma de comer. Você se importa com a experiência completa.', h:'#dica #conservacao #cuidado'},
+    {t:'Avaliação ao vivo', d:'Leia comentários e avaliações de cliente ao vivo. Mostre que você se importa.', h:'#avaliacoes #feedback #gratidao'},
+    {t:'Novo cardápio lançamento', d:'Nova receita em desenvolvimento? Teste com clientes VIP. Cria expectativa.', h:'#novidade #lancamento #exclusivo'},
+    {t:'Prato do dia temático', d:'Segunda = risoto, quarta = fruta, sexta = especial. Cria rotina na cabeça do cliente.', h:'#rotina #temático #diaespecial'},
+    {t:'Curiosidade sobre a comida', d:'Histórias sobre origem da receita, anedota divertida. Humaniza e engaja.', h:'#historia #curiosidade #origem'},
+    {t:'Vegano/saudável/fit', d:'Mais pessoas querendo versão mais leve? Mostre sua opção. Mercado crescendo.', h:'#saudavel #vegano #fit'},
+    {t:'Volume production time-lapse', d:'Fazendo 50 bolos / 100 lanches ao mesmo tempo. Mostra capricho e capacidade.', h:'#producao #timelapse #profissionalismo'},
+    {t:'Delivery / retirada facilitada', d:'Explique como encomendar: WhatsApp, telefone, formulário. Deixe fácil.', h:'#delivery #encomenda #comocomprar'},
+    {t:'Meme/humor sobre a comida', d:'Brincadeira divertida: "quem pede sem cebola é suspeito" etc. Divertimento engaja.', h:'#meme #humor #relatable'}]},
+  fitness: {nome:'💪 Fitness e saúde', kw:['fitness','academia','treino','personal','pilates','yoga','nutri','saude','fisio','crossfit'], ideias:[
+    {t:'Treino rápido de 10 minutos', d:'Ensine uma sequência curta que qualquer pessoa consegue fazer em casa. Conteúdo salvável que sempre performa bem.', h:'#treinoemcasa #fitness #10minutos'},
+    {t:'Erro comum na execução', d:'Mostre o jeito errado e o jeito certo de um exercício popular. Formato "você está fazendo errado" prende a atenção.', h:'#dicadetreino #execucao #personal'},
+    {t:'Evolução de aluno', d:'Com autorização, mostre a evolução de um aluno (fotos, cargas, disposição). Inspira e prova seu método.', h:'#evolucao #resultados #foco'},
+    {t:'Mito fitness da semana', d:'Desminta um mito famoso ("carboidrato à noite engorda?") com explicação simples. Gera debate nos comentários.', h:'#mitofitness #saude #verdade'},
+    {t:'Rotina real de um dia', d:'Mostre seu dia como profissional: treinos, refeições, atendimentos. Conexão pessoal fideliza seguidores.', h:'#rotina #vidareal #lifestyle'},
+    {t:'Antes e depois de cliente', d:'Transformação de verdade, com autorização. Fotos de corpo transformando = prova de resultado.', h:'#antesedepois #transformacao #resultado'},
+    {t:'Exercício com material caseiro', d:'Garrafinha de água vira haltere. Escada vira step. Improvise e mostre criatividade.', h:'#exerciciocaseiro #DIY #economia'},
+    {t:'Alongamento/descompressão pós-treino', d:'Coisa rápida de 3-5 min que alivia dor no dia seguinte. Pessoal quer isso.', h:'#alongamento #recuperacao #bemestar'},
+    {t:'Nutrição: café da manhã pré-treino', d:'O que comer antes de malhar. Simples e prático. Educação que gera confiança.', h:'#nutricao #pretreino #alimentacao'},
+    {t:'Transformação de mentalidade', d:'Histórias de cliente que era sedentário e mudou. Motivação pura.', h:'#motivacao #transformacao #historia'},
+    {t:'Exercício para quem sente dor', d:'Oferece adaptação pra quem tem lesão, dor crônica. Inclusivo = mercado maior.', h:'#adaptacao #lesao #inclusao'},
+    {t:'Challenge semanal', d:'"Faça comigo 30 dias de burpee". Cria engajamento e comunidade.', h:'#challenge #30dias #desafio'},
+    {t:'Músculo do mês focado', d:'Semana de trabalho de glúteo, core, perna. Vai crescendo o conhecimento.', h:'#focodomês #muscular #foco'},
+    {t:'Dica de recuperação', d:'Sono, hidratação, foam roller. Coisas que ninguém fala mas fazem diferença.', h:'#recuperacao #bemestar #saude'},
+    {t:'Mudança de programação/plano', d:'Novo método, novo programa de treino. Cria novidade e razão pra manter.', h:'#novo #metodo #programa'},
+    {t:'Depoimento de aluno', d:'Alguém que nunca tinha treinado e conseguiu resultado. Muito inspirador.', h:'#depoimento #resultado #motivacao'},
+    {t:'Live treino', d:'Faça uma aula ao vivo. Direto e genuíno funciona muito.', h:'#live #aula #comigo'},
+    {t:'Frequência ideal de treino', d:'Quantas vezes por semana, qual intensidade, como saber se é demais. Educação.', h:'#frequencia #planojamento #saude'},
+    {t:'Equipamento que vale a pena', d:'Que acessório sua academia tem que faz diferença. Recomendação de especialista.', h:'#equipamento #recomendacao #investimento'},
+    {t:'Pré e pós treino roteirizado', d:'Mostrar o ritual completo: preparação mental, aquecimento, foco, recuperação.', h:'#rotina #ritual #preparacao'},
+    {t:'Resultado não é só na balança', d:'Foto de antes e depois mostrando força, energia, confiança. Não é só peso.', h:'#resultado #transformacao #confianca'},
+    {t:'Técnica avançada de exercício', d:'Variação dificuldade maior do exercício clássico. Pro quem já tem base.', h:'#avancado #tecnica #progressao'},
+    {t:'Lesão prevenção', d:'Como treinar seguro. Aquecimento correto, amplitude, escuta do corpo.', h:'#prevencao #seguranca #lesao'},
+    {t:'Meme/humor fitness', d:'"Segunda eu começo". Humor que todo mundo se identifica.', h:'#meme #humor #relatable'}]},
+  lojinha: {nome:'🛍 Loja e revenda', kw:['loja','revenda','vendas','produtos','variedade','importado','cosmetico','perfume','semijoia','papelaria','utilidade'], ideias:[
+    {t:'Chegou hoje!', d:'Vídeo de unboxing das novidades com sua reação sincera. Avise que é por ordem de chegada — cria urgência.', h:'#chegounaloja #novidade #unboxing'},
+    {t:'Top 3 mais vendidos', d:'Ranking dos produtos favoritos dos clientes com preço e como comprar. Prova social + facilita a escolha.', h:'#maisvendidos #top3 #favoritos'},
+    {t:'Como usar o produto', d:'Demonstre o produto em uso real, não parado na prateleira. Cliente compra o resultado, não o objeto.', h:'#demonstracao #comousar #testei'},
+    {t:'Kit presente pronto', d:'Monte um kit com 2-3 produtos combinados para presente e mostre embalado. Facilite a vida de quem não sabe o que dar.', h:'#presente #kit #dica'},
+    {t:'Enquete: qual você prefere?', d:'Coloque dois produtos lado a lado e peça para votarem nos comentários ou stories. Engajamento fácil e você descobre o gosto do público.', h:'#enquete #escolha #euquero'},
+    {t:'Unboxing surpresa', d:'Recebeu uma encomenda? Abra na frente da câmera. Genuíno e emocionante.', h:'#unboxing #surpresa #emocao'},
+    {t:'Promo relâmpago', d:'Oferta de 24 horas. Cria urgência imediata.', h:'#promocao #relampago #24hrs'},
+    {t:'Cliente feedback', d:'Reposte foto de cliente usando/aproveitando o produto. Prova social.', h:'#clientefeliz #resultado #feedback'},
+    {t:'Comparação: caro vs barato', d:'Mesmo produto pode ser muito mais caro ou mais barato. Que tal comparar qualidade lado a lado.', h:'#comparacao #qualidade #preco'},
+    {t:'De trás pra frente: story do produto', d:'Como o produto chega até você: fabricante → você. Transparência.', h:'#fabricacao #origem #transparencia'},
+    {t:'Combo super econômico', d:'3 itens que combinam por metade do preço. Facilita a compra.', h:'#combo #economia #oferta'},
+    {t:'Qualidade detalhe', d:'Zoom no material, costura, acabamento. Mostra o que diferencia seu produto.', h:'#qualidade #detalhe #craftsmanship'},
+    {t:'Dica de uso creativo', d:'Aquele produto pode ser usado de mais de um jeito? Mostre.', h:'#criatividade #multiplo #uso'},
+    {t:'Estoque acabando', d:'Última chance, últimas peças. Urgência pura.', h:'#estoque #limitado #ultimachance'},
+    {t:'Embalagem linda', d:'Unboxing focado na embalagem. Pessoal adora receber algo bonito.', h:'#embalagem #unboxing #primeimaimpressao'},
+    {t:'Novo lançamento teaser', d:'Mostre um pouco, segura o resto. Curiosidade mata.', h:'#teaser #lancamento #em breve'},
+    {t:'Benefício real do produto', d:'Não venda produto, venda benefício. Como muda vida do cliente.', h:'#beneficio #resultado #mudanca'},
+    {t:'Influencer/celebridade usando', d:'Aquele famoso usa seu produto? Aproveita e destaca.', h:'#influencer #celebridade #aval'},
+    {t:'Garantia/confiança', d:'Frete grátis, garantia, devolve se não gostar. Confiança = conversão.', h:'#garantia #confianca #seguranca'},
+    {t:'Entrega surpresa', d:'Especial pra cliente VIP ou sortear na live. Emoção.', h:'#surpresa #sortio #vip'},
+    {t:'FAQ: dúvidas comuns', d:'Resumo das perguntas que todo mundo faz sobre o produto.', h:'#duvidas #faq #esclarecimento'},
+    {t:'Resenha honesta', d:'Eu tenho um produto concorrente, que tal testar os dois? Honestidade premia.', h:'#review #honesto #transparencia'},
+    {t:'História do produto', d:'De onde vem, como foi criado, por que você escolheu vender isso.', h:'#historia #origem #porque'},
+    {t:'Pack presentes para data', d:'Pacotinhos já embalados prontos pra presentear. Fácil pro cliente.', h:'#presente #datacomemorativa #pronto'}]},
+  servicos: {nome:'🔧 Serviços e profissionais', kw:['servico','advogad','dentista','arquitet','encanador','eletricista','limpeza','fotograf','psicolog','contador','consultor','manutencao'], ideias:[
+    {t:'Pergunta que todo cliente faz', d:'Responda em vídeo curto a dúvida número 1 da sua profissão. Se um pergunta, mil querem saber.', h:'#duvidas #especialista #dica'},
+    {t:'Caso real (antes e depois)', d:'Mostre um trabalho concluído: como chegou e como ficou (sem expor o cliente). Portfólio em movimento.', h:'#antesedepois #trabalhofeito #portfolio'},
+    {t:'5 sinais de que você precisa de ajuda', d:'Liste sinais de que a pessoa precisa do seu serviço. Ajuda o cliente a se reconhecer no problema.', h:'#sinais #atencao #naodeixepradepois'},
+    {t:'Quanto custa? (transparência)', d:'Explique o que influencia o preço do seu serviço, sem precisar cravar valor. Educa o cliente e filtra curiosos.', h:'#quantocusta #transparencia #orcamento'},
+    {t:'Um dia de trabalho', d:'Vlog rápido mostrando sua rotina profissional. Humaniza e cria confiança antes mesmo do primeiro contato.', h:'#rotina #bastidores #profissional'},
+    {t:'Erro comum que prejudica', d:'Coisa que o cliente faz errado que piora a situação. Você aparece como especialista ao corrigir.', h:'#erro #atencao #dica'},
+    {t:'Prova social: cliente feliz', d:'Depoimento de cliente satisfeito com antes e depois. Convence mais que qualquer propaganda.', h:'#depoimento #resultado #satisfacao'},
+    {t:'Certificação/qualificação', d:'Você tem alguma certificação? Pós-graduação? Mostre. Credibilidade importa.', h:'#certificacao #qualificacao #expertise'},
+    {t:'Mito sobre sua profissão', d:'"Sim, precisa de X", "Não, essa informação é errada". Educação posiciona autoridade.', h:'#mito #verdade #educacao'},
+    {t:'Comparação: DIY vs profissional', d:'Aquele trabalho que pessoa tenta fazer e dá ruim. Mostra valor de contratar você.', h:'#diy #comparacao #valor'},
+    {t:'Passo a passo do processo', d:'Como é o trabalho do início ao fim. Tira dúvidas e ansiedade do cliente novo.', h:'#processo #comofunciona #passo a passo'},
+    {t:'Valor que você agrega', d:'Não é só pelo serviço. Você economiza tempo/dinheiro, dá paz de espírito. Justifica preço.', h:'#valor #diferencial #resultado'},
+    {t:'Histórias de cliente satisfeito', d:'Conta de quem teve problema de verdade e você salvou. Emocionante.', h:'#historia #satisfacao #resultado'},
+    {t:'Dica preventiva', d:'Evite problema fazendo isso agora. Você é prestativo e ganha cliente fiel.', h:'#prevencao #dica #cuidado'},
+    {t:'Atualização de técnica/conhecimento', d:'Você se mantém atualizado? Cursos, certificações? Mostra profissionalismo.', h:'#atualizacao #conhecimento #profissional'},
+    {t:'FAQ de cliente', d:'Respostas rápidas pras perguntas mais frequentes.', h:'#duvidas #faq #esclarecimento'},
+    {t:'Urgência/emergência', d:'Seu serviço tem atendimento de emergência? Avise. Clientes precisam saber.', h:'#urgencia #emergencia #24hrs'},
+    {t:'Detalhe que faz diferença', d:'Coisa pequena que outros não fazem. Você é meticuloso.', h:'#detalhe #qualidade #cuidado'},
+    {t:'Reconhecimento/prêmio', d:'Você ganhou prêmio ou foi indicado? Use isso.', h:'#premio #reconhecimento #destaque'},
+    {t:'Mudança de vida do cliente', d:'Aquele cliente que era inseguro e agora virou confiante porque resolveu o problema.', h:'#transformacao #confianca #resultado'},
+    {t:'Consultoria gratuita', d:'Dê uma orientação básica. Mostra capacidade e confiança.', h:'#consultoria #gratis #valor'},
+    {t:'Agendamento facilitado', d:'Como agendar: WhatsApp, telefone, email. Deixe muito fácil.', h:'#agendamento #comoagendar #facil'},
+    {t:'Pacote/combo econômico', d:'Serviços juntos saem mais baratos. Incentiva cliente a fazer mais.', h:'#combo #economia #oferta'}]},
+  pets: {nome:'🐶 Pets', kw:['pet','cachorro','gato','banho e tosa','veterinari','racao','adestr'], ideias:[
+    {t:'Antes e depois do banho', d:'A transformação do pet bagunçado para o pet cheiroso, com direito a lacinho. Fofura converte!', h:'#banhoetosa #antesedepois #petshop'},
+    {t:'Cliente peludo da semana', d:'Eleja um pet destaque, conte o nome e uma curiosidade dele. Os donos amam ver o pet famoso e compartilham.', h:'#petdasemana #clientepeludo #fofura'},
+    {t:'Dica de cuidado rápida', d:'Ensine algo útil: escovação, hidratação no calor, sinais de alerta. Dono cuidadoso vira cliente fiel.', h:'#dicapet #cuidados #saudepet'},
+    {t:'Reação do pet chegando', d:'Vídeo do pet chegando animado (ou dramático!) para o serviço. Conteúdo espontâneo rende muito.', h:'#reacao #petshop #humor'},
+    {t:'Produto ou serviço do mês', d:'Destaque um serviço com foto de pet real usando, e uma condição especial para o mês.', h:'#promopet #ofertadomes'},
+    {t:'Brincadeira do pet', d:'Vídeo curto e engraçado de pet sendo bobo, brincando. Viral demais.', h:'#petblush #humor #fofura'},
+    {t:'Dica de segurança', d:'Coisa que dono não sabe que é perigo: alimento tóxico, brinquedo pequeno. Você se importa.', h:'#seguranca #dica #cuidado'},
+    {t:'Procedimento passo a passo', d:'Banho → secagem → corte. Mostra o cuidado que tem com cada pet.', h:'#processo #cuidado #profissional'},
+    {t:'Pet com déficit/limitação', d:'Aquele pet idoso, três patas, cego. Você trabalha com inclusão = mercado maior.', h:'#inclusao #amor #carinho'},
+    {t:'Cliente humano feliz com resultado', d:'Dono vendo o pet ficando lindo. Emoção genuína.', h:'#emocao #resultado #feliz'},
+    {t:'Novo serviço/oferta', d:'Está oferecendo adestramento, consulta comportamental? Avise.', h:'#novidade #servico #lancamento'},
+    {t:'Pet da celebridade/influencer', d:'Aquele pet famoso veio em você? Use.', h:'#celebridade #famoso #destaque'},
+    {t:'Dica pré-chegada', d:'Prepare seu pet assim pro atendimento. Tira ansiedade.', h:'#preparacao #dica #comochegar'},
+    {t:'Problema comportamental resolvido', d:'Pet que chegou agressivo e saiu dócil. Transf real.', h:'#comportamento #treinamento #transformacao'},
+    {t:'Gato = cliente especial', d:'Se você trabalha com gato, destaque. Muita gente tem medo. Você é ousado.', h:'#gato #coragem #especialista'},
+    {t:'Agenda aberta', d:'Seus horários disponíveis essa semana. Direto.', h:'#agendaaberta #agendamento'},
+    {t:'Antes e depois grooming artístico', d:'Corte criativo, pintura, estilo. Seu talento aparece.', h:'#grooming #criativo #arte'},
+    {t:'Importância de banho regular', d:'Por que, com qual frequência, o que muda. Educação = cliente fiel.', h:'#educacao #higiene #saude'},
+    {t:'Pet velhinha lindinha', d:'Seu trabalho torna a vida da velhinha melhor. Fofura + coração.', h:'#velha #amor #fofura'},
+    {t:'Pós-atendimento care', d:'Dicas de como manter o pet lindo em casa entre um atendimento e outro.', h:'#cuidado #emcasa #manutencao'},
+    {t:'Promo casal de pets', d:'Levar dois juntos sai mais barato. Incentiva.', h:'#promocao #casal #economia'},
+    {t:'Satisfação do cliente humano', d:'Reação ao ver o resultado, foto ao lado do pet. Testemunho.', h:'#satisfacao #resultado #felicidade'},
+    {t:'Meme/humor com pet', d:'Algo tipo "quando o dono vê o preço" e o pet estraga em casa de novo. Relacionável.', h:'#meme #humor #relatable'}]},
+  educacao: {nome:'📚 Educação e cursos', kw:['educacao','curso','professor','aula','escola','ingles','idioma','reforco','mentoria','infoproduto'], ideias:[
+    {t:'Mini-aula de 60 segundos', d:'Ensine UM conceito pequeno e útil em 1 minuto. Entrega valor de graça e mostra como você ensina.', h:'#minianula #aprenda #dica'},
+    {t:'Erro que todo iniciante comete', d:'Mostre o erro clássico da sua área e como corrigir. O aluno se identifica na hora.', h:'#erroscomuns #iniciante #aprendizado'},
+    {t:'Resultado de aluno', d:'Compartilhe uma conquista de aluno (nota, aprovação, primeira conversa em inglês...). Prova que seu método funciona.', h:'#resultado #aluno #orgulho'},
+    {t:'Teste seus conhecimentos', d:'Faça uma pergunta desafio e peça a resposta nos comentários. Revele a resposta no dia seguinte.', h:'#quiz #desafio #teste'},
+    {t:'Por que eu ensino isso', d:'Conte sua história: como você chegou até aqui e o que te move. Conexão emocional matricula mais que anúncio.', h:'#minhahistoria #proposito #educacao'},
+    {t:'Dica pra passar em prova', d:'Técnica de estudo, mnemônica, trick. Conteúdo que pessoal salva e compartilha.', h:'#dicadeestudo #prova #tecnica'},
+    {t:'Dúvida que vira post', d:'Aquela pergunta que todo aluno faz. Responda direto.', h:'#duvida #faq #esclarecimento'},
+    {t:'Aula ao vivo', d:'Transmissão ao vivo de aula. Direta, genuína, gera engajamento.', h:'#live #aula #comigo'},
+    {t:'Depoimento de aluno transformado', d:'De alguém que era ruim em X e agora é ótimo. Inspiração.', h:'#transformacao #sucesso #história'},
+    {t:'Qual é o melhor método pra aprender', d:'Seu método específico, por que funciona, como começar. Breve.', h:'#metodo #educacao #aprendizado'},
+    {t:'Recurso gratuito', d:'Planilha, template, checklist que você criou. Valor de graça gera trust.', h:'#gratis #recurso #valor'},
+    {t:'Cronograma de aprendizado', d:'Como montar rotina de estudo, dias, horas. Educação que ajuda.', h:'#rotina #planejamento #organizacao'},
+    {t:'Certificação/ prova resultado', d:'Seu aluno passou em algo? Conseguiu emprego? Mostre.', h:'#certificacao #resultado #sucesso'},
+    {t:'Linguagem simples vs complicada', d:'Explique conceito complicado de forma super simples. Você diferencia.', h:'#educacao #clareza #compreensao'},
+    {t:'Pergunta de aluno', d:'Aluno mandou pergunta legítima? Faça post respondendo. Ajuda vários.', h:'#pergunta #resposta #ajuda'},
+    {t:'Rotina de quem estuda comigo', d:'Um dia da vida do aluno: estudou X horas, fez Y exercícios. Mostra comprometimento.', h:'#rotina #disciplina #foco'},
+    {t:'Material que uso', d:'Qual livro, aplicativo, plataforma? Recomendação de especialista.', h:'#recomendacao #material #recursos'},
+    {t:'Insegurança comum de aluno', d:'"Tenho medo de ficar para trás", "acho que não consigo". Você valida e encoraja.', h:'#emocao #apoio #confianca'},
+    {t:'Mudança de vida após aprender', d:'Cliente que antes não podia fazer X e agora pode. Resultado real.', h:'#transformacao #resultado #possibilidade'},
+    {t:'Atalho de aprendizado', d:'Life hack que economiza horas de estudo. Você é prestativo.', h:'#atalho #economia #inteligente'},
+    {t:'Combinação de conhecimentos', d:'Conceito A + Conceito B = algo novo. Mostra profundidade.', h:'#conhecimento #criatividade #conexao'},
+    {t:'Motivação pura', d:'Post inspirador sobre por que vale a pena aprender isso. Engaja.', h:'#motivacao #proposito #futuro'},
+    {t:'Aula por tipo de aprendiz', d:'Visual learner, auditivo, cinestésico. Você adapta. Inclusão.', h:'#aprendizado #inclusao #estilos'}]},
+  artesanato: {nome:'🎨 Artesanato e criativos', kw:['artesanato','croche','personalizado','festa','decoracao','papelaria criativa','laco','biscuit','costura','bordado'], ideias:[
+    {t:'Processo de criação (timelapse)', d:'Vídeo acelerado da peça nascendo do zero até pronta. As pessoas se encantam vendo a mágica acontecer.', h:'#processocriativo #feitoamao #timelapse'},
+    {t:'Encomenda saindo do forno', d:'Mostre uma encomenda pronta e embalada, contando para que ocasião foi feita. Inspira novos pedidos iguais.', h:'#encomenda #personalizado #feitocomamor'},
+    {t:'Ideia de presente personalizado', d:'Sugira sua peça como presente para uma data próxima (aniversário, dia das mães...). Plante a semente antes da data!', h:'#presentepersonalizado #ideiadepresente'},
+    {t:'Materiais que eu uso', d:'Mostre seus materiais favoritos e por que a qualidade deles importa no resultado final. Justifica seu preço.', h:'#materiais #qualidade #artesa'},
+    {t:'Peça disponível para pronta entrega', d:'Foto caprichada da peça pronta com preço e chamada "chama no WhatsApp". Facilite a compra por impulso.', h:'#prontaentrega #disponivel #compreagora'},
+    {t:'Customização pedido do cliente', d:'Um cliente pediu algo personalizado, mostra o resultado único. Criativo demais.', h:'#customizacao #personalizado #unico'},
+    {t:'Detalhe que faz diferença', d:'Close em bordado, pintura, acabamento que mostra maestria.', h:'#detalhe #qualidade #precisao'},
+    {t:'Passo a passo de uma peça', d:'Tutorial de como fazer um artesanato similar. Mostra que você sabe do que fala.', h:'#tutorial #passoapasso #comohacer'},
+    {t:'Encomenda surpresa aberta', d:'Cliente abrindo a encomenda que você fez. Reação genuína.', h:'#unboxing #surpresa #emocao'},
+    {t:'Evolução da sua técnica', d:'Fotos do começo da sua jornada até agora. Crescimento.', h:'#evolucao #jornada #crescimento'},
+    {t:'Peça de arte maior que vida', d:'Que tal um projeto grande que levou semanas? Mostra comprometimento.', h:'#grandeobra #arte #dedicacao'},
+    {t:'Cor/padrão em tendência', d:'Aquela cor/padrão que tá tudo mundo amando? Você faz.', h:'#trending #cor #padrão'},
+    {t:'Colaboração com cliente', d:'Você fez com a cliente, ela aparece na foto. Relacionamento.', h:'#collab #parceria #cliente'},
+    {t:'Antes e depois de restauração', d:'Peça antiga/danificada que você recuperou. Transformação.', h:'#restauracao #antesedepois #transformacao'},
+    {t:'Dica: como conservar peça artesanal', d:'Pessoas não sabem como cuidar. Você educa e cria relação.', h:'#cuidado #conservacao #dica'},
+    {t:'Oferta: combo presenteável', d:'Vários pequenos juntos saem mais barato. Facilita compra.', h:'#combo #oferta #economia'},
+    {t:'Peça em diferentes cores/versões', d:'Mesmo design em opções de cor. Mostra versatilidade.', h:'#opcoes #criatividade #variedade'},
+    {t:'Orgulho artesanal', d:'Você finalizou algo que amou fazer. Compartilhe essa alegria.', h:'#orgulho #satisfacao #arte'},
+    {t:'Referência inspiradora', d:'Você foi inspirado por X pra criar Y. Mostra processo criativo.', h:'#inspiracao #criatividade #referencia'},
+    {t:'Peça que é útil + linda', d:'Não é só decorativo, tem função. Design thinking.', h:'#funcional #practico #design'},
+    {t:'Comunidade maker/criadora', d:'Você segue outros artistas? Colabora, indica? Comunidade cresce.', h:'#comunidade #makers #arte'},
+    {t:'Peça vegana/ecológica/sustentável', d:'Materiais conscientes = mercado novo que valoriza isso.', h:'#sustentavel #ecofriendly #consciencia'},
+    {t:'Storytelling: por que criou isso', d:'Qual era o problema e como sua peça soluciona. Emocional.', h:'#historia #proposito #criatividade'}]},
+  geral: {nome:'⭐ Serve para todo mundo', kw:[], ideias:[
+    {t:'Apresente-se de novo', d:'De tempos em tempos, poste um "oi, eu sou..." contando quem você é e o que faz. Sempre há seguidor novo que não te conhece.', h:'#quemsou #apresentacao #prazer'},
+    {t:'Bastidores do seu trabalho', d:'Mostre o que ninguém vê: a preparação, a organização, os perrengues. Autenticidade conecta mais que perfeição.', h:'#bastidores #vidareal #trabalho'},
+    {t:'Responda uma pergunta frequente', d:'Pegue a pergunta que mais chega no seu direct/WhatsApp e responda em post. Conteúdo garantidamente útil.', h:'#perguntaserespostas #faq #duvidas'},
+    {t:'Depoimento de cliente', d:'Compartilhe um elogio recebido (print ou vídeo, com permissão). Deixe seus clientes venderem por você.', h:'#depoimento #clientefeliz #confianca'},
+    {t:'Conteúdo de data comemorativa', d:'Olhe o 📅 Calendário do Postou: sempre há uma data próxima para criar um post temático e pegar carona no assunto do momento!', h:'#datacomemorativa #hoje'},
+    {t:'Seu dia de trabalho', d:'Rotina real: acordei, fiz, atendi, consegui. Humaniza.', h:'#rotina #vidareal #diaaadia'},
+    {t:'Erro que você cometeu', d:'Conta um erro honesto e o que aprendeu. Vulnerabilidade conecta.', h:'#humildade #aprendizado #erro'},
+    {t:'Agradecimento', d:'Obrigado seguidores, clientes, comunidade. Gratidão engaja.', h:'#obrigada #gratidao #comunidade'},
+    {t:'Meta/objetivo', d:'Compartilhe um objetivo seu. Seguidores vibram com você.', h:'#meta #objetivo #foco'},
+    {t:'Reflexão profunda', d:'Pensamento que mexeu com você. Conteúdo que fica.', h:'#reflexao #pensamento #sabedoria'},
+    {t:'Celebração de sucesso', d:'Algo deu certo, comemorou com a gente? Compartilha.', h:'#celebracao #sucesso #conquista'},
+    {t:'Pedir feedback', d:'Qual conteúdo vocês amam mais? Votação nos comentários.', h:'#feedback #enquete #participacao'},
+    {t:'Link na bio', d:'Avise novo link na bio (curso, produto, agendamento). CTAs.', h:'#linknaboa #cliquelá #comopedir'},
+    {t:'Recordação antiga', d:'Foto de anos atrás. Nostalgia engaja.', h:'#throwback #nostalgia #memoria'},
+    {t:'Meme/humor da comunidade', d:'Piada que sua audiência entende. Riso = engajamento.', h:'#meme #humor #relatable'},
+    {t:'Dica de vida', d:'Conselho genuíno que você gostaria de ter recebido antes.', h:'#dica #conselho #vidavida'},
+    {t:'Curiosidade sobre você', d:'Fato interessante: "comecei em 2010", "tenho 3 gatos". Conhecimento pessoal.', h:'#curiosidade #conheceme #fato'},
+    {t:'Enquete rapida', d:'Qual você prefere? Café ou chá? Pizza ou hambúrguer? Participação fácil.', h:'#enquete #poll #participacao'},
+    {t:'Citação inspiradora', d:'Frase que mexe com você. Compartilha significado.', h:'#citacao #inspiracao #motivacao'},
+    {t:'Convite para comunidade', d:'Grupo no WhatsApp, Discord, Telegram. Proximidade.', h:'#comunidade #grupo #proximidade'},
+    {t:'Lição aprendida', d:'Algo difícil que passou e tirou lição. Vulnerabilidade.', h:'#licao #crescimento #aprendizado'},
+    {t:'Expectativa vs Realidade', d:'Como imaginava vs como é. Humor e honestidade.', h:'#expectativa #realidade #humor'},
+    {t:'Resposta criativa a trend', d:'Aquele trend que todo mundo faz? Você faz versão sua.', h:'#trend #criatividade #participacao'},
+    {t:'Foco no cliente/comunidade', d:'Algo que você faz pensando no bem da sua comunidade.', h:'#comunidade #empatia #cuidado'}]},
+  sociopolitico: {nome:'🗣 Social e política', kw:['politica','direita','esquerda','diretas','comparacao','eleicao','voto','social','ativismo','direitos','igualdade'], ideias:[
+    {t:'Seu posicionamento claro', d:'O que você acredita e por que. Honestidade sobre valores.', h:'#posicionamento #valores #voz'},
+    {t:'Educação cívica', d:'Como funciona eleição? Qual é o meu direito? Informação clara.', h:'#educacao #civica #conhecimento'},
+    {t:'Análise imparcial de tema', d:'Apresenta os dois lados de forma justa. Reflexão.', h:'#analise #reflexao #equilibrio'},
+    {t:'Injustiça que viu', d:'Algo errado que testemunhou. Denúncia construtiva.', h:'#injustica #voz #denuncia'},
+    {t:'Movimento social que apoia', d:'ONG, causa, movimento. Você apoia? Compartilha.', h:'#ativismo #causa #movimento'},
+    {t:'Direito que você conhece', d:'Educação sobre direito do trabalhador, consumidor, etc.', h:'#direitos #educacao #conhecimento'},
+    {t:'Diversidade e inclusão', d:'Por que seu espaço é pra todo mundo. Ações concretas.', h:'#diversidade #inclusao #acolhimento'},
+    {t:'Combate a fake news', d:'Aquela informação falsa que circula? Esclarece.', h:'#fakenews #informacao #veracidade'},
+    {t:'Privilege / realidade diferente', d:'Reconheça privilégios. Entenda realidade de quem tem menos.', h:'#privilegio #empatia #realidade'},
+    {t:'Esperança futura', d:'Visão positiva do mundo que quer construir.', h:'#esperanca #futuro #possibilidade'},
+    {t:'Voto informado', d:'Orientação sobre como votar bem, pesquisar candidato.', h:'#voto #informado #eleicao'},
+    {t:'Diálogo construtivo', d:'Discorda mas respeita. Mostra maturidade política.', h:'#dialogo #respeito #maduridade'},
+    {t:'Números e dados', d:'Estatística sobre tema importante. Fatos falam.', h:'#dados #numeros #evidencia'},
+    {t:'História relevante', d:'Contexto histórico que ajuda entender presente.', h:'#historia #contexto #aprendizado'},
+    {t:'Apoio a quem sofre', d:'Solidariedade com grupos marginalizados. Você se importa.', h:'#solidariedade #empatia #cuidado'},
+    {t:'Responsabilidade individual', d:'Ações pequenas que cada um pode fazer. Empoderamento.', h:'#responsabilidade #acao #poder'},
+    {t:'Transparência', d:'Você errou? Reconhece e aprende. Maturidade.', h:'#transparencia #humildade #aprendizado'},
+    {t:'Esperança em mudança', d:'Histórias de pessoas que conseguiram transformar coisa.', h:'#esperanca #mudanca #possibilidade'},
+    {t:'Quebra de tabu', d:'Conversa sobre tema tabu (saúde mental, racismo, etc).', h:'#tabu #conversa #desmistificacao'},
+    {t:'Ação local', d:'O que você pode fazer na sua comunidade agora.', h:'#acao #local #comunidade'}]}
+};
+function nichoSugerido(){
+  const f = filtroAtivo();
+  const c = f ? clientePorId(f) : (dados.clientes[0]||null);
+  if(c && c.nicho && Object.keys(NICHOS_PREDEFINIDOS).includes(c.nicho)) return c.nicho;
+  return 'geral';
+}
+function abrirSugestoes(){
+  if(!dados.clientes.length){ abrirModal('<h3>Ops!</h3><p>Cadastre um usuário primeiro, na aba Usuários.</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
+  const f = filtroAtivo();
+  abrirModal(`
+    <h3>✨ Ideias por nicho</h3>
+    <p style="font-size:.85rem;color:var(--muted);margin-bottom:8px">Formatos que funcionam, prontos para adaptar. Guarde as que combinarem — depois é só personalizar e 📌 virar postagem!</p>
+    <label>Nicho</label>
+    <select id="sNicho" onchange="desenharSugestoes()">${Object.entries(SUGESTOES_NICHO).map(([k,v])=>`<option value="${k}" ${k===nichoSugerido()?'selected':''}>${v.nome}</option>`).join('')}</select>
+    <label>Guardar para o usuário</label>
+    <select id="sCliente">${dados.clientes.map(c=>`<option value="${c.id}" ${f===c.id?'selected':''}>${escapar(c.nome)}</option>`).join('')}</select>
+    <div id="listaSugestoes" style="margin-top:10px"></div>
+    <div class="rodape"><button class="btn" onclick="fecharModal()">Fechar</button></div>`);
+  desenharSugestoes();
+}
+function desenharSugestoes(){
+  const nicho = document.getElementById('sNicho').value;
+  document.getElementById('listaSugestoes').innerHTML = SUGESTOES_NICHO[nicho].ideias.map((i,idx)=>`
+    <div style="border:1px solid #e5e0ec;border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <b style="font-size:.9rem">${i.t}</b>
+      <p style="font-size:.82rem;margin:4px 0">${i.d}</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:.75rem;color:#7c3aed">${i.h}</span>
+        <button class="btn-mini" onclick="guardarSugestao('${nicho}',${idx},this)">💾 Guardar ideia</button>
+      </div>
+    </div>`).join('');
+}
+function guardarSugestao(nicho, idx, btn){
+  const i = SUGESTOES_NICHO[nicho].ideias[idx];
+  dados.ideias.push({id:novoId(), clienteId:parseInt(document.getElementById('sCliente').value), titulo:i.t, texto:i.d, hashtags:i.h});
+  tocar();
+  btn.textContent = '✔ Guardada!';
+  btn.disabled = true;
+}
+
+/* ---------- BOLINHA / LOGO DO USUÁRIO ---------- */
+function iniciais(nome){ return (String(nome||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]||'').join('') || '?').toUpperCase(); }
+function fbHandle(u){
+  if(!u) return '';
+  const id = String(u).match(/profile\.php\?id=(\d+)/);
+  if(id) return id[1];
+  const van = String(u).match(/facebook\.com\/([A-Za-z0-9.\-]+)/);
+  if(van) return van[1];
+  return String(u).replace(/^@/,'').replace(/\s/g,'');
+}
+function avatarSrc(c){
+  if(c && c.foto) return c.foto;                        // foto personalizada (link ou upload)
+  const fb = c && (c.redes||[]).find(r=>r.tipo==='facebook');
+  const h = fb ? fbHandle(fb.usuario) : '';
+  return h ? 'https://graph.facebook.com/'+h+'/picture?type=large' : '';  // logo automática da página do Facebook
+}
+function avatarHtml(c, size){
+  const s = size||44;
+  const src = avatarSrc(c);
+  const ini = iniciais(c && c.nome);
+  const img = src ? `<img src="${escapar(src)}" alt="" style="width:100%;height:100%;object-fit:cover;position:absolute;inset:0" onerror="this.remove()">` : '';
+  return `<div class="avatar" style="width:${s}px;height:${s}px;background:${(c&&c.cor)||'#7c3aed'};font-size:${Math.round(s*0.38)}px">${escapar(ini)}${img}</div>`;
+}
+
+/* ---------- TENDÊNCIAS DO MOMENTO (curadoria da amiga, atualizável) ---------- */
+const TENDENCIAS_PERIODO = 'julho–agosto 2026';
+const TENDENCIAS_GERAIS = [
+  {t:'Vídeo curto com legenda na tela', d:'Muita gente assiste sem som, amiga! Coloca uma legenda grande já nos primeiros segundos que o alcance agradece. 💛', h:'#reels #videocurto'},
+  {t:'Carrossel que ensina algo', d:'Post que ensina um passo a passo é campeão de salvamento — e salvar vale ouro pro alcance. Monta em 4 ou 5 telinhas!', h:'#carrossel #dicas'},
+  {t:'Bastidores sem produção', d:'O real está rendendo mais que o perfeito. Mostra os bastidores, o "como eu faço", o dia a dia — as pessoas amam se sentir por dentro.', h:'#bastidores #real'},
+  {t:'Gancho nos 2 primeiros segundos', d:'Começa com uma frase que prende ("Para de fazer isso se..."). Os 2 primeiros segundos decidem se a pessoa fica ou passa. 😉', h:'#dica'},
+  {t:'Ganchos de agosto', d:'Já pensa no Dia dos Pais (09/08) e no Dia do Estudante (11/08)! Datas rendem post temático e vendas — dá uma olhada no 📅 Calendário.', h:'#diadospais #agosto'}
+];
+const TENDENCIAS_NICHO = {
+  moda:[
+    {t:'Looks de transição de estação', d:'O friozinho tá indo embora! Mostra como usar as peças de inverno na transição pra primavera — a galera ama ideia de reaproveitar o look.', h:'#looktransicao #moda'},
+    {t:'Provador em vídeo (try-on)', d:'Experimenta as peças girando pra mostrar o caimento. Vale mais que foto parada e ajuda quem compra online a se imaginar. 💛', h:'#tryon #provador'},
+    {t:'Achadinhos da semana', d:'Um "olha esse achadinho!" com a peça e o preço. Formato leve, gera desejo e aquele comentário "quero!".', h:'#achadinhos #novidades'}],
+  beleza:[
+    {t:'Antes e depois em timelapse', d:'Acelera o procedimento do começo ao fim — é hipnotizante e prova seu trabalho sem precisar dizer nada. 💛', h:'#antesedepois #timelapse'},
+    {t:'Skincare do friozinho', d:'Pele ressecada no fim do inverno é a dúvida do momento. Dá 3 dicas rápidas de hidratação — conteúdo útil que salva e compartilha.', h:'#skincare #pelehidratada'},
+    {t:'Tutorial de 30 segundos', d:'Um passo a passo rapidinho (sobrancelha, penteado, make do dia). Curto, direto e salvável!', h:'#tutorial #beleza'}],
+  comida:[
+    {t:'Comfort food de inverno', d:'Fondue, caldos, chocolate quente... o friozinho pede aconchego! Vídeo bem de pertinho com o vapor subindo dá água na boca.', h:'#comfortfood #inverno'},
+    {t:'"Monta comigo"', d:'Mostra o prato ou o pedido sendo montado do zero. As pessoas amam ver o processo e já ficam com fome de pedir. 😋', h:'#montacomigo'},
+    {t:'Combo de Dia dos Pais', d:'Prepara um combo especial pro Dia dos Pais (09/08) e divulga com antecedência. Data forte pra quem trabalha com comida!', h:'#diadospais #combo'}],
+  fitness:[
+    {t:'"Projeto primavera começa agora"', d:'A estação mais quente tá chegando e todo mundo quer começar. Surfa nessa motivação: "não espere segunda, comece hoje!"', h:'#projetoverao #foco'},
+    {t:'Treino de 10 min em casa', d:'Sequência curtinha que qualquer um faz em casa. Conteúdo salvável que sempre rende — e mostra o seu jeito de ensinar.', h:'#treinoemcasa #10minutos'},
+    {t:'Erro comum + correção', d:'"Você está fazendo esse exercício errado" prende demais. Mostra o errado e o certo — a galera se identifica na hora.', h:'#dicadetreino'}],
+  lojinha:[
+    {t:'Presente de Dia dos Pais', d:'Monta sugestões de presente pro Dia dos Pais (09/08) e mostra tudo embaladinho. Facilita a vida de quem não sabe o que dar!', h:'#diadospais #presente'},
+    {t:'Chegou novidade (unboxing)', d:'Abre a caixa das novidades com a sua reação de verdade. Avisa que é por ordem de chegada — cria aquela urgência gostosa.', h:'#chegounaloja #unboxing'},
+    {t:'Top 3 mais vendidos', d:'Ranking dos queridinhos com preço e como comprar. Prova social + facilita a escolha de quem está na dúvida.', h:'#maisvendidos'}],
+  servicos:[
+    {t:'A dúvida que todo cliente tem', d:'Responde em vídeo curto a pergunta nº1 da sua área. Se um pergunta, mil querem saber — e você aparece como especialista. 💛', h:'#dica #especialista'},
+    {t:'Caso antes e depois', d:'Mostra um trabalho concluído (sem expor o cliente): como chegou e como ficou. É o seu portfólio em movimento!', h:'#antesedepois #trabalhofeito'},
+    {t:'Homenagem de Dia dos Pais', d:'Se faz sentido pro seu serviço, um post de Dia dos Pais (09/08) aproxima e humaniza. Ganchos de data sempre rendem.', h:'#diadospais'}],
+  pets:[
+    {t:'Cuidados pet no friozinho', d:'Frio pede carinho extra: banho morninho, hidratação, casaquinho. Dono cuidadoso ama essas dicas e vira cliente fiel. 💛', h:'#cuidadospet #inverno'},
+    {t:'Pet da semana', d:'Elege um bichinho destaque, conta o nome e uma gracinha dele. Os donos amam ver o pet famoso e compartilham!', h:'#petdasemana'},
+    {t:'Antes e depois do banho', d:'A transformação do pet bagunçado pro cheiroso com lacinho. Fofura converte e rende compartilhamento.', h:'#banhoetosa #antesedepois'}],
+  educacao:[
+    {t:'Segundo semestre / recomeço', d:'Começou o segundo semestre! Fala de recomeço, metas e organização — momento perfeito pra atrair aluno novo.', h:'#voltaasaulas #recomeço'},
+    {t:'Mini-aula de 60 segundos', d:'Ensina UM conceito útil em 1 minuto. Entrega valor de graça e mostra como você ensina — atrai matrícula.', h:'#minianula #aprenda'},
+    {t:'Dia do Estudante (11/08)', d:'Faz um post especial: uma dica, uma homenagem ou uma condição especial. Data com a sua cara!', h:'#diadoestudante'}],
+  artesanato:[
+    {t:'Presentes de Dia dos Pais', d:'Peças personalizadas pra presentear no Dia dos Pais (09/08). Divulga com antecedência e já abre a agenda de encomendas!', h:'#diadospais #personalizado'},
+    {t:'Processo em timelapse', d:'A peça nascendo do zero, aceleradinha. As pessoas se encantam vendo a mágica acontecer — e valoriza o seu trabalho manual. 💛', h:'#feitoamao #processocriativo'},
+    {t:'Encomenda pronta saindo', d:'Mostra uma encomenda pronta e embalada, contando pra que ocasião foi. Inspira novos pedidos igualzinhos!', h:'#encomenda #feitocomamor'}],
+  geral:[
+    {t:'Apresente-se de novo', d:'Sempre tem seguidor novo que ainda não te conhece! De vez em quando um "oi, eu sou..." reconecta e humaniza. 💛', h:'#quemsou'},
+    {t:'Enquete nos stories', d:'Uma perguntinha do dia ("café ou chá?") ou "qual você prefere?". Engajamento fácil e você conhece melhor o seu público.', h:'#enquete'},
+    {t:'Depoimento de cliente', d:'Reposta um elogio recebido (com permissão). Deixa seus clientes venderem por você — prova social é ouro!', h:'#depoimento #clientefeliz'}]
+};
+function abrirTendencias(){
+  if(!dados.clientes.length){ abrirModal('<h3>Ops!</h3><p>Cadastre um usuário primeiro, na aba Usuários.</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
+  const f = filtroAtivo();
+  abrirModal(`
+    <h3>🔥 Tendências do momento</h3>
+    <p style="font-size:.85rem;color:var(--muted)">Oi! 💛 Separei com carinho o que está rendendo neste período (<b>${TENDENCIAS_PERIODO}</b>) — umas dicas de amiga pra você surfar na onda. Escolhe o nicho, guarda as que combinarem com você e é só virar postagem!</p>
+    <label>Nicho</label>
+    <select id="tNicho" onchange="desenharTendencias()">${Object.entries(SUGESTOES_NICHO).map(([k,v])=>`<option value="${k}" ${k===nichoSugerido()?'selected':''}>${v.nome}</option>`).join('')}</select>
+    <label>Guardar para o usuário</label>
+    <select id="tCliente">${dados.clientes.map(c=>`<option value="${c.id}" ${f===c.id?'selected':''}>${escapar(c.nome)}</option>`).join('')}</select>
+    <div id="listaTendencias" style="margin-top:10px"></div>
+    <div class="rodape"><button class="btn" onclick="fecharModal()">Fechar</button></div>`);
+  desenharTendencias();
+}
+function cardTendencia(i, tipo, nicho, idx){
+  return `<div style="border:1px solid #f0d9ec;border-radius:12px;padding:10px 12px;margin-bottom:8px;background:linear-gradient(180deg,#ffffff,#fdf4fb)">
+    <b style="font-size:.88rem">${i.t}</b>
+    <p style="font-size:.82rem;margin:4px 0">${i.d}</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:.74rem;color:#7c3aed">${i.h||''}</span>
+      <button class="btn-mini" onclick="guardarTendencia('${tipo}','${nicho}',${idx},this)">💾 Guardar ideia</button>
+    </div>
+  </div>`;
+}
+function desenharTendencias(){
+  const nicho = document.getElementById('tNicho').value;
+  const doNicho = TENDENCIAS_NICHO[nicho] || TENDENCIAS_NICHO.geral;
+  const subT = t => `<div style="font-size:.78rem;font-weight:700;color:#7c3aed;margin:10px 0 6px">${t}</div>`;
+  document.getElementById('listaTendencias').innerHTML =
+    subT('✨ Feitas pro seu nicho') + doNicho.map((i,idx)=>cardTendencia(i,'nicho',nicho,idx)).join('') +
+    subT('🌎 Valem pra todo mundo') + TENDENCIAS_GERAIS.map((i,idx)=>cardTendencia(i,'geral',nicho,idx)).join('');
+}
+function guardarTendencia(tipo, nicho, idx, btn){
+  const i = tipo==='geral' ? TENDENCIAS_GERAIS[idx] : (TENDENCIAS_NICHO[nicho]||TENDENCIAS_NICHO.geral)[idx];
+  dados.ideias.push({id:novoId(), clienteId:parseInt(document.getElementById('tCliente').value), titulo:i.t, texto:i.d, hashtags:i.h||''});
+  tocar();
+  btn.textContent = '✔ Guardada!';
+  btn.disabled = true;
+}
+
+/* ---------- SUGERIR AGENDA (dias e horários por nicho) ---------- */
+const NICHO_AGENDA = {
+  moda:{dias:[2,4,6], horas:['12:00','19:00','20:00']},
+  beleza:{dias:[2,4,5], horas:['10:00','13:00','19:00']},
+  comida:{dias:[4,5,6], horas:['11:30','18:30','20:00']},
+  fitness:{dias:[1,3,5], horas:['06:30','12:00','18:30']},
+  lojinha:{dias:[2,4,6], horas:['10:00','19:00','21:00']},
+  servicos:{dias:[1,2,4], horas:['09:00','12:00','18:00']},
+  pets:{dias:[3,5,6], horas:['12:00','18:00','19:00']},
+  educacao:{dias:[1,3,4], horas:['07:00','12:00','20:00']},
+  artesanato:{dias:[2,4,6], horas:['10:00','15:00','20:00']},
+  geral:{dias:[2,4,6], horas:['09:00','12:00','19:00']}
+};
+const DIAS_SEMANA = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+/* Ritmo ideal de cada rede (posts/semana sugerido) */
+const RITMO_REDE = {
+  instagram:{ feed:2, stories:7, reel:2 },   /* feed 2x, stories quase diária, reel 2x */
+  tiktok:{ default:4 },                       /* constante, idealmente 4+ por semana */
+  facebook:{ default:1 },                     /* 1-2x por semana */
+  linkedin:{ default:1 },                     /* 1-2x profissional */
+  youtube:{ default:0.5 },                    /* 1 vez a cada 2 semanas */
+  x:{ default:1 },
+  pinterest:{ default:2 },
+  kwai:{ default:2 },
+  telegram:{ default:1 },
+  whatsapp:{ default:0 },                     /* não é calendário */
+  outra:{ default:1 }
+};
+/* Datas comemorativas por país */
+const DATAS_COMEMORATIVAS = {
+  brasil: [
+    {data:'2026-01-01', nome:'🎉 Ano Novo'},
+    {data:'2026-02-03', nome:'💜 Carnaval'},
+    {data:'2026-03-13', nome:'👹 Sexta-feira 13'},
+    {data:'2026-04-03', nome:'🐰 Páscoa'},
+    {data:'2026-04-21', nome:'🇧🇷 Dia de Tiradentes'},
+    {data:'2026-05-01', nome:'✊ Dia do Trabalho'},
+    {data:'2026-05-10', nome:'👩 Dia das Mães'},
+    {data:'2026-06-20', nome:'🏥 Festa Junina'},
+    {data:'2026-08-09', nome:'👨 Dia dos Pais'},
+    {data:'2026-09-07', nome:'🇧🇷 Independência'},
+    {data:'2026-10-12', nome:'👩‍🦰 Nossa Senhora'},
+    {data:'2026-10-28', nome:'📻 Dia do Servidor'},
+    {data:'2026-11-02', nome:'🕯️ Finados'},
+    {data:'2026-11-15', nome:'🇧🇷 Proclamação'},
+    {data:'2026-11-20', nome:'✊ Consciência Negra'},
+    {data:'2026-12-25', nome:'🎄 Natal'},
+  ],
+  eua: [
+    {data:'2026-01-01', nome:'🎉 New Year'},
+    {data:'2026-02-14', nome:'💕 Valentine\'s Day'},
+    {data:'2026-02-16', nome:'🇺🇸 Presidents\' Day'},
+    {data:'2026-03-17', nome:'☘️ St. Patrick\'s Day'},
+    {data:'2026-04-03', nome:'🐰 Easter'},
+    {data:'2026-05-25', nome:'🇺🇸 Memorial Day'},
+    {data:'2026-06-19', nome:'🎉 Juneteenth'},
+    {data:'2026-07-04', nome:'🇺🇸 Independence'},
+    {data:'2026-09-07', nome:'🇺🇸 Labor Day'},
+    {data:'2026-10-31', nome:'👻 Halloween'},
+    {data:'2026-11-26', nome:'🦃 Thanksgiving'},
+    {data:'2026-12-25', nome:'🎄 Christmas'},
+  ]
+};
+function nichoDaChave(c){
+  if(c && c.nicho && Object.keys(NICHOS_PREDEFINIDOS).includes(c.nicho)) return c.nicho;
+  return 'geral';
+}
+let agendaSugerida = null;
+function sugerirAgenda(clienteId){
+  const c = clientePorId(clienteId);
+  if(!c) return;
+  const temMeta = c.metaPosts && c.metaPosts>0;
+  const metaPorMes = temMeta ? c.metaPosts : 8;
+  const nicho = nichoDaChave(c);
+  const cfg = NICHO_AGENDA[nicho] || NICHO_AGENDA.geral;
+  const ideias = SUGESTOES_NICHO[nicho].ideias;
+  const seed = (c.id||0);
+  const hoje = new Date();
+  const start = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()+1);
+  const janela = 28;
+  const chave = dt => dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate();
+  const usados = new Set();
+  const escolhidas = [];
+
+  // Distribuir a meta por rede
+  const redes = (c.redes||[]).filter(r=>r.tipo!=='whatsapp').map(r=>r.tipo);
+  const distribuicao = {};
+  redes.forEach(r=>{
+    const ritmo = RITMO_REDE[r] || RITMO_REDE.outra;
+    const freq = ritmo.default || ritmo.feed || 1;
+    distribuicao[r] = Math.max(1, Math.round(metaPorMes * freq / 4));  // aproximado por semana
+  });
+  const totalParaDistribuir = Object.values(distribuicao).reduce((a,b)=>a+b, 0);
+
+  // Gerar posts com distribuição por rede
+  for(let i=0; i<Math.min(metaPorMes, 20); i++){  // limite de 20 para não ficar muito grande
+    const alvo = Math.round(i * janela / metaPorMes) + 1 + (seed % 3);
+    const diaPref = cfg.dias[(i + seed) % cfg.dias.length];
+    let pick = null;
+    for(let raio=0; raio<=janela && !pick; raio++){
+      for(const off of [alvo+raio, alvo-raio]){
+        if(off<1) continue;
+        const dt = new Date(start.getFullYear(), start.getMonth(), start.getDate()+off-1);
+        if(dt.getDay()===diaPref && !usados.has(chave(dt))){ pick=dt; break; }
+      }
+    }
+    for(let raio=0; raio<=janela+7 && !pick; raio++){
+      for(const off of [alvo+raio, alvo-raio]){
+        if(off<1) continue;
+        const dt = new Date(start.getFullYear(), start.getMonth(), start.getDate()+off-1);
+        if(cfg.dias.includes(dt.getDay()) && !usados.has(chave(dt))){ pick=dt; break; }
+      }
+    }
+    for(let off=1; off<=janela+14 && !pick; off++){
+      const dt = new Date(start.getFullYear(), start.getMonth(), start.getDate()+off-1);
+      if(!usados.has(chave(dt))) pick=dt;
+    }
+    if(pick){
+      usados.add(chave(pick));
+      const rede = redes[i % redes.length];
+      const iso = pick.getFullYear()+'-'+String(pick.getMonth()+1).padStart(2,'0')+'-'+String(pick.getDate()).padStart(2,'0');
+      const ideia = ideias[i % ideias.length];
+      escolhidas.push({
+        clienteId, data:iso, dow:pick.getDay(),
+        hora: cfg.horas[(i + seed) % cfg.horas.length],
+        titulo:ideia.t, texto:ideia.d, hashtags:ideia.h,
+        rede: rede
+      });
+    }
+  }
+  escolhidas.sort((a,b)=>a.data.localeCompare(b.data));
+  agendaSugerida = escolhidas;
+
+  // Evitar colisões
+  const ocupados = new Set(dados.posts.filter(p=>p.hora).map(p=>p.data+'@'+p.hora));
+  agendaSugerida.forEach(sg=>{
+    let tentativas = 0;
+    while(ocupados.has(sg.data+'@'+sg.hora) && tentativas < cfg.horas.length){
+      sg.hora = cfg.horas[(cfg.horas.indexOf(sg.hora)+1) % cfg.horas.length];
+      tentativas++;
+    }
+    ocupados.add(sg.data+'@'+sg.hora);
+  });
+
+  abrirModalAgenda2();
+}
+function abrirModalAgenda2(){
+  if(!agendaSugerida || !agendaSugerida.length) return;
+  const c = clientePorId(agendaSugerida[0].clienteId);
+  const nicho = nichoDaChave(c);
+  let html = `
+    <h3>🗓 Agenda 2.0 — ${escapar(c.nome)}</h3>
+    <p style="font-size:.85rem;color:var(--muted)">Montei <b>${agendaSugerida.length} posts</b> para as próximas semanas baseado no nicho <b>${SUGESTOES_NICHO[nicho].nome}</b>. Você pode <b>editar, trocar ou remover</b> qualquer um antes de confirmar!</p>
+    <div id="listaAgendaSugerida" style="max-height:300px;overflow:auto;margin:12px 0;border:1px solid #e5e0ec;border-radius:10px;padding:10px">
+      ${agendaSugerida.map((sg, idx)=>`
+        <div id="sg-${idx}" style="border-bottom:1px solid #f0d9ec;padding:10px 0;display:flex;gap:10px;align-items:center">
+          <div style="flex:1">
+            <b style="font-size:.88rem">${dataBR(sg.data)} (${DIAS_SEMANA[sg.dow]}) · ${sg.hora}</b><br>
+            <span style="font-size:.8rem;color:var(--muted)">${escapar(sg.titulo)}</span><br>
+            <span style="font-size:.75rem;color:var(--g2);margin-top:4px">${REDES[sg.rede]?.nome||'Rede'}</span>
+          </div>
+          <button class="btn-mini perigo" onclick="removerDaAgenda(${idx})">🗑</button>
+        </div>
+      `).join('')}
+    </div>
+    <div class="rodape" style="gap:8px">
+      <button class="btn-claro" onclick="agendaSugerida=null;fecharModal()">Cancelar</button>
+      <button class="btn" onclick="confirmarAgenda()" style="flex:1">✅ Adicionar ${agendaSugerida.length} posts</button>
+    </div>`;
+  abrirModal(html);
+}
+function removerDaAgenda(idx){
+  agendaSugerida.splice(idx, 1);
+  abrirModalAgenda2();
+}
+function confirmarAgenda(){
+  if(!agendaSugerida || !agendaSugerida.length) return;
+  const c = clientePorId(agendaSugerida[0].clienteId);
+  const redesPorTipo = {};
+  (c.redes||[]).forEach(r=>{
+    if(!redesPorTipo[r.tipo]) redesPorTipo[r.tipo] = true;
+  });
+  agendaSugerida.forEach(sg=>{
+    dados.posts.push({
+      id:novoId(), clienteId:sg.clienteId, redes:[sg.rede],
+      data:sg.data, hora:sg.hora, tipo:'foto',
+      titulo:sg.titulo, legenda:(sg.texto+'\n\n'+sg.hashtags).trim(),
+      status:'rascunho'
+    });
+  });
+  agendaSugerida = null;
+  fecharModal();
+  trocarAba('calendario');
+  tocar();
+}
+
+function abrirModalIdeia(id){
+  if(!dados.clientes.length){ abrirModal('<h3>Ops!</h3><p>Cadastre um usuário primeiro, na aba Usuários.</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
+  const i = id?dados.ideias.find(x=>x.id===id):null;
+  abrirModal(`
+    <h3>${i?'Editar ideia':'Nova ideia'}</h3>
+    <label>Usuário</label>
+    <select id="mCliente">${dados.clientes.map(x=>`<option value="${x.id}" ${i&&i.clienteId===x.id?'selected':''}>${escapar(x.nome)}</option>`).join('')}</select>
+    <label>Título da ideia</label>
+    <input id="mTitulo" value="${i?escapar(i.titulo):''}" placeholder="Ex.: Vídeo de bastidores">
+    <label>Descrição / legenda pronta</label>
+    <textarea id="mTexto">${i?escapar(i.texto):''}</textarea>
+    <label>Hashtags</label>
+    <input id="mHashtags" value="${i?escapar(i.hashtags):''}" placeholder="#exemplo #dica">
+    <div class="rodape">
+      ${i?`<button class="btn-mini perigo" style="margin-right:auto" onclick="excluirIdeia(${i.id})">🗑 Excluir</button>`:''}
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn" onclick="salvarIdeia(${i?i.id:0})">Salvar</button>
+    </div>`);
+}
+function salvarIdeia(id){
+  const titulo = document.getElementById('mTitulo').value.trim();
+  if(!titulo){ alertaCampo('mTitulo'); return; }
+  const novo = {
+    clienteId: parseInt(document.getElementById('mCliente').value),
+    titulo,
+    texto: document.getElementById('mTexto').value.trim(),
+    hashtags: document.getElementById('mHashtags').value.trim()
+  };
+  if(id){ Object.assign(dados.ideias.find(x=>x.id===id), novo); }
+  else { dados.ideias.push(Object.assign({id:novoId()}, novo)); }
+  fecharModal(); tocar();
+}
+function excluirIdeia(id){ dados.ideias = dados.ideias.filter(x=>x.id!==id); fecharModal(); tocar(); }
+function virarPost(id){
+  const i = dados.ideias.find(x=>x.id===id);
+  const c = clientePorId(i.clienteId);
+  dados.posts.push({id:novoId(), clienteId:i.clienteId, redes:(c&&c.redes?c.redes.map(r=>r.tipo):[]), data:hojeISO(), hora:'', tipo:'foto', titulo:i.titulo, legenda:(i.texto+'\n\n'+i.hashtags).trim(), status:'rascunho'});
+  dados.ideias = dados.ideias.filter(x=>x.id!==id);
+  agendarSalvar();
+  trocarAba('quadro');
+}
+function copiarTexto(id){
+  const i = dados.ideias.find(x=>x.id===id);
+  const texto = (i.texto+'\n\n'+i.hashtags).trim();
+  if(navigator.clipboard){ navigator.clipboard.writeText(texto); }
+}
+function renderIdeias(){
+  const f = filtroAtivo();
+  const lista = dados.ideias.filter(i=>!f||i.clienteId===f);
+  const el = document.getElementById('listaIdeias');
+  if(!lista.length){ el.innerHTML = '<div class="vazio">Nenhuma ideia guardada. Toda ideia boa merece ser anotada! 💡</div>'; return; }
+  el.innerHTML = lista.map(i=>{
+    const p = clientePorId(i.clienteId);
+    return `<div class="cartao cartao-ideia" style="--cor:${p?p.cor:'#999'}">
+      <h4>${escapar(i.titulo)}</h4>
+      <div class="cliente-nome">${p?escapar(p.nome):''}</div>
+      ${i.texto?`<p>${escapar(i.texto)}</p>`:''}
+      ${i.hashtags?`<div class="hashtags">${escapar(i.hashtags)}</div>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-mini" onclick="virarPost(${i.id})">📌 Virar postagem</button>
+        <button class="btn-mini" onclick="copiarTexto(${i.id});this.textContent='✔ Copiado!'">📋 Copiar texto</button>
+        <button class="btn-mini" onclick="abrirModalIdeia(${i.id})">✏️ Editar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ---------- QUADRO ---------- */
+function moverStatus(id, dir){
+  const p = dados.posts.find(x=>x.id===id);
+  const i = STATUS.indexOf(p.status)+dir;
+  if(i>=0 && i<STATUS.length){ p.status = STATUS[i]; tocar(); }
+}
+function renderQuadro(){
+  const f = filtroAtivo();
+  const el = document.getElementById('quadroStatus');
+  el.innerHTML = STATUS.map(s=>{
+    const posts = dados.posts.filter(p=>p.status===s && (!f||p.clienteId===f))
+      .sort((a,b)=>a.data.localeCompare(b.data));
+    return `<div class="coluna"><h3>${STATUS_NOME[s]} (${posts.length})</h3>` +
+      posts.map(p=>{
+        const c = clientePorId(p.clienteId);
+        const idx = STATUS.indexOf(s);
+        return `<div class="cartao-post" style="--cor:${c?c.cor:'#999'}">
+          <b>${escapar(p.titulo)}</b> ${badgesRedes(c, p.redes)}
+          <div class="meta">${c?escapar(c.nome):''} · ${TIPOS[p.tipo]||''} · ${dataBR(p.data)}${p.hora?' '+p.hora:''}</div>
+          <div class="mover">
+            <button class="btn-mini" ${idx===0?'disabled':''} onclick="moverStatus(${p.id},-1)">◀</button>
+            <button class="btn-mini" onclick="abrirModalPost(${p.id})">✏️</button>
+            <button class="btn-mini" ${idx===STATUS.length-1?'disabled':''} onclick="moverStatus(${p.id},1)">▶</button>
+          </div>
+        </div>`;
+      }).join('') + '</div>';
+  }).join('');
+}
+
+/* ---------- MODAL / BACKUP ---------- */
+function abrirTermos(){
+  abrirModal(`<h3>📜 Termos de Uso e Política de Privacidade</h3>
+  <div style="font-size:.83rem;max-height:55vh;overflow:auto;line-height:1.5;color:var(--ink)">
+    <p><b>1. O serviço.</b> O Postou é uma ferramenta de organização de redes sociais oferecida por Joice Pazotto ("nós").</p>
+    <p style="margin-top:8px"><b>2. Teste e planos.</b> Novas contas têm 7 dias de teste grátis. Após o período, o uso depende de assinatura de um dos planos. Você pode parar de usar a qualquer momento e pedir a exclusão da sua conta.</p>
+    <p style="margin-top:8px"><b>3. Seus dados (LGPD — Lei 13.709/18).</b> Coletamos no cadastro: nome, e-mail, WhatsApp e finalidade de uso. Também guardamos os dados que você mesmo insere (clientes, postagens, tarefas, vendas). Usamos essas informações apenas para: operar o app, entrar em contato sobre sua conta e enviar avisos do serviço. <b>Não vendemos nem compartilhamos seus dados com terceiros.</b></p>
+    <p style="margin-top:8px"><b>4. Armazenamento e segurança.</b> Os dados ficam em servidores seguros (Supabase), protegidos por login e senha. Cada usuário acessa somente os próprios dados.</p>
+    <p style="margin-top:8px"><b>5. Seus direitos.</b> Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento pelo e-mail <b>jgpazotto@gmail.com</b>.</p>
+    <p style="margin-top:8px"><b>6. Responsabilidades.</b> O conteúdo que você publica nas suas redes sociais é de sua responsabilidade. O Postou organiza e facilita, mas não publica nada sem a sua ação.</p>
+    <p style="margin-top:8px"><b>7. Propriedade intelectual.</b> © 2026 Joice Pazotto. O código, a marca, o logo e o visual do Postou são protegidos pelas Leis 9.609/98 e 9.610/98. É proibida a cópia, reprodução ou uso não autorizado.</p>
+    <p style="margin-top:8px"><b>8. Atualizações.</b> Estes termos podem ser atualizados; mudanças relevantes serão avisadas dentro do app.</p>
+  </div>
+  <div class="rodape"><button class="btn" onclick="fecharModal()">Entendi</button></div>`);
+}
+function abrirModal(html){ document.getElementById('conteudoModal').innerHTML = html; document.getElementById('fundoModal').classList.add('aberto'); }
+function fecharModal(){ document.getElementById('fundoModal').classList.remove('aberto'); }
+function alertaCampo(id){ const el=document.getElementById(id); el.style.borderColor='#b91c1c'; el.focus(); }
+
+function exportar(){
+  const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'backup-postou-'+hojeISO()+'.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+function importar(input){
+  const arquivo = input.files[0];
+  if(!arquivo) return;
+  const leitor = new FileReader();
+  leitor.onload = e => {
+    try{
+      const d = JSON.parse(e.target.result);
+      if(d && (Array.isArray(d.clientes)||Array.isArray(d.perfis))){ dados = migrar(d); if(!dados.prox) dados.prox = 1000; tocar(); }
+    }catch(err){}
+  };
+  leitor.readAsText(arquivo);
+  input.value = '';
+}
+
+/* ---------- ASSISTENTE (chat de ajuda) ---------- */
+const BASE_CONHECIMENTO = [
+  {k:['cadastrar','cadastro','cadastra','cliente','usuario','novo usuario','adicionar usuario','perfil'], r:'Para cadastrar um usuário: vá na aba 👥 Usuários → botão "+ Novo usuário". Preencha o nome, o nicho, adicione as redes sociais dele (usuário sem o @) e escolha uma cor de identificação. Essa cor acompanha o usuário em todas as telas!'},
+  {k:['rede','redes sociais','adicionar rede','tiktok','youtube','instagram','facebook','linkedin','kwai','pinterest','link'], r:'As redes ficam dentro do cadastro do usuário: aba 👥 Usuários → ✏️ Editar → "+ Adicionar rede". Escolha a rede, digite o usuário sem o @, e pronto: o selo colorido vira um link que abre direto o perfil. Para redes fora da lista, escolha "Outra rede" e cole o link completo.'},
+  {k:['postagem','criar post','nova postagem','agendar','agendamento','publicacao'], r:'Para criar uma postagem: aba 📅 Calendário → clique no dia desejado (ou botão "+ Nova postagem"). Escolha o usuário, marque as redes onde o post vai sair, defina data, hora, tipo e cole a legenda pronta. Ela aparece no calendário na cor do usuário!'},
+  {k:['postar','publicar','postar agora','como posto','botao postar'], r:'Na aba 🏠 Hoje, cada post do dia tem o botão 🚀 Postar: ele copia a legenda automaticamente e abre a tela da rede social. Lá é só colar (Ctrl+V ou segurar o dedo → Colar) e publicar. Depois volte e marque "✅ Publicado!".'},
+  {k:['status','quadro','aprovado','rascunho','producao','andamento','fluxo'], r:'O quadro 🗂 Status mostra o caminho de cada post: 💡 Ideia → ✏️ Rascunho → 🎬 Em produção → 👍 Aprovado → ⏰ Agendado → ✅ Publicado. Use as setas ◀ ▶ no cartão do post para mover. Dica: só marque "Aprovado" depois do OK do dono da conta!'},
+  {k:['tarefa','tarefas','prazo','afazeres','lista'], r:'Na aba ✅ Tarefas você anota tudo que precisa ser feito: escolha o usuário, escreva a tarefa (ex.: "gravar vídeo") e defina um prazo. Tarefas atrasadas ficam vermelhas na tela. Marque a caixinha quando concluir!'},
+  {k:['ideia','ideias','banco de ideias','hashtag','legenda pronta'], r:'A aba 💡 Ideias é seu baú de conteúdo: guarde título, descrição e hashtags. Quando quiser usar, clique em "📌 Virar postagem" (vai direto para o quadro de Status) ou "📋 Copiar texto" para levar a legenda para qualquer lugar.'},
+  {k:['atrasado','atrasada','hoje','o que fazer','pendente','andamento hoje'], r:'A aba 🏠 Hoje é seu painel do dia: mostra as postagens de hoje, as atrasadas (que precisam de andamento) e as tarefas com prazo. Comece o dia sempre por ela! Os números no topo resumem tudo.'},
+  {k:['filtro','filtrar','ver apenas','apenas um','separar cliente'], r:'Use a caixinha "Todos os usuários" no topo da tela para ver só um usuário por vez. O filtro vale para todas as abas: Hoje, Calendário, Tarefas, Ideias e Status.'},
+  {k:['backup','copia','seguranca','exportar','salvar dados'], r:'Clique em "⬇ Backup" no topo do app para baixar um arquivo com todos os seus dados. Recomendo fazer 1x por semana e guardar num lugar seguro (ex.: seu grupo do WhatsApp ou Google Drive). Seus dados também ficam salvos na nuvem automaticamente — o backup é uma garantia extra.'},
+  {k:['senha','login','entrar','esqueci','acesso'], r:'Você entra com o e-mail e a senha cadastrados no app. Se esqueceu a senha, quem administra o Postou pode criar uma nova no painel do Supabase (Authentication → Users). Importante: nunca compartilhe sua senha com ninguém!'},
+  {k:['celular','telefone','tela inicial','icone','aplicativo'], r:'Para usar no celular como um app de verdade: abra postou-app.netlify.app no Chrome → toque no menu ⋮ → "Adicionar à tela inicial". Pronto: vira um ícone do Postou no seu celular! 📱'},
+  {k:['nuvem','sincronizar','computador','salvo','sincronizacao'], r:'Tudo o que você faz é salvo na nuvem automaticamente — repare no "☁️ Tudo salvo" no topo. Pode cadastrar no computador e abrir no celular: está tudo lá, sempre atualizado.'},
+  {k:['excluir','apagar','deletar','remover'], r:'Para excluir: clientes têm o botão 🗑 Excluir no cartão (atenção: apaga também os posts, tarefas e ideias dele!). Posts podem ser excluídos abrindo a postagem (✏️) → 🗑 Excluir. Tarefas e ideias têm o 🗑 direto na lista.'},
+  {k:['cor','cores','identificacao'], r:'Cada usuário tem uma cor de identificação, escolhida no cadastro. Ela aparece no calendário, nas tarefas, no quadro de status — assim você bate o olho e já sabe de quem é cada coisa!'},
+  {k:['quem fez','quem criou','claude','ia','inteligencia artificial','anthropic','como foi feito'], r:'O Postou foi criado pela Joice Pazotto 💜 — do código ao logo, tudo feito com muito carinho (com uma ajudinha de inteligência artificial no desenvolvimento 😉). Dúvidas ou sugestões? Chame a Joice no Instagram @joicepazotto!'},
+  {k:['postou','o que e','pra que serve','sobre o app'], r:'O Postou é o app de quem cuida de redes sociais: organize usuários, planeje postagens no calendário, acompanhe o fluxo da ideia até a publicação, guarde legendas prontas e acesse tudo do celular e do computador. Organize, planeje e publique! 🚀'},
+  {k:['avisar','aviso','avisos','notificar','notificacao','informar','publicado','mensagem para cliente','resumo','relatorio','cliente saber','cliente receber'], r:'O Postou avisa seus usuários por você! No cadastro do usuário, preencha o WhatsApp e marque "quer receber aviso". Quando você marcar um post como ✅ Publicado, a mensagem já sai prontinha — é só clicar em "Abrir WhatsApp". E no cartão do usuário tem o botão "📊 Resumo p/ usuário" com o relatório da semana!'},
+  {k:['limite','caracteres','legenda por rede','personalizar texto','duplicar'], r:'Cada rede tem seu limite de caracteres — ao editar um post, os contadores mostram (ex.: X 120/280) e ficam vermelhos se estourar. Clique em "✏️ Personalizar texto por rede" para escrever uma versão diferente para cada rede. E o botão "⧉ Duplicar" cria uma cópia do post para reaproveitar!'},
+  {k:['datas comemorativas','comemorativa','black friday','dia das maes','natal','feriado','campanha'], r:'O calendário já mostra as principais datas de marketing do Brasil automaticamente: Dia das Mães, Namorados, Dia do Cliente, Black Friday, Natal e muito mais — aparecem em rosa nos dias. Planeje as campanhas com antecedência!'},
+  {k:['metricas','metrica','grafico','seguidores','alcance','crescimento','evolucao'], r:'No cartão do usuário, clique em "📈 Métricas": anote 1x por mês os seguidores (e alcance) de cada rede, e o Postou desenha o gráfico de crescimento — perfeito para mostrar resultado ao cliente!'},
+  {k:['meta','metas','quantos posts','combinado'], r:'No cadastro do usuário, preencha a "Meta de posts/mês" (o que foi combinado no contrato). O cartão do usuário mostra a barrinha de progresso: quantos já foram publicados no mês e quantos faltam.'},
+  {k:['cobranca','cobrar','pagamento','valor','mensalidade','receber','vencimento','vence'], r:'No cadastro do usuário, preencha o valor mensal e o dia do pagamento. A aba Hoje mostra os "💰 Pagamentos por vir" (5 dias antes do vencimento) e o total a receber no mês. Quando o usuário pagar, clique em "✔ Recebido"!'},
+  {k:['termos','privacidade','lgpd','dados pessoais','direitos autorais','copia'], r:'Os Termos de Uso e a Política de Privacidade estão na aba ❓ Ajuda (cartão 📜). Resumo: seus dados são usados só para operar o app, nunca vendidos, e você pode pedir exclusão quando quiser. O Postou é protegido por direitos autorais — © Joice Pazotto.'},
+  {k:['venda','vendas','lucro','faturamento','ganhos','vendi','planilha'], r:'A aba 💵 Vendas é sua planilha de ganhos: registre cada venda (data, cliente, canal, valor e custo) e o Postou calcula o lucro sozinho, mostra o total do mês e o gráfico dos últimos 6 meses. Perfeito para quem vende pelo TikTok Shop, lojinha do Instagram ou WhatsApp!'},
+  {k:['conquista','marco','bateu','comemorar','celebrar','10 mil','mil seguidores'], r:'O Postou celebra as conquistas com você! 🏆 Quando você anotar as métricas do mês (📈 Métricas no cartão do usuário) e a página tiver cruzado um marco — 1 mil, 5 mil, 10 mil, 100 mil seguidores... — aparece a tela de CONQUISTA DESBLOQUEADA, com botão para parabenizar o usuário no WhatsApp e para criar o post comemorativo na hora!'},
+  {k:['aniversario','aniversarios','niver','parabens','felicitar'], r:'No cadastro do usuário tem os campos 🎂 Aniversário do usuário e 🎈 Aniversário da página. Eles aparecem todo ano no calendário, e a aba Hoje avisa 7 dias antes (tempo de preparar o post comemorativo!). No dia, é só clicar em "🎂 Enviar parabéns" que a mensagem sai prontinha pelo WhatsApp. 🎉'},
+  {k:['pagar','preco','gratis','assinatura','plano','planos','upgrade'], r:'O Postou tem 7 dias de teste grátis e estes planos: 🌱 Pessoal (sua conta, 1 usuário por rede) · 💵 Vendas (+ aba de vendas) · 🏢 Business (até 10 contas) · 🚀 Pro (até 30 usuários + vendas) · 👑 Ultra (tudo ilimitado). Para assinar ou mudar de plano, fale com a Joice Pazotto! 💜'},
+  {k:['contador','imposto','impostos','mei','reserva','margem','guardar dinheiro','das'], r:'A aba 💵 Vendas agora tem o 🧮 Contador ajudante: ele mostra seus custos, margem de lucro, ticket médio, melhor canal, compara com o mês passado e ainda sugere quanto guardar do lucro para impostos e emergências. Também acompanha seu faturamento no ano em relação ao limite do MEI. Importante: para decisões de impostos, confirme sempre com um contador de verdade! 😉'},
+  {k:['o que postar','sem ideia','sem ideias','sugestao','sugestoes','inspiracao','bloqueio criativo','nao sei o que postar'], r:'Sem ideias? Vá na aba 💡 Ideias → botão "✨ Ideias por nicho": são dezenas de formatos prontos que funcionam (moda, beleza, comida, fitness, pets, serviços...). Escolha o nicho, clique em 💾 Guardar, personalize e pronto: 📌 vira postagem em 1 clique!'},
+  {k:['melhor horario','horario para postar','quando postar','que horas'], r:'Não existe horário mágico universal — o melhor horário é quando SEU público está online! Comece testando: dias úteis de manhã cedo (7h-9h), almoço (12h-13h) e noite (19h-21h). Depois compare o alcance de cada um (anote nas 📈 Métricas) e repita o que funcionar. Consistência vale mais que horário perfeito!'},
+  {k:['frequencia','quantas vezes','quantos posts','toda semana','constancia','consistencia'], r:'Constância vence quantidade! Melhor 3 posts por semana TODA semana do que 10 numa semana e sumir na outra. Use a "Meta de posts/mês" no cadastro do usuário e o 📅 Calendário para planejar a semana de uma vez — deixa tudo agendado e sem correria.'},
+  {k:['hashtag','hashtags','quantas hashtags','usar hashtag'], r:'Hashtags ajudam pessoas novas a te encontrar. Dica: use de 3 a 8 por post, misturando as grandes (#moda) com as específicas do seu nicho e cidade (#modacuritiba). Evite copiar o mesmo bloco gigante em todo post. Guarde seus conjuntos favoritos na aba 💡 Ideias para reaproveitar!'},
+  {k:['engajamento','curtidas','comentarios','alcance baixo','ninguem ve','crescer'], r:'Para aumentar o engajamento: 1) termine os posts com uma pergunta; 2) responda TODOS os comentários (o algoritmo adora); 3) aposte em vídeos curtos; 4) poste com constância; 5) use os stories todo dia, mesmo simples. E acompanhe a evolução nas 📈 Métricas para ver o que funciona!'},
+  {k:['video','videos','reels','tiktok viral','viralizar','video curto'], r:'Vídeo curto é o formato que mais cresce hoje! Fórmula que funciona: prenda a atenção nos 2 primeiros segundos, entregue o conteúdo rápido, e termine com um convite (seguir, comentar, chamar no WhatsApp). Não precisa produção cara — luz natural + celular + som limpo já resolvem.'},
+  {k:['bio','perfil bonito','arrumar perfil','descricao do perfil'], r:'Uma bio que converte tem 3 coisas: QUEM você é / O QUE você faz por quem te segue / COMO falar com você (link ou WhatsApp). Exemplo: "Doces artesanais em Curitiba 🍫 | Encomendas para festas | Peça pelo WhatsApp 👇". Simples e direto!'},
+  {k:['conseguir clientes','mais clientes','divulgar','divulgacao','captar','prospectar'], r:'Para conseguir clientes: 1) capriche na bio com chamada para o WhatsApp; 2) poste com constância mostrando seu trabalho (prova social!); 3) peça depoimentos aos clientes felizes e poste; 4) responda rápido; 5) use as ✨ Ideias por nicho para nunca ficar sem conteúdo. Cliente satisfeito postado = novo cliente chegando!'},
+  {k:['quanto cobrar','precificar','preco do servico','cobrar do cliente','tabela de preco'], r:'Para precificar: some seus custos (material, tempo, transporte), adicione sua margem (o lucro que faz valer a pena) e pesquise o mercado da sua região. Não cobre barato demais para "pegar cliente" — atrai quem não valoriza. E acompanhe sua margem real no 🧮 Contador ajudante da aba Vendas!'},
+  {k:['stories','story','storys'], r:'Stories são a conversa diária com quem já te segue: mostre bastidores, enquetes, "chegou hoje", antes e depois. Não precisa ser perfeito — precisa ser frequente! Dica: todo story com produto/serviço merece uma chamada tipo "chama no WhatsApp" ou link.'},
+  {k:['sugerir agenda','agenda','montar calendario','melhores dias','melhores horarios','sugestao de agenda','planejar mes','agendar o mes'], r:'Na aba 👥 Usuários, cada usuário tem o botão 🗓 Sugerir agenda: com base no nicho e na meta de posts/mês, o Postou monta um calendário nos melhores dias e horários, já com uma ideia pronta em cada post (entram como rascunho, para você revisar). É um ótimo ponto de partida — depois é só ajustar conforme o seu público responde! 🚀'},
+  {k:['tendencia','tendencias','bombando','em alta','moda do momento','o que ta bombando','viral','onda'], r:'Na aba 💡 Ideias, o botão 🔥 Tendências mostra o que está rendendo agora, por nicho — com dicas de amiga que eu atualizo de tempos em tempos. 💛 Escolhe o nicho, guarda as que combinarem e vira postagem num clique!'},
+  {k:['facebook nao abre','link do facebook','pagina do facebook','fb nao abre','facebook nao funciona','selo do facebook'], r:'Algumas páginas do Facebook não abrem só com o nome — elas têm um endereço especial (às vezes com números). A solução é fácil: abra a sua página no Facebook, copie o endereço completo lá da barra do navegador (começa com https://...) e cole no lugar do usuário, no cadastro do usuário → rede Facebook. Pronto, o selo passa a abrir certinho! 💛 Isso vale para qualquer rede: se o selo não abrir, cole o link completo.'}
+];
+const DICAS_DIA = [
+  'Poste o imperfeito publicado em vez do perfeito guardado no rascunho. Feito é melhor que perfeito! 🚀',
+  'Responder comentários conta MUITO para o algoritmo. Reserve 10 minutinhos depois de cada post só para isso. 💬',
+  'Termine seus posts com uma pergunta — posts com pergunta recebem bem mais comentários. ❓',
+  'Vídeos curtos alcançam gente que ainda não te segue. Que tal transformar seu próximo post em vídeo? 🎬',
+  'Anote as métricas do mês (📈 no cartão do usuário) — o que não se mede, não se melhora! 📊',
+  'Olhe o 📅 Calendário: sempre tem uma data comemorativa chegando que rende um post temático. 🎉',
+  'Depoimento de cliente vale mais que qualquer propaganda. Peça um hoje e poste! ⭐',
+  'Planeje a semana inteira de posts de uma vez no 📅 Calendário — segunda-feira agradece. 🗓',
+  'Sem ideias? A aba 💡 Ideias tem o botão ✨ Ideias por nicho, cheio de formatos prontos. 💡',
+  'Separe um percentual do lucro todo mês (o 🧮 Contador ajudante da aba Vendas calcula para você). 🐷'
+];
+function normalizarTexto(t){ return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+function temPalavra(texto, kw){
+  const esc = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('(^|[^a-z0-9])' + esc + '($|[^a-z0-9])').test(texto);
+}
+function responderChat(pergunta){
+  const p = normalizarTexto(pergunta);
+  let melhor = null, melhorPontos = 0;
+  BASE_CONHECIMENTO.forEach(item=>{
+    let pontos = 0;
+    item.k.forEach(kw=>{ if(temPalavra(p, normalizarTexto(kw))) pontos += kw.split(' ').length; });
+    if(pontos > melhorPontos){ melhorPontos = pontos; melhor = item; }
+  });
+  if(melhor) return melhor.r;
+  return 'Hmm, essa eu ainda não sei responder! 😅 Posso ajudar com qualquer parte do app e também com dicas de marketing: melhor horário para postar, hashtags, engajamento, o que postar, quanto cobrar... Pergunte de outro jeito (ex.: "como agendo um post?", "como ter mais seguidores?") ou veja a aba ❓ Ajuda.';
+}
+function alternarChat(){
+  const cx = document.getElementById('chatCaixa');
+  cx.classList.toggle('aberto');
+  if(cx.classList.contains('aberto') && !document.getElementById('chatMsgs').children.length){
+    msgBot('Oi! 👋 Eu sou o assistente do Postou. Posso explicar qualquer parte do app e ainda dou dicas de marketing. Escolha uma pergunta ou digite a sua:');
+    msgBot('💡 Dica do dia: ' + DICAS_DIA[new Date().getDate() % DICAS_DIA.length]);
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    ['Como cadastro um usuário?','Como agendo um post?','O que postar hoje?','Como ter mais engajamento?','Quanto devo cobrar?'].forEach(q=>{
+      const b = document.createElement('button');
+      b.textContent = q;
+      b.onclick = ()=>{ perguntar(q); };
+      chips.appendChild(b);
+    });
+    document.getElementById('chatMsgs').appendChild(chips);
+  }
+}
+function msgBot(t){ const d=document.createElement('div'); d.className='msg bot'; d.textContent=t; document.getElementById('chatMsgs').appendChild(d); d.scrollIntoView(); }
+function msgEu(t){ const d=document.createElement('div'); d.className='msg eu'; d.textContent=t; document.getElementById('chatMsgs').appendChild(d); d.scrollIntoView(); }
+function perguntar(q){
+  msgEu(q);
+  setTimeout(()=>msgBot(responderChat(q)), 350);
+}
+function enviarChat(){
+  const inp = document.getElementById('chatInput');
+  const q = inp.value.trim();
+  if(!q) return;
+  inp.value = '';
+  perguntar(q);
+}
+
+iniciar();
+</script>
+</body>
+</html>
