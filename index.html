@@ -74,6 +74,21 @@
   .cal-num{font-size:.8rem; color:var(--muted); margin-bottom:4px;}
   .chip{display:block; width:100%; text-align:left; border:none; border-radius:6px; color:#fff; font-size:.68rem; padding:2px 6px; margin-bottom:3px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
   .mais{font-size:.7rem; color:var(--muted);}
+  .cal-views{display:flex; gap:4px; background:#f3eefa; border:1px solid var(--line); border-radius:999px; padding:3px;}
+  .cal-view-btn{border:none; background:transparent; color:var(--muted); padding:6px 14px; border-radius:999px; cursor:pointer; font-size:.85rem; font-weight:600;}
+  .cal-view-btn.ativo{background:var(--grad); color:#fff;}
+  .chip-compromisso{background:#fff7ed !important; color:var(--g3) !important; border:1px solid #fed7aa;}
+  .cal-semana{display:grid; grid-template-columns:repeat(7,1fr); gap:6px;}
+  .cal-celula.sem{min-height:150px;}
+  .dia-detalhe{display:flex; flex-direction:column; gap:16px;}
+  .dia-comem{background:linear-gradient(90deg,#fdf2f8,#fff); border:1px solid var(--line); border-radius:10px; padding:10px 12px; color:#be185d; font-weight:600; font-size:.9rem;}
+  .dia-sec{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px;}
+  .dia-sec-topo{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+  .dia-sec-topo h4{font-size:1rem;}
+  .dia-item{display:flex; align-items:center; gap:10px; border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:8px; cursor:pointer;}
+  .dia-item:hover{border-color:var(--g2);}
+  .pt-cor{width:10px; height:10px; border-radius:50%; flex:none;}
+  .status-tag{font-size:.72rem; color:var(--muted); white-space:nowrap;}
   /* Tarefas */
   .grupo-tarefas{margin-bottom:18px;}
   .grupo-tarefas h3{font-size:.95rem; margin-bottom:8px; display:flex; align-items:center; gap:8px;}
@@ -263,10 +278,6 @@
 <main>
   <section id="aba-hoje">
     <div class="tiles" id="tilesHoje"></div>
-    <div class="cartao" style="margin-bottom:20px">
-      <h3 style="margin-bottom:12px">📅 Semana em resumo</h3>
-      <div id="relatorioSemanal"></div>
-    </div>
     <div id="listaHoje"></div>
   </section>
   <section id="aba-clientes" style="display:none">
@@ -276,14 +287,19 @@
   <section id="aba-calendario" style="display:none">
     <div class="secao-topo">
       <h2>Calendário</h2>
+      <div class="cal-views">
+        <button class="cal-view-btn" data-v="dia" onclick="setCalVisao('dia')">Dia</button>
+        <button class="cal-view-btn" data-v="semana" onclick="setCalVisao('semana')">Semana</button>
+        <button class="cal-view-btn ativo" data-v="mes" onclick="setCalVisao('mes')">Mês</button>
+      </div>
       <div class="cal-nav">
-        <button class="btn-claro" onclick="mudarMes(-1)">◀</button>
+        <button class="btn-claro" onclick="mudarPeriodo(-1)">◀</button>
         <b id="tituloMes"></b>
-        <button class="btn-claro" onclick="mudarMes(1)">▶</button>
+        <button class="btn-claro" onclick="mudarPeriodo(1)">▶</button>
       </div>
       <button class="btn" onclick="abrirModalPost()">+ Nova postagem</button>
     </div>
-    <div class="calendario" id="gradeCal"></div>
+    <div id="gradeCal"></div>
   </section>
   <section id="aba-tarefas" style="display:none">
     <div class="secao-topo"><h2>Tarefas</h2></div>
@@ -456,10 +472,11 @@ const LIMITES = {instagram:2200, x:280, tiktok:2200, youtube:5000, facebook:5000
 const STATUS = ['ideia','rascunho','producao','aprovado','agendado','publicado'];
 const STATUS_NOME = {ideia:'💡 Ideia', rascunho:'✏️ Rascunho', producao:'🎬 Em produção', aprovado:'👍 Aprovado', agendado:'⏰ Agendado', publicado:'✅ Publicado'};
 
-const DADOS_INICIAIS = { versao:2, clientes: [], posts: [], tarefas: [], ideias: [], vendas: [], prox: 1, fin: { reservaPct: 8, limiteAnual: 81000 } };
+const DADOS_INICIAIS = { versao:2, clientes: [], posts: [], tarefas: [], ideias: [], vendas: [], compromissos: [], prox: 1, fin: { reservaPct: 8, limiteAnual: 81000 } };
 
 let dados = JSON.parse(JSON.stringify(DADOS_INICIAIS));
 let mesAtual = new Date();
+let calVisao = 'mes';
 let abaAtual = 'hoje';
 let ultimaAtualizacao = null;
 let timerSalvar = null;
@@ -622,6 +639,7 @@ async function carregarDados(){
     dados = migrado;
     if(!dados.prox) dados.prox = 1000;
     if(!dados.vendas) dados.vendas = [];
+    if(!dados.compromissos) dados.compromissos = [];
     ultimaAtualizacao = data.atualizado;
     setSync('salvo');
     if(precisaSalvar) await salvarAgora();
@@ -671,7 +689,6 @@ function render(){
   aplicarPlano();
   renderFiltro();
   renderHoje();
-  renderRelatorioSemanal();
   renderClientes();
   renderCalendario();
   renderTarefas();
@@ -841,6 +858,7 @@ function badgesRedes(cliente, redesPost){
 
 /* ---------- HOJE ---------- */
 function renderRelatorioSemanal(){
+  if(!document.getElementById('relatorioSemanal')) return;
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const start = new Date(hoje);
   const fim = new Date(hoje); fim.setDate(fim.getDate() + 7);
@@ -921,7 +939,7 @@ function renderHoje(){
       return `<button class="btn-rede" style="background:${cat.cor}" onclick="postarAgora(${p.id},'${r}')">🚀 ${cat.nome}</button>`;
     }).join('');
     return `<div class="post-linha" style="--cor:${c?c.cor:'#999'}">
-      <div class="titulo-linha">
+      <div class="titulo-linha" style="cursor:pointer" onclick="abrirModalPost(${p.id})" title="Ver detalhes do post">
         ${p.hora?`<b>${p.hora}</b> ·`:''} <b>${escapar(p.titulo)}</b>
         ${badgesRedes(c, p.redes)}
         ${atrasado?`<span class="atrasado-tag">⚠ era ${dataBR(p.data)}</span>`:''}
@@ -1434,35 +1452,167 @@ function parabenizar(cid){
 }
 
 /* ---------- CALENDÁRIO ---------- */
-function mudarMes(n){ mesAtual.setMonth(mesAtual.getMonth()+n); render(); }
+const MESES_CAL = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const MESES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function isoDe(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function dataFromISO(iso){ const p=String(iso).split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
+function postsDoDia(iso){ const f=filtroAtivo(); return dados.posts.filter(p=>p.data===iso && (!f||p.clienteId===f)); }
+function compromissosDoDia(iso){ return (dados.compromissos||[]).filter(c=>c.data===iso).sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')); }
+function marcarBotaoVisao(){ document.querySelectorAll('.cal-view-btn').forEach(b=>b.classList.toggle('ativo', b.dataset.v===calVisao)); }
+function setCalVisao(v){ calVisao = v; marcarBotaoVisao(); renderCalendario(); }
+function mudarPeriodo(n){
+  if(calVisao==='mes') mesAtual.setMonth(mesAtual.getMonth()+n);
+  else if(calVisao==='semana') mesAtual.setDate(mesAtual.getDate()+7*n);
+  else mesAtual.setDate(mesAtual.getDate()+n);
+  renderCalendario();
+}
+function mudarMes(n){ mudarPeriodo(n); }
+function abrirDia(iso){ mesAtual = dataFromISO(iso); calVisao = 'dia'; marcarBotaoVisao(); renderCalendario(); }
+
+function chipPost(p){
+  const c = clientePorId(p.clienteId);
+  const nome = c ? escapar(c.nome) : 'Post';
+  return `<button class="chip" style="background:${c?c.cor:'#999'}" onclick="event.stopPropagation();abrirModalPost(${p.id})" title="${nome}">${nome}</button>`;
+}
+function chipCompromisso(cm){
+  return `<button class="chip chip-compromisso" onclick="event.stopPropagation();abrirDia('${cm.data}')" title="${escapar(cm.titulo)}">🕐 ${cm.hora?escapar(cm.hora)+' ':''}${escapar(cm.titulo)}</button>`;
+}
+
 function renderCalendario(){
-  const meses = ['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-  document.getElementById('tituloMes').textContent = meses[mesAtual.getMonth()]+' de '+mesAtual.getFullYear();
-  const f = filtroAtivo();
+  const el = document.getElementById('gradeCal');
+  if(!el) return;
+  if(calVisao==='dia') return renderCalDia(el);
+  if(calVisao==='semana') return renderCalSemana(el);
+  return renderCalMes(el);
+}
+
+function renderCalMes(el){
+  document.getElementById('tituloMes').textContent = MESES_CAL[mesAtual.getMonth()]+' de '+mesAtual.getFullYear();
   const ano = mesAtual.getFullYear(), mes = mesAtual.getMonth();
   const primeiro = new Date(ano, mes, 1).getDay();
   const nDias = new Date(ano, mes+1, 0).getDate();
   const hoje = hojeISO();
-  let html = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(d=>`<div class="cal-dia-semana">${d}</div>`).join('');
-  for(let i=0;i<primeiro;i++) html += '<div class="cal-celula fora"></div>';
   const fer = feriadosAno(ano);
+  let html = '<div class="calendario">';
+  html += ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(d=>`<div class="cal-dia-semana">${d}</div>`).join('');
+  for(let i=0;i<primeiro;i++) html += '<div class="cal-celula fora"></div>';
   for(let d=1; d<=nDias; d++){
     const iso = ano+'-'+String(mes+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-    const posts = dados.posts.filter(p=>p.data===iso && (!f||p.clienteId===f));
-    const visiveis = posts.slice(0,3);
-    html += `<div class="cal-celula ${iso===hoje?'hoje':''}" onclick="abrirModalPost(0,'${iso}')">
+    const itens = [...postsDoDia(iso).map(chipPost), ...compromissosDoDia(iso).map(chipCompromisso)];
+    html += `<div class="cal-celula ${iso===hoje?'hoje':''}" onclick="abrirDia('${iso}')">
       <div class="cal-num">${d}</div>
       ${fer[iso]?`<div class="data-comem">🎉 ${fer[iso]}</div>`:''}
       ${aniversariosDoDia(iso).map(a=>`<div class="data-comem">${a}</div>`).join('')}
-      ${visiveis.map(p=>{
-        const c = clientePorId(p.clienteId);
-        const siglas = (p.redes||[]).map(r=>(REDES[r]||REDES.outra).sigla).join('·');
-        return `<button class="chip" style="background:${c?c.cor:'#999'}" onclick="event.stopPropagation();abrirModalPost(${p.id})">${siglas?siglas+' ':''}${escapar(p.titulo)}</button>`;
-      }).join('')}
-      ${posts.length>3?`<div class="mais">+${posts.length-3} mais</div>`:''}
+      ${itens.slice(0,3).join('')}
+      ${itens.length>3?`<div class="mais">+${itens.length-3} mais</div>`:''}
     </div>`;
   }
-  document.getElementById('gradeCal').innerHTML = html;
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function renderCalSemana(el){
+  const start = new Date(mesAtual); start.setDate(mesAtual.getDate()-mesAtual.getDay());
+  const fim = new Date(start); fim.setDate(start.getDate()+6);
+  document.getElementById('tituloMes').textContent = `${start.getDate()} ${MESES_ABREV[start.getMonth()]} – ${fim.getDate()} ${MESES_ABREV[fim.getMonth()]}`;
+  const hoje = hojeISO();
+  const nomes = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  let html = '<div class="cal-semana">';
+  for(let i=0;i<7;i++){
+    const d = new Date(start); d.setDate(start.getDate()+i);
+    const iso = isoDe(d);
+    const fer = feriadosAno(d.getFullYear());
+    const itens = [...postsDoDia(iso).map(chipPost), ...compromissosDoDia(iso).map(chipCompromisso)];
+    html += `<div class="cal-celula sem ${iso===hoje?'hoje':''}" onclick="abrirDia('${iso}')">
+      <div class="cal-num"><b>${nomes[i]}</b> ${d.getDate()}</div>
+      ${fer[iso]?`<div class="data-comem">🎉 ${fer[iso]}</div>`:''}
+      ${aniversariosDoDia(iso).map(a=>`<div class="data-comem">${a}</div>`).join('')}
+      ${itens.join('') || '<div class="mais">—</div>'}
+    </div>`;
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function renderCalDia(el){
+  const d = new Date(mesAtual);
+  const iso = isoDe(d);
+  document.getElementById('tituloMes').textContent = `${DIAS_SEMANA[d.getDay()]}, ${d.getDate()} de ${MESES_CAL[d.getMonth()]}`;
+  const fer = feriadosAno(d.getFullYear());
+  const aniv = aniversariosDoDia(iso);
+  const posts = postsDoDia(iso).sort((a,b)=>(a.hora||'').localeCompare(b.hora||''));
+  const comps = compromissosDoDia(iso);
+  let html = '<div class="dia-detalhe">';
+  if(fer[iso] || aniv.length){
+    html += `<div class="dia-comem">${fer[iso]?`🎉 ${fer[iso]}`:''} ${aniv.join(' ')}</div>`;
+  }
+  html += `<div class="dia-sec">
+    <div class="dia-sec-topo"><h4>📣 Postagens</h4><button class="btn" onclick="abrirModalPost(0,'${iso}')">+ Postagem</button></div>`;
+  if(!posts.length){
+    html += `<div class="vazio">Nenhuma postagem nesse dia.</div>`;
+  } else {
+    posts.forEach(p=>{
+      const c = clientePorId(p.clienteId);
+      const redes = (p.redes||[]).map(r=>(REDES[r]||REDES.outra).sigla).join(' · ');
+      html += `<div class="dia-item" onclick="abrirModalPost(${p.id})">
+        <span class="pt-cor" style="background:${c?c.cor:'#999'}"></span>
+        <div style="flex:1">
+          <b>${c?escapar(c.nome):''}</b> <span style="color:var(--muted);font-size:.8rem">${redes}</span><br>
+          <span style="font-size:.85rem">${p.hora?'🕐 '+escapar(p.hora)+' · ':''}${escapar(p.titulo)}</span>
+        </div>
+        <span class="status-tag">${STATUS_NOME[p.status]||''}</span>
+      </div>`;
+    });
+  }
+  html += `</div>`;
+  html += `<div class="dia-sec">
+    <div class="dia-sec-topo"><h4>📌 Compromissos pessoais</h4><button class="btn-claro" onclick="abrirModalCompromisso('${iso}')">+ Compromisso</button></div>`;
+  if(!comps.length){
+    html += `<div class="vazio">Nada marcado. Ex.: médico, reunião, dentista…</div>`;
+  } else {
+    comps.forEach(cm=>{
+      html += `<div class="dia-item">
+        <span class="pt-cor" style="background:var(--g3)"></span>
+        <div style="flex:1"><b>${cm.hora?escapar(cm.hora)+' · ':''}${escapar(cm.titulo)}</b>${cm.obs?`<br><span style="font-size:.82rem;color:var(--muted)">${escapar(cm.obs)}</span>`:''}</div>
+        <button class="btn-mini perigo" onclick="excluirCompromisso(${cm.id})">🗑</button>
+      </div>`;
+    });
+  }
+  html += `</div></div>`;
+  el.innerHTML = html;
+}
+
+function abrirModalCompromisso(iso){
+  abrirModal(`
+    <h3>Novo compromisso</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">Pra organizar a vida, não só as redes 💜</p>
+    <label>Dia</label>
+    <input type="date" id="cmData" value="${iso||hojeISO()}">
+    <label>Horário (opcional)</label>
+    <input type="time" id="cmHora">
+    <label>O quê?</label>
+    <input id="cmTitulo" placeholder="Ex.: Médico, reunião, dentista…">
+    <label>Observação (opcional)</label>
+    <input id="cmObs" placeholder="Ex.: levar exames">
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn" onclick="salvarCompromisso()">Salvar</button>
+    </div>`);
+}
+function salvarCompromisso(){
+  const titulo = document.getElementById('cmTitulo').value.trim();
+  if(!titulo){ alertaCampo('cmTitulo'); return; }
+  if(!dados.compromissos) dados.compromissos = [];
+  const c = { id: novoId(), data: document.getElementById('cmData').value || hojeISO(),
+    hora: document.getElementById('cmHora').value || '', titulo, obs: document.getElementById('cmObs').value.trim() };
+  dados.compromissos.push(c);
+  fecharModal();
+  mesAtual = dataFromISO(c.data); calVisao = 'dia'; marcarBotaoVisao();
+  tocar();
+}
+function excluirCompromisso(id){
+  dados.compromissos = (dados.compromissos||[]).filter(c=>c.id!==id);
+  tocar();
 }
 
 /* ---------- POSTAGENS ---------- */
