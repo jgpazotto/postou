@@ -160,15 +160,16 @@
   .lp-nav-links{display:flex; align-items:center; gap:8px;}
   .lp-nav-links a{color:var(--ink); text-decoration:none; font-size:.9rem; padding:8px 12px; border-radius:999px; font-weight:600;}
   .lp-btn-nav{background:var(--grad); color:#fff !important;}
-  .lp-hero{background:var(--grad); color:#fff; text-align:center; padding:56px 20px 64px;}
-  .lp-badge{display:inline-block; background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.35); padding:6px 14px; border-radius:999px; font-size:.82rem; margin-bottom:18px;}
-  .lp-hero h1{font-size:2.4rem; line-height:1.15; max-width:760px; margin:0 auto 16px; letter-spacing:-.02em;}
+  .lp-hero{background:var(--grad); color:#fff; text-align:center; padding:34px 20px 38px;}
+  .lp-badge{display:inline-block; background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.35); padding:6px 14px; border-radius:999px; font-size:.8rem; margin-bottom:14px;}
+  .lp-hero h1{font-size:2rem; line-height:1.15; max-width:720px; margin:0 auto 12px; letter-spacing:-.02em;}
   .lp-hero h1 span{display:inline-block; background:rgba(255,255,255,.22); border-radius:10px; padding:0 8px;}
-  .lp-hero .lp-lead{font-size:1.08rem; max-width:620px; margin:0 auto 26px; opacity:.95;}
+  .lp-hero .lp-lead{font-size:1rem; max-width:600px; margin:0 auto 20px; opacity:.95;}
   .lp-cta{display:flex; gap:12px; justify-content:center; flex-wrap:wrap;}
-  .lp-btn-grande{background:#fff; color:var(--g1); text-decoration:none; font-weight:800; padding:15px 28px; border-radius:12px; font-size:1.05rem; box-shadow:0 10px 30px rgba(0,0,0,.18);}
-  .lp-btn-claro{background:rgba(255,255,255,.15); color:#fff; text-decoration:none; font-weight:700; padding:15px 24px; border-radius:12px; font-size:1.05rem; border:1px solid rgba(255,255,255,.5);}
-  .lp-mini{margin-top:16px; font-size:.82rem; opacity:.9;}
+  .lp-btn-grande{background:#fff; color:var(--g1); text-decoration:none; font-weight:800; padding:13px 26px; border-radius:12px; font-size:1.02rem; box-shadow:0 10px 30px rgba(0,0,0,.18);}
+  .lp-btn-claro{background:rgba(255,255,255,.15); color:#fff; text-decoration:none; font-weight:700; padding:13px 22px; border-radius:12px; font-size:1.02rem; border:1px solid rgba(255,255,255,.5);}
+  .lp-mini{margin-top:12px; font-size:.8rem; opacity:.9;}
+  .lp-sec{max-width:1000px; margin:0 auto; padding:44px 20px;}
   .lp-sec{max-width:1000px; margin:0 auto; padding:52px 20px;}
   .lp-sec h2{font-size:1.8rem; text-align:center; margin-bottom:8px; letter-spacing:-.02em;}
   .lp-sub{text-align:center; color:var(--muted); margin-bottom:30px; font-size:1rem;}
@@ -187,7 +188,10 @@
   .lp-plano.destaque{border-color:var(--g1); box-shadow:0 12px 34px rgba(124,58,237,.16); position:relative;}
   .lp-plano.destaque .lp-tag{position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--grad); color:#fff; font-size:.72rem; font-weight:700; padding:4px 12px; border-radius:999px; white-space:nowrap;}
   .lp-plano h3{font-size:1.15rem; margin-bottom:4px;}
-  .lp-plano .lp-preco{font-size:.9rem; color:var(--g1); font-weight:700; margin-bottom:12px;}
+  .lp-plano .lp-tagline{font-size:.8rem; color:var(--muted); margin-bottom:8px; min-height:2.2em;}
+  .lp-plano .lp-preco{font-size:1.55rem; color:var(--ink); font-weight:800; line-height:1;}
+  .lp-plano .lp-preco span{font-size:.8rem; color:var(--muted); font-weight:600;}
+  .lp-plano .lp-preco-ano{font-size:.82rem; color:var(--g1); font-weight:700; margin:5px 0 14px;}
   .lp-plano ul{list-style:none; margin:0 0 16px; padding:0; text-align:left; flex:1;}
   .lp-plano li{font-size:.86rem; color:var(--ink); padding:4px 0 4px 22px; position:relative;}
   .lp-plano li:before{content:'✓'; position:absolute; left:0; color:var(--ok); font-weight:800;}
@@ -327,11 +331,11 @@
     <h2>Escolha o seu plano</h2>
     <p class="lp-sub">Comece com 7 dias grátis — no teste você experimenta tudo.</p>
     <div class="lp-planos">
-      <div class="lp-plano"><h3>🌱 Pessoal</h3><div class="lp-preco">Pro seu próprio perfil</div><ul><li>1 perfil</li><li>Calendário completo</li><li>Ideias por nicho</li><li>Compromissos e lembretes</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
-      <div class="lp-plano"><h3>💵 Vendas</h3><div class="lp-preco">Pra quem vende pelas redes</div><ul><li>Tudo do Pessoal</li><li>Controle de vendas e lucros</li><li>Caixa e recebimentos</li><li>Contador ajudante</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
-      <div class="lp-plano destaque"><div class="lp-tag">⭐ Mais popular</div><h3>🚀 Pro</h3><div class="lp-preco">Profissional de marketing</div><ul><li>Vários clientes</li><li>Postar em vários perfis</li><li>Vendas + Caixa</li><li>Tudo liberado</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
-      <div class="lp-plano"><h3>🏢 Business</h3><div class="lp-preco">Até 10 contas</div><ul><li>Até 10 perfis</li><li>Postar em vários perfis</li><li>Financeiro completo</li><li>Datas comemorativas</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
-      <div class="lp-plano"><h3>👑 Ultra</h3><div class="lp-preco">Agência / muitos clientes</div><ul><li>Clientes ilimitados</li><li>Tudo do Pro</li><li>Vendas + Caixa</li><li>Prioridade</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
+      <div class="lp-plano"><h3>🌱 Pessoal</h3><div class="lp-tagline">Pro seu próprio perfil</div><div class="lp-preco">R$ 4,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 49/ano 💜</div><ul><li>1 perfil</li><li>Calendário completo</li><li>Ideias por nicho</li><li>Compromissos e lembretes</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
+      <div class="lp-plano"><h3>💵 Vendas</h3><div class="lp-tagline">Pra quem vende pelas redes</div><div class="lp-preco">R$ 9,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 99/ano 💜</div><ul><li>Tudo do Pessoal</li><li>Controle de vendas e lucros</li><li>Caixa e recebimentos</li><li>Contador ajudante</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
+      <div class="lp-plano"><h3>🏢 Business</h3><div class="lp-tagline">Pessoal + Vendas, até 10 contas</div><div class="lp-preco">R$ 18,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 189/ano 💜</div><ul><li>Até 10 perfis</li><li>Postar em vários perfis</li><li>Financeiro completo</li><li>Datas comemorativas</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
+      <div class="lp-plano destaque"><div class="lp-tag">⭐ Mais popular</div><h3>🚀 Pro</h3><div class="lp-tagline">Profissional de marketing</div><div class="lp-preco">R$ 24,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 249/ano 💜</div><ul><li>Vários clientes</li><li>Postar em vários perfis</li><li>Vendas + Caixa</li><li>Tudo liberado</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
+      <div class="lp-plano"><h3>👑 Ultra</h3><div class="lp-tagline">Agência / muitos clientes</div><div class="lp-preco">R$ 32,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 329/ano 💜</div><ul><li>Clientes ilimitados</li><li>Tudo do Pro</li><li>Vendas + Caixa</li><li>Prioridade</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a></div>
     </div>
     <p class="lp-sub" style="margin-top:24px">💜 Valores sob medida pra você — comece grátis e a gente combina o plano ideal.</p>
   </section>
