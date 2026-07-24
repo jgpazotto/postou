@@ -241,11 +241,13 @@
     <div id="formCadastro" style="display:none">
       <input type="text" id="cadNome" placeholder="Seu nome">
       <input type="text" id="cadZap" placeholder="Seu WhatsApp (com código do país, ex.: +1 ou +55)">
-      <select id="cadInteresse" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px;color:var(--muted)">
-        <option value="pessoal">Vou usar para o meu próprio perfil</option>
-        <option value="vendas">Vendo produtos pelas redes</option>
-        <option value="business">Cuido de algumas contas (até 10)</option>
-        <option value="pro">Sou profissional de MKT (vários clientes + vendas)</option>
+      <label style="display:block;text-align:left;font-size:.85rem;color:var(--ink);font-weight:700;margin:6px 2px 5px">Escolha o seu plano <span style="font-weight:400;color:var(--muted)">(no teste grátis você experimenta tudo):</span></label>
+      <select id="cadInteresse" style="width:100%;padding:11px 14px;border:1.5px solid var(--g1);border-radius:10px;margin-bottom:10px;color:var(--ink);font-weight:600">
+        <option value="pessoal">🌱 Postou Pessoal — só o meu perfil</option>
+        <option value="vendas">💵 Postou Vendas — vendo pelas redes</option>
+        <option value="business">🏢 Postou Business — cuido de até 10 contas</option>
+        <option value="pro">🚀 Postou Pro — profissional de MKT (vários clientes + vendas)</option>
+        <option value="ultra">👑 Postou Ultra — agência / muitos clientes</option>
       </select>
       <input type="email" id="cadEmail" placeholder="Seu e-mail" autocomplete="username">
       <input type="password" id="cadSenha" placeholder="Crie uma senha (mín. 6 letras)" autocomplete="new-password">
@@ -606,11 +608,12 @@ function aplicarPlano(){
   if(conf.vendas===false && abaAtual==='vendas'){ trocarAba('hoje'); return; }
   const badge = document.getElementById('planoBadge');
   if(badge){
+    const nomePlano = (conf.rotulo||'').replace(/^\S+\s/,'');
     if(pl==='trial'){
       const resta = Math.max(0, 7-diasDeTeste());
-      badge.textContent = '🎁 teste '+(conf.rotulo||'')+': '+(resta===0?'último dia!':'faltam '+resta+' dia'+(resta>1?'s':''));
+      badge.textContent = '🎁 Teste grátis · Postou '+nomePlano+' · '+(resta===0?'último dia!':'faltam '+resta+' dia'+(resta>1?'s':''));
     }
-    else badge.textContent = conf.rotulo || '';
+    else badge.textContent = nomePlano ? 'Plano: Postou '+nomePlano : '';
   }
 }
 function verificarExpiracao(){
@@ -1810,6 +1813,10 @@ const NICHOS_PREDEFINIDOS = {
   pets: '🐶 Pets',
   educacao: '📚 Educação e cursos',
   artesanato: '🎨 Artesanato e criativos',
+  imobiliaria: '🏠 Imobiliária',
+  estacionamento: '🅿️ Estacionamento',
+  midiasocial: '📱 Mídia social (agência/gestão)',
+  odontologia: '🦷 Dentista / Odontologia',
   general: '⭐ Conteúdo geral',
   sociopolitico: '🗣 Social e política'
 };
@@ -2089,7 +2096,54 @@ const SUGESTOES_NICHO = {
     {t:'Transparência', d:'Você errou? Reconhece e aprende. Maturidade.', h:'#transparencia #humildade #aprendizado'},
     {t:'Esperança em mudança', d:'Histórias de pessoas que conseguiram transformar coisa.', h:'#esperanca #mudanca #possibilidade'},
     {t:'Quebra de tabu', d:'Conversa sobre tema tabu (saúde mental, racismo, etc).', h:'#tabu #conversa #desmistificacao'},
-    {t:'Ação local', d:'O que você pode fazer na sua comunidade agora.', h:'#acao #local #comunidade'}]}
+    {t:'Ação local', d:'O que você pode fazer na sua comunidade agora.', h:'#acao #local #comunidade'}]},
+  imobiliaria: {nome:'🏠 Imobiliária', kw:['imobiliaria','imovel','imoveis','corretor','corretora','casa','apartamento','aluguel','terreno','construtora'], ideias:[
+    {t:'Tour do imóvel em 60s', d:'Vídeo rápido percorrendo o imóvel, dos cômodos ao detalhe que encanta. Termine com uma chamada pra agendar visita.', h:'#imovel #tour #imobiliaria'},
+    {t:'Imóvel da semana', d:'Destaque um imóvel com foto, preço, bairro e o diferencial. Chamada clara pra visitar.', h:'#imoveldodia #oportunidade #imoveis'},
+    {t:'3 erros ao comprar o primeiro imóvel', d:'Conteúdo educativo que gera confiança e mostra sua autoridade.', h:'#primeiroimovel #dicas #comprarimovel'},
+    {t:'Financiamento explicado simples', d:'Como funciona entrada, parcelas e prazos, sem juridiquês. Tira a dúvida número 1.', h:'#financiamento #casapropria'},
+    {t:'Bairro em foco', d:'Mostre o entorno: comércio, escolas, transporte. Você vende o estilo de vida, não só o imóvel.', h:'#bairro #localizacao'},
+    {t:'Depoimento de quem realizou o sonho', d:'Cliente feliz com a casa própria. Prova social forte e emocional.', h:'#depoimento #casapropria #realizacao'},
+    {t:'Checklist da visita', d:'O que olhar antes de fechar: infiltração, sol, vizinhança. As pessoas salvam esse conteúdo.', h:'#checklist #dicas #imovel'},
+    {t:'Antes e depois de um imóvel', d:'Reforma ou home staging mostrando a valorização. Impacto visual imediato.', h:'#antesedepois #reforma #valorizacao'},
+    {t:'Documentação sem susto', d:'Lista simples do que precisa pra comprar ou alugar. Útil e prático.', h:'#documentacao #dicas'},
+    {t:'Imóvel pet friendly', d:'Mostre imóveis que aceitam pets. Nicho que engaja muito e fideliza.', h:'#petfriendly #imovel'},
+    {t:'Bastidores do corretor', d:'Um dia de visitas, a rotina real. Humaniza e aproxima o cliente.', h:'#bastidores #corretordeimoveis'}]},
+  estacionamento: {nome:'🅿️ Estacionamento', kw:['estacionamento','vaga','vagas','garagem','parking','valet','mensalista'], ideias:[
+    {t:'Vaga garantida todo dia', d:'Divulgue a mensalidade e o valor de nunca mais rodar procurando vaga.', h:'#estacionamento #vaga #mensalista'},
+    {t:'Segurança em primeiro lugar', d:'Câmeras, controle de acesso e equipe atenta. Passa confiança pra deixar o carro.', h:'#seguranca #estacionamento'},
+    {t:'Promo do mensalista', d:'Condição especial pra quem fecha o mês. Oferta clara com validade.', h:'#promocao #mensalista #oferta'},
+    {t:'Localização é tudo', d:'Mostre a pé a distância até metrô, shopping ou hospital. Vende comodidade.', h:'#localizacao #comodidade'},
+    {t:'Como funciona o valet', d:'Passo a passo rápido e prático de chegar, entregar e retirar.', h:'#valet #comodidade #praticidade'},
+    {t:'Seu carro protegido', d:'Piso coberto, sem sol e sem chuva. Mostre o cuidado com o veículo.', h:'#carroprotegido #cobertura'},
+    {t:'Tabela de preços transparente', d:'Hora, diária e mensal, tudo claro. Sem surpresa gera confiança.', h:'#precos #transparencia'},
+    {t:'Pague rápido pelo QR Code', d:'Mostre a comodidade do pagamento digital, sem fila na saída.', h:'#pagamentodigital #praticidade'},
+    {t:'Depoimento de cliente tranquilo', d:'Quem nunca mais se preocupou com vaga. Prova social simples e forte.', h:'#depoimento #cliente'},
+    {t:'Horário de pico resolvido', d:'Mostre disponibilidade e agilidade justo quando todo mundo precisa.', h:'#horariodepico #agilidade'}]},
+  midiasocial: {nome:'📱 Mídia social (agência/gestão)', kw:['midia social','social media','gestao de redes','marketing digital','agencia','trafego','community','videomaker','video maker'], ideias:[
+    {t:'Antes e depois de um perfil', d:'Feed bagunçado virando um feed organizado. Mostra o seu trabalho na prática.', h:'#antesedepois #socialmedia #gestaoderedes'},
+    {t:'3 erros que travam o Instagram', d:'Conteúdo que atrai clientes e mostra sua autoridade de graça.', h:'#dicas #instagram #crescimento'},
+    {t:'Bastidores da gravação', d:'Making of de uma produção de conteúdo. Mostra dedicação e processo.', h:'#bastidores #socialmedia #makingof'},
+    {t:'Resultado de cliente', d:'Print de métricas com crescimento, sempre com permissão. Prova social que fecha contrato.', h:'#resultado #cases #social'},
+    {t:'Mito do marketing digital', d:'Desminta algo comum, tipo postar todo dia é obrigatório. Gera debate.', h:'#mito #marketingdigital'},
+    {t:'Meu processo de trabalho', d:'Do briefing à publicação. Ajuda o cliente a entender o valor do serviço.', h:'#processo #servico #agencia'},
+    {t:'Dica rápida de edição/reels', d:'Entregue valor de graça e atraia seguidor qualificado.', h:'#reels #edicao #dica'},
+    {t:'Como eu organizo o conteúdo', d:'Mostre seu planejamento e calendário de posts. Passa profissionalismo.', h:'#planejamento #calendario #social'},
+    {t:'Pacotes e serviços', d:'O que você entrega: gestão, design, tráfego, vídeo. Chamada pra orçamento.', h:'#servicos #orcamento'},
+    {t:'Trend explicada e aplicada', d:'Pegue um trend e mostre como usar no negócio do cliente. Atual e útil.', h:'#trend #tendencia'},
+    {t:'Terceirize sua rede', d:'Mostre o custo de quem cuida da própria rede sem tempo. Venda a solução.', h:'#gestaoderedes #tempo'}]},
+  odontologia: {nome:'🦷 Dentista / Odontologia', kw:['dentista','odonto','odontologia','dente','dentes','sorriso','ortodontia','implante','clinica odontologica'], ideias:[
+    {t:'Antes e depois do sorriso', d:'Transformação com autorização do paciente. Encanta e vende sozinho.', h:'#antesedepois #sorriso #dentista'},
+    {t:'Mito x verdade da saúde bucal', d:'Responda dúvidas como clareamento estraga o dente. Educativo e confiável.', h:'#mitoxverdade #saudebucal'},
+    {t:'Escovação correta passo a passo', d:'Conteúdo útil que as pessoas salvam e compartilham.', h:'#escovacao #dica #dentista'},
+    {t:'Conheça a clínica', d:'Tour rápido pelo ambiente acolhedor. Tira o medo de quem tem receio.', h:'#clinica #tour #acolhimento'},
+    {t:'Depoimento de paciente', d:'Alguém que perdeu o medo de dentista. Prova social que aproxima.', h:'#depoimento #paciente'},
+    {t:'Tira-dúvidas de tratamento', d:'Clareamento, aparelho, implante. Responda as perguntas mais comuns.', h:'#duvidas #ortodontia'},
+    {t:'Alimentos que mancham os dentes', d:'Dica prática do que evitar e o que fazer. Simples e valioso.', h:'#dica #dentes #clareamento'},
+    {t:'Limpeza a cada 6 meses', d:'Lembrete de prevenção com chamada pra agendar avaliação.', h:'#prevencao #agende'},
+    {t:'Alta do tratamento', d:'Celebre o sorriso de quem terminou. Emoção pura e prova social.', h:'#alta #sorrisonovo'},
+    {t:'Aparelho invisível x convencional', d:'Compare as opções e informe. Ajuda o paciente a decidir.', h:'#ortodontia #aparelho'},
+    {t:'Cuidados após o procedimento', d:'Orientações que mostram o seu cuidado com o paciente.', h:'#poscirurgico #cuidado'}]}
 };
 function nichoSugerido(){
   const f = filtroAtivo();
