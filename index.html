@@ -1090,7 +1090,7 @@ function renderHoje(){
       </div>
       <div class="meta">${c?escapar(c.nome):''} · ${TIPOS[p.tipo]||''} · ${STATUS_NOME[p.status]}</div>
       <div class="acoes-post">
-        ${p.legenda?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="copiarLegenda(${p.id});this.textContent='✔ Legenda copiada!'">📋 Copiar legenda</button>`:''}
+        ${p.legenda?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="copiarLegenda(${p.id});this.textContent='✔ Copiado! (legenda + #)'" title="Copia a legenda e as hashtags juntas, prontas pra colar">📋 Copiar tudo</button>`:''}
         ${botoesPostar}
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="marcarPublicado(${p.id})">✅ Publicado!</button>
         <button class="btn-mini" onclick="abrirModalPost(${p.id})">✏️</button>
