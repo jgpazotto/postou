@@ -1469,7 +1469,7 @@ function renderClientes(){
     }).join('');
     return `<div class="cartao cartao-cliente" style="--cor:${p.cor}">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:2px">${avatarHtml(p,46)}<h3 style="margin:0">${escapar(p.nome)}</h3></div>
-      ${p.nicho?`<span class="nicho">${NICHOS_PREDEFINIDOS[p.nicho]||'Nicho desconhecido'}</span>`:''}
+      ${p.nicho?`<span class="nicho">${NICHOS_PREDEFINIDOS[p.nicho]||escapar(p.nicho)}</span>`:''}
       ${p.nichos_tags && p.nichos_tags.length?`<span class="nicho" style="color:#7c3aed">+ ${p.nichos_tags.map(t=>NICHOS_PREDEFINIDOS[t]).filter(Boolean).join(', ')}</span>`:''}
       <div class="redes-lista">${redesHtml||'<span style="font-size:.78rem;color:var(--muted)">nenhuma rede cadastrada</span>'}</div>
       ${p.notas?`<div style="font-size:.82rem;color:var(--muted)">${escapar(p.notas)}</div>`:''}
@@ -1527,6 +1527,7 @@ function abrirModalCliente(id){
     <label>Nicho principal</label>
     <select id="mNicho" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px">
       <option value="">— Selecione o nicho principal —</option>
+      ${p&&p.nicho&&!NICHOS_PREDEFINIDOS[p.nicho]?`<option value="${escapar(p.nicho)}" selected>⭐ ${escapar(p.nicho)} (personalizado)</option>`:''}
       ${Object.entries(NICHOS_PREDEFINIDOS).map(([k,v])=>`<option value="${k}" ${p&&p.nicho===k?'selected':''}>${v}</option>`).join('')}
     </select>
     <label>Nichos secundários (marque os que também se aplicam)</label>
