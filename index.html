@@ -468,7 +468,7 @@
     <div id="listaVendas"></div>
   </section>
   <section id="aba-caixa" style="display:none">
-    <div class="secao-topo"><h2>💰 Caixa · recebimentos</h2></div>
+    <div class="secao-topo"><h2>💰 Caixa · recebimentos</h2><button class="btn" onclick="abrirModalRecebimento()">➕ Registrar recebimento</button></div>
     <div class="tiles" id="tilesCaixa"></div>
     <div id="listaCaixa"></div>
   </section>
@@ -1236,7 +1236,33 @@ function estornarRecebimento(id){
   if(!r) return;
   dados.recebimentos = dados.recebimentos.filter(x=>x.id!==id);
   const c = clientePorId(r.clienteId);
-  if(c && c.pagamentos && r.ref) delete c.pagamentos[r.ref];
+  if(c && c.pagamentos && r.ref && c.pagamentos[r.ref]) delete c.pagamentos[r.ref];
+  tocar();
+}
+function abrirModalRecebimento(){
+  const opts = (dados.clientes||[]).map(c=>`<option value="${c.id}">${escapar(c.nome)}</option>`).join('');
+  abrirModal(`
+    <h3>💰 Registrar recebimento</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">Anote um valor que você recebeu — de qualquer cliente e qualquer valor. 💜</p>
+    <label>De quem?</label>
+    <select id="recCliente">${opts}</select>
+    <label>Valor recebido (R$)</label>
+    <input id="recValor" inputmode="decimal" placeholder="Ex.: 1000">
+    <label>Data</label>
+    <input type="date" id="recData" value="${hojeISO()}">
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn" onclick="salvarRecebimento()">Salvar</button>
+    </div>`);
+}
+function salvarRecebimento(){
+  const valor = parseFloat(String(document.getElementById('recValor').value).replace(/\./g,'').replace(',','.'))||0;
+  if(!valor){ alertaCampo('recValor'); return; }
+  const cid = parseInt(document.getElementById('recCliente').value)||0;
+  const data = document.getElementById('recData').value || hojeISO();
+  if(!dados.recebimentos) dados.recebimentos = [];
+  dados.recebimentos.push({ id:novoId(), clienteId:cid, valor, data, ref:'manual' });
+  fecharModal();
   tocar();
 }
 function renderCaixa(){
