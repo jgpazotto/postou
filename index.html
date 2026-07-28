@@ -767,7 +767,17 @@ function verificarExpiracao(){
 }
 /* ---------- PAINEL DO DONO ---------- */
 const DONO_UID = '9fb4d7c0-7e3d-4d9f-942e-7476f76f02b0';
+let avisoDono='';
 function ehDono(){ return typeof usuarioId!=='undefined' && usuarioId===DONO_UID; }
+function avisarZap(zapEnc, nomeEnc){
+  const zap=decodeURIComponent(zapEnc||''), nome=decodeURIComponent(nomeEnc||'');
+  let num=(zap||'').replace(/\D/g,'');
+  if(!num) return;
+  if(!num.startsWith('55')) num='55'+num;
+  const primeiro=(nome||'').split(' ')[0]||'';
+  const msg=`Oi ${primeiro}! 💜 Seu Postou já está liberado! É só entrar em postou.app.br e continuar de onde parou. Qualquer dúvida, é só me chamar por aqui. 😊`;
+  window.open('https://wa.me/'+num+'?text='+encodeURIComponent(msg),'_blank');
+}
 function diasDesde(iso){ if(!iso) return 0; const d0=new Date(parseInt(iso.slice(0,4)),parseInt(iso.slice(5,7))-1,parseInt(iso.slice(8,10))); const hj=new Date(); hj.setHours(0,0,0,0); return Math.round((hj-d0)/864e5); }
 async function carregarDono(){
   const cont=document.getElementById('listaDono'); if(!cont) return;
@@ -782,16 +792,19 @@ async function carregarDono(){
     let badge='', cor='#0a8a4a', expirado=false;
     if(plano==='trial'){ const dias=diasDesde(a.inicio); if(dias>7){ expirado=true; badge=`⛔ Teste expirado (${dias} dias)`; cor='#c0392b'; } else { badge=`🎁 Teste · faltam ${Math.max(0,7-dias)} dia(s)`; cor='#c026a8'; } }
     else { badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo'); }
-    return {userId:row.user_id, nome, badge, cor, expirado, interesse:a.interesse||'pessoal', ehEu:row.user_id===usuarioId};
+    return {userId:row.user_id, nome, badge, cor, expirado, zap:a.zap||'', interesse:a.interesse||'pessoal', ehEu:row.user_id===usuarioId};
   }).sort((x,y)=>(y.expirado?1:0)-(x.expirado?1:0));
   const planos=['pessoal','vendas','business','pro','ultra'];
   let html='';
   if(lista.length<=1){ html+=`<div class="vazio" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">⚠️ O painel está vendo só a sua conta. Falta ativar a <b>permissão de dona</b> no Supabase — o comando que a gente vai rodar juntas. Depois disso, todos os assinantes aparecem aqui.</div>`; }
   html+=`<div class="tiles"><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.length}</div><div class="rot">contas no Postou</div></div><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.filter(u=>u.expirado).length}</div><div class="rot">testes expirados</div></div></div>`;
+  if(avisoDono){ html+=`<div class="vazio" style="border:1px solid #0a8a4a;color:#0a8a4a;border-radius:10px;padding:10px;margin-bottom:12px">${avisoDono}</div>`; avisoDono=''; }
   html+=lista.map(u=>{
     const sel=`<select id="planoSel_${u.userId}">${planos.map(p=>`<option value="${p}" ${p===u.interesse?'selected':''}>${(PLANOS[p]&&PLANOS[p].rotulo)||p}</option>`).join('')}</select>`;
-    const acoes = u.ehEu ? '' : `${sel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button>`;
-    return `<div class="pag-linha"><span style="flex:1"><b>${escapar(u.nome)}</b> ${u.ehEu?'<span style="color:var(--muted);font-size:.75rem">(você)</span>':''}<br><span style="font-size:.8rem;color:${u.cor};font-weight:700">${u.badge}</span></span>${acoes}</div>`;
+    const btnZap = u.zap ? `<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="avisarZap('${encodeURIComponent(u.zap)}','${encodeURIComponent(u.nome)}')">📱 Avisar</button>` : '';
+    const acoes = u.ehEu ? '' : `${sel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button> ${btnZap}`;
+    const contato = u.zap ? `<br><span style="font-size:.75rem;color:var(--muted)">📱 ${escapar(u.zap)}</span>` : `<br><span style="font-size:.72rem;color:var(--muted)">— sem WhatsApp no cadastro —</span>`;
+    return `<div class="pag-linha"><span style="flex:1"><b>${escapar(u.nome)}</b> ${u.ehEu?'<span style="color:var(--muted);font-size:.75rem">(você)</span>':''}<br><span style="font-size:.8rem;color:${u.cor};font-weight:700">${u.badge}</span>${contato}</span>${acoes}</div>`;
   }).join('');
   cont.innerHTML=html;
 }
@@ -803,6 +816,8 @@ async function liberarUsuario(userId){
   const c=(data&&data.conteudo)||{}; c.assinatura=c.assinatura||{}; c.assinatura.plano=plano; c.assinatura.liberadoPor='dono';
   const { error } = await sb.from('organizador').update({ conteudo:c, atualizado:new Date().toISOString() }).eq('user_id',userId);
   if(error){ if(cont) cont.insertAdjacentHTML('afterbegin',`<div class="vazio" style="color:#c0392b">Não consegui liberar: ${escapar(error.message)}</div>`); return; }
+  const nm=escapar(((c.assinatura.nome||'A pessoa').split(' ')[0]));
+  avisoDono=`✅ ${nm} foi liberado no plano ${escapar((PLANOS[plano]&&PLANOS[plano].rotulo)||plano)}! Agora clique em 📱 Avisar pra mandar o WhatsApp. 💜`;
   carregarDono();
 }
 async function sair(){
