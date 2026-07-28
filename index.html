@@ -2048,6 +2048,7 @@ function renderTarefas(){
 const NICHOS_PREDEFINIDOS = {
   moda: '👗 Moda e acessórios',
   beleza: '💅 Beleza e estética',
+  infantil: '🧸 Moda infantil / Kids',
   comida: '🍕 Comida e restaurantes',
   fitness: '💪 Fitness e saúde',
   lojinha: '🛍 Loja e revenda',
@@ -2411,7 +2412,19 @@ const SUGESTOES_NICHO = {
     {t:'Tutorial "como começar"', d:'Passo a passo simples do primeiro uso. Reduz o medo de começar e aumenta os testes grátis.', h:'#tutorial #comofazer #app'},
     {t:'Oferta de lançamento', d:'Chamada direta com o benefício e o teste grátis. Crie urgência leve ("preço de lançamento").', h:'#promoção #lançamento #oferta'},
     {t:'Responda uma dúvida comum (FAQ)', d:'Pegue a pergunta que mais recebe e responda em vídeo. Tira objeção e vira conteúdo útil.', h:'#faq #duvidas #app'},
-    {t:'Prova de resultado', d:'Mostre números, prints ou uma conquista real de quem usa. Dados constroem confiança.', h:'#resultado #provasocial #dados'}]}
+    {t:'Prova de resultado', d:'Mostre números, prints ou uma conquista real de quem usa. Dados constroem confiança.', h:'#resultado #provasocial #dados'}]},
+  infantil: {nome:'🧸 Moda infantil / Kids', kw:['infantil','moda infantil','kids','crianca','criança','bebe','bebê','roupa infantil','enxoval','loja infantil','baby','fantasia'], ideias:[
+    {t:'Look do dia da criançada', d:'Monte um look completo e mostre no cabideiro ou na criança (com autorização dos pais). Inspira a mãe na hora de comprar.', h:'#modainfantil #lookinfantil #roupainfantil #kidsfashion #modakids #lojainfantil'},
+    {t:'Chegou novidade! 🎉', d:'Apresente as peças que acabaram de chegar. Cria urgência e faz a cliente correr pra garantir.', h:'#novidades #modainfantil #lojainfantil #roupadecrianca #modakids #acaboudechegar'},
+    {t:'Antes e depois montando o look', d:'Peça solta → look completo montado. Mostra combinações e valoriza seu olho de estilo.', h:'#antesedepois #modainfantil #lookdodia #kidsfashion #dicasdelook'},
+    {t:'Conforto que a mãe procura', d:'Fale do tecido, do caimento, da liberdade de movimento. Mãe compra pensando no conforto do filho.', h:'#conforto #modainfantil #dicasdemae #roupainfantil #algodao #bemestar'},
+    {t:'Guia de tamanhos', d:'Ensine a escolher o tamanho certo (por idade, altura). Reduz troca e passa segurança.', h:'#tamanhos #modainfantil #comoescolher #enxoval #dicasdemae #guiadecompra'},
+    {t:'Presente perfeito', d:'Sugira kits e peças pra presentear em datas (aniversário, Dia das Crianças, Natal). Facilita a decisão.', h:'#presente #modainfantil #diadascriancas #presentecriativo #kids #enxovaldebebe'},
+    {t:'Look de festa / fantasia', d:'Mostre opções pra festinhas e ocasiões especiais. Peças de festa têm ótima saída.', h:'#festainfantil #fantasia #modainfantil #lookdefesta #festadecrianca'},
+    {t:'Bastidores da lojinha', d:'Mostre o dia a dia, a arrumação da vitrine, o carinho no atendimento. Marca com rosto vende mais.', h:'#bastidores #lojainfantil #empreendedorismo #modainfantil #lojista'},
+    {t:'Depoimento de mãe cliente', d:'Print ou vídeo de uma mãe satisfeita. Prova social é o que mais convence outras mães.', h:'#depoimento #clientefeliz #modainfantil #maes #provasocial'},
+    {t:'Tal mãe, tal filha (looks combinando)', d:'Combinações mãe & filho(a) ou entre irmãos. Fofura que engaja e viraliza fácil.', h:'#talmaetalfilha #combinando #modainfantil #familia #maeefilha #irmaos'},
+    {t:'Promoção / queima de estoque', d:'Anuncie ofertas com prazo. Bom pra girar estoque e atrair clientes novos.', h:'#promocao #liquidacao #modainfantil #ofertas #lojainfantil #desconto'}]}
 };
 function nichoSugerido(){
   const f = filtroAtivo();
