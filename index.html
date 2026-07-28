@@ -405,6 +405,7 @@
     <button data-aba="vendas" onclick="trocarAba('vendas')">💵 Vendas</button>
     <button data-aba="caixa" onclick="trocarAba('caixa')">💰 Caixa</button>
     <button data-aba="ajuda" onclick="trocarAba('ajuda')">❓ Ajuda</button>
+    <button data-aba="dono" onclick="trocarAba('dono')" style="display:none">👑 Dono</button>
   </nav>
 </header>
 <main>
@@ -471,6 +472,11 @@
     <div class="secao-topo"><h2>💰 Caixa · recebimentos</h2><button class="btn" onclick="abrirModalRecebimento()">➕ Registrar recebimento</button></div>
     <div class="tiles" id="tilesCaixa"></div>
     <div id="listaCaixa"></div>
+  </section>
+  <section id="aba-dono" style="display:none">
+    <div class="secao-topo"><h2>👑 Painel do Dono · assinantes</h2><button class="btn-claro" onclick="carregarDono()">🔄 Atualizar</button></div>
+    <p style="font-size:.85rem;color:var(--muted);margin-top:-8px;margin-bottom:12px">Veja quem usa o Postou e libere o acesso de quem precisa — sem depender de ninguém. 💜</p>
+    <div id="listaDono"><div class="vazio">Abrindo o painel…</div></div>
   </section>
   <section id="aba-ajuda" style="display:none">
     <div class="secao-topo"><h2>Como usar o Postou — passo a passo</h2></div>
@@ -742,6 +748,8 @@ function aplicarPlano(){
     }
     else badge.textContent = nomePlano ? 'Plano: Postou '+nomePlano : '';
   }
+  const btnD = document.querySelector('nav button[data-aba="dono"]');
+  if(btnD) btnD.style.display = ehDono() ? '' : 'none';
 }
 function verificarExpiracao(){
   if(planoAtual()!=='expirado') return;
@@ -756,6 +764,46 @@ function verificarExpiracao(){
     <button class="btn-claro" style="width:100%" onclick="sair()">Sair</button>
   </div>`;
   document.body.appendChild(div);
+}
+/* ---------- PAINEL DO DONO ---------- */
+const DONO_UID = '9fb4d7c0-7e3d-4d9f-942e-7476f76f02b0';
+function ehDono(){ return typeof usuarioId!=='undefined' && usuarioId===DONO_UID; }
+function diasDesde(iso){ if(!iso) return 0; const d0=new Date(parseInt(iso.slice(0,4)),parseInt(iso.slice(5,7))-1,parseInt(iso.slice(8,10))); const hj=new Date(); hj.setHours(0,0,0,0); return Math.round((hj-d0)/864e5); }
+async function carregarDono(){
+  const cont=document.getElementById('listaDono'); if(!cont) return;
+  if(!ehDono()){ cont.innerHTML='<div class="vazio">Área exclusiva da dona. 💜</div>'; return; }
+  cont.innerHTML='<div class="vazio">Carregando assinantes… ⏳</div>';
+  const { data, error } = await sb.from('organizador').select('user_id,conteudo,atualizado');
+  if(error){ cont.innerHTML=`<div class="vazio">Não consegui carregar: ${escapar(error.message)}</div>`; return; }
+  const lista=(data||[]).map(row=>{
+    const c=row.conteudo||{}, a=c.assinatura||{};
+    const nome=a.nome||((c.clientes&&c.clientes[0]&&c.clientes[0].nome)||'(sem nome)');
+    const plano=a.plano||'completo';
+    let badge='', cor='#0a8a4a', expirado=false;
+    if(plano==='trial'){ const dias=diasDesde(a.inicio); if(dias>7){ expirado=true; badge=`⛔ Teste expirado (${dias} dias)`; cor='#c0392b'; } else { badge=`🎁 Teste · faltam ${Math.max(0,7-dias)} dia(s)`; cor='#c026a8'; } }
+    else { badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo'); }
+    return {userId:row.user_id, nome, badge, cor, expirado, interesse:a.interesse||'pessoal', ehEu:row.user_id===usuarioId};
+  }).sort((x,y)=>(y.expirado?1:0)-(x.expirado?1:0));
+  const planos=['pessoal','vendas','business','pro','ultra'];
+  let html='';
+  if(lista.length<=1){ html+=`<div class="vazio" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">⚠️ O painel está vendo só a sua conta. Falta ativar a <b>permissão de dona</b> no Supabase — o comando que a gente vai rodar juntas. Depois disso, todos os assinantes aparecem aqui.</div>`; }
+  html+=`<div class="tiles"><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.length}</div><div class="rot">contas no Postou</div></div><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.filter(u=>u.expirado).length}</div><div class="rot">testes expirados</div></div></div>`;
+  html+=lista.map(u=>{
+    const sel=`<select id="planoSel_${u.userId}">${planos.map(p=>`<option value="${p}" ${p===u.interesse?'selected':''}>${(PLANOS[p]&&PLANOS[p].rotulo)||p}</option>`).join('')}</select>`;
+    const acoes = u.ehEu ? '' : `${sel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button>`;
+    return `<div class="pag-linha"><span style="flex:1"><b>${escapar(u.nome)}</b> ${u.ehEu?'<span style="color:var(--muted);font-size:.75rem">(você)</span>':''}<br><span style="font-size:.8rem;color:${u.cor};font-weight:700">${u.badge}</span></span>${acoes}</div>`;
+  }).join('');
+  cont.innerHTML=html;
+}
+async function liberarUsuario(userId){
+  const selEl=document.getElementById('planoSel_'+userId);
+  const plano=selEl?selEl.value:'pessoal';
+  const cont=document.getElementById('listaDono');
+  const { data } = await sb.from('organizador').select('conteudo').eq('user_id',userId).maybeSingle();
+  const c=(data&&data.conteudo)||{}; c.assinatura=c.assinatura||{}; c.assinatura.plano=plano; c.assinatura.liberadoPor='dono';
+  const { error } = await sb.from('organizador').update({ conteudo:c, atualizado:new Date().toISOString() }).eq('user_id',userId);
+  if(error){ if(cont) cont.insertAdjacentHTML('afterbegin',`<div class="vazio" style="color:#c0392b">Não consegui liberar: ${escapar(error.message)}</div>`); return; }
+  carregarDono();
 }
 async function sair(){
   await sb.auth.signOut();
@@ -820,10 +868,11 @@ function tocar(){ render(); agendarSalvar(); }
 function trocarAba(aba){
   abaAtual = aba;
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('ativo', b.dataset.aba===aba));
-  ['hoje','clientes','calendario','tarefas','ideias','quadro','vendas','caixa','ajuda'].forEach(a=>{
-    document.getElementById('aba-'+a).style.display = a===aba?'':'none';
+  ['hoje','clientes','calendario','tarefas','ideias','quadro','vendas','caixa','ajuda','dono'].forEach(a=>{
+    const el=document.getElementById('aba-'+a); if(el) el.style.display = a===aba?'':'none';
   });
   render();
+  if(aba==='dono') carregarDono();
 }
 
 function render(){
