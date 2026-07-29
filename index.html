@@ -477,17 +477,34 @@
   <section id="aba-equipe" style="display:none">
     <div class="secao-topo"><h2>🏢 Equipe</h2><button class="btn-claro" onclick="carregarEquipe()">🔄 Atualizar</button></div>
     <div class="cartao" style="margin-bottom:14px">
-      <h3 style="margin-bottom:6px">Faço parte de uma equipe</h3>
-      <p style="font-size:.85rem;color:var(--muted);margin-bottom:8px">Se você cuida das redes de uma empresa que usa o Postou, coloque aqui o <b>e-mail da empresa</b>. Assim o dono acompanha as contas que você cuida. (Deixe em branco se você trabalha por conta própria.)</p>
+      <h3 style="margin-bottom:4px">👥 Minha equipe (funcionários)</h3>
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:8px">Cadastre cada pessoa da sua equipe pelo <b>e-mail</b>. <span id="equipeAssentos" style="font-weight:700"></span></p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+        <input id="funcNome" type="text" placeholder="nome (opcional)" style="flex:1;min-width:110px">
+        <input id="funcEmail" type="email" placeholder="e-mail do funcionário" style="flex:2;min-width:170px">
+        <select id="funcPlano" title="Plano dessa pessoa" style="min-width:130px">
+          <option value="pessoal">🌱 Pessoal</option>
+          <option value="vendas">💵 Vendas</option>
+          <option value="business">🏢 Business</option>
+          <option value="pro" selected>🚀 Pro</option>
+          <option value="ultra">👑 Ultra</option>
+        </select>
+        <button class="btn" onclick="adicionarFuncionario()">Adicionar</button>
+      </div>
+      <div id="funcMsg" style="font-size:.82rem;margin-bottom:8px"></div>
+      <div id="listaFuncionarios"><div class="vazio">Carregando…</div></div>
+      <div id="equipeTotal" style="font-weight:800;margin-top:10px;color:var(--g1)"></div>
+      <p style="font-size:.78rem;color:var(--muted);margin-top:4px">Cada pessoa que você adiciona sai com <b>50% de desconto</b> sobre o plano dela. 💜</p>
+    </div>
+    <details class="cartao" style="margin-bottom:14px">
+      <summary style="cursor:pointer;font-weight:700">Sou funcionário de uma empresa</summary>
+      <p style="font-size:.85rem;color:var(--muted);margin:8px 0">Se você cuida das redes de uma empresa que usa o Postou, coloque aqui o <b>e-mail dela</b> para se vincular. (Deixe em branco se trabalha por conta própria.)</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <input id="equipeEmail" type="email" placeholder="e-mail da empresa" style="flex:1;min-width:200px">
-        <button class="btn" onclick="salvarEquipeEmail()">Salvar</button>
+        <button class="btn-claro" onclick="salvarEquipeEmail()">Salvar</button>
       </div>
       <div id="equipeMsg" style="font-size:.82rem;margin-top:6px"></div>
-    </div>
-    <div class="secao-topo"><h3 style="margin:0">👥 Minha equipe</h3></div>
-    <p style="font-size:.85rem;color:var(--muted);margin-top:2px;margin-bottom:12px">Quem colocou o <b>seu e-mail</b> como empresa aparece aqui, com o que cada pessoa cuida. 💜</p>
-    <div id="listaEquipe"><div class="vazio">Carregando…</div></div>
+    </details>
   </section>
   <section id="aba-dono" style="display:none">
     <div class="secao-topo"><h2>👑 Painel do Dono · assinantes</h2><button class="btn-claro" onclick="carregarDono()">🔄 Atualizar</button></div>
@@ -772,7 +789,7 @@ function aplicarPlano(){
 }
 function podeEquipe(){
   const pl = planoAtual();
-  return pl==='ultra' || pl==='completo' || pl==='trial' || !!(dados.assinatura && dados.assinatura.equipe);
+  return pl==='ultra' || pl==='completo' || !!(dados.assinatura && dados.assinatura.equipe);
 }
 function verificarExpiracao(){
   if(planoAtual()!=='expirado') return;
@@ -888,43 +905,82 @@ async function salvarEquipeEmail(){
   if(msg){ msg.style.color='#0a8a4a'; msg.textContent = val ? ('✅ Pronto! Você agora faz parte da equipe de '+val) : 'Ok, você não faz parte de nenhuma equipe.'; }
   aplicarPlano();
 }
+function assentosDoPlano(){
+  const pl=planoAtual();
+  if(pl==='ultra'||pl==='completo') return 9999;
+  if(pl==='pro') return 15;
+  if(pl==='business') return 5;
+  if(pl==='trial') return 5;
+  return 3;
+}
+function emailValido(e){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
+const PRECOS = { pessoal:4.99, vendas:9.99, business:18.99, pro:24.99, ultra:29.90 };
+const DESCONTO_EQUIPE = 0.5; // 50% off por pessoa adicionada
+function precoSeat(plano){ return (PRECOS[plano]||0) * DESCONTO_EQUIPE; }
+async function adicionarFuncionario(){
+  const elN=document.getElementById('funcNome'), elE=document.getElementById('funcEmail'), elP=document.getElementById('funcPlano'), msg=document.getElementById('funcMsg');
+  const email=((elE?elE.value:'')||'').trim().toLowerCase();
+  const nome=((elN?elN.value:'')||'').trim();
+  const plano=(elP&&elP.value)||'pro';
+  const setMsg=(t,ok)=>{ if(msg){ msg.style.color=ok?'#0a8a4a':'#c0392b'; msg.textContent=t; } };
+  if(!emailValido(email)){ setMsg('Coloque um e-mail válido do funcionário. 💜',false); return; }
+  dados.equipeGerida = dados.equipeGerida || { membros:[] };
+  dados.equipeGerida.membros = dados.equipeGerida.membros || [];
+  const meuEmail=((dados.assinatura&&dados.assinatura.email)||'').trim().toLowerCase();
+  if(email===meuEmail){ setMsg('Esse é o seu próprio e-mail 😊',false); return; }
+  if(dados.equipeGerida.membros.some(m=>m.email===email)){ setMsg('Essa pessoa já está na sua equipe.',false); return; }
+  const limite=assentosDoPlano();
+  if(dados.equipeGerida.membros.length>=limite && !ehDono()){ setMsg('Seu plano permite '+limite+' pessoa(s) na equipe. Para adicionar mais, fale com a Joice sobre mais assentos. 💜',false); return; }
+  dados.equipeGerida.membros.push({ email, nome, plano, addedAt:hojeISO() });
+  await salvarAgora();
+  if(elN) elN.value=''; if(elE) elE.value='';
+  setMsg('✅ Funcionário adicionado (+'+dinheiro(precoSeat(plano))+'/mês)! Peça para a pessoa entrar no Postou com esse mesmo e-mail.',true);
+  carregarEquipe();
+}
+async function removerFuncionario(emailEnc){
+  const email=decodeURIComponent(emailEnc||'');
+  dados.equipeGerida = dados.equipeGerida || { membros:[] };
+  dados.equipeGerida.membros = (dados.equipeGerida.membros||[]).filter(m=>m.email!==email);
+  await salvarAgora();
+  carregarEquipe();
+}
 async function carregarEquipe(){
-  const cont=document.getElementById('listaEquipe'); if(!cont) return;
+  const cont=document.getElementById('listaFuncionarios'); if(!cont) return;
   const inp=document.getElementById('equipeEmail'); if(inp && dados.assinatura) inp.value=dados.assinatura.equipe||'';
-  const meuEmail=((dados.assinatura&&dados.assinatura.email)||(usuarioMeta&&usuarioMeta.email)||'').trim().toLowerCase();
-  if(!meuEmail){ cont.innerHTML='<div class="vazio">Não achei seu e-mail para montar a equipe. Saia e entre de novo para atualizar. 💜</div>'; return; }
-  cont.innerHTML='<div class="vazio">Carregando equipe… ⏳</div>';
-  let resp;
+  dados.equipeGerida = dados.equipeGerida || { membros:[] };
+  const roster = dados.equipeGerida.membros || [];
+  const limite=assentosDoPlano();
+  const assEl=document.getElementById('equipeAssentos');
+  if(assEl){ assEl.textContent = limite>=9999 ? (roster.length+' funcionário(s) · assentos ilimitados') : (roster.length+' de '+limite+' assentos usados'); assEl.style.color = (limite<9999 && roster.length>=limite)?'#c0392b':''; }
+  if(!roster.length){ cont.innerHTML='<div class="vazio" style="border:1px solid var(--line);border-radius:10px;padding:12px;text-align:left">Você ainda não cadastrou ninguém. Adicione o primeiro funcionário pelo e-mail aí em cima. 💜</div>'; const te=document.getElementById('equipeTotal'); if(te) te.textContent=''; return; }
+  cont.innerHTML='<div class="vazio">Verificando quem já entrou… ⏳</div>';
+  let ativos={};
   try{
-    resp = await Promise.race([
-      sb.from('organizador').select('user_id,conteudo,atualizado'),
+    const resp = await Promise.race([
+      sb.from('organizador').select('user_id,conteudo'),
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000))
     ]);
-  }catch(e){
-    cont.innerHTML='<div class="vazio">A internet demorou para responder. Toque em 🔄 Atualizar para tentar de novo. 💜</div>';
-    return;
-  }
-  const { data, error } = resp;
-  if(error){ cont.innerHTML=`<div class="vazio">Não consegui carregar: ${escapar(error.message)}</div>`; return; }
-  const membros=(data||[]).filter(r=>{
-    const a=(r.conteudo&&r.conteudo.assinatura)||{};
-    return ((a.equipe||'').trim().toLowerCase()===meuEmail) && r.user_id!==usuarioId;
-  }).map(r=>{
-    const c=r.conteudo||{}, a=c.assinatura||{};
-    const nome=a.nome||'(sem nome)';
-    const nClientes=(c.clientes||[]).length;
-    const nPosts=(c.posts||[]).length;
-    const rp = a.plano && PLANOS[a.plano] ? ((PLANOS[a.plano].rotulo||'').replace(/^\S+\s/,'')||'Ativo') : 'Ativo';
-    const statusPlano = a.plano==='trial' ? '🎁 Teste' : ('✅ '+rp);
-    return {nome, email:a.email||'', nClientes, nPosts, statusPlano};
-  });
-  if(!membros.length){
-    cont.innerHTML=`<div class="vazio" style="border:1px solid var(--line);border-radius:10px;padding:12px;text-align:left">Ainda não há ninguém na sua equipe. 💜<br><br>As pessoas aparecem aqui quando colocam o <b>seu e-mail</b> (<b>${escapar(meuEmail)}</b>) no campo "e-mail da empresa" dentro do Postou delas.<br><br><span style="opacity:.75">Se você já tem gente cadastrada e nada aparece, pode faltar ligar a permissão de equipe no banco — é um comando rapidinho que a Joice te passa.</span></div>`;
-    return;
-  }
-  let html=`<div class="tiles"><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${membros.length}</div><div class="rot">pessoas na equipe</div></div><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${membros.reduce((s,m)=>s+m.nClientes,0)}</div><div class="rot">contas cuidadas</div></div></div>`;
-  html+=membros.map(m=>`<div class="pag-linha"><span style="flex:1"><b>${escapar(m.nome)}</b> <span style="font-size:.75rem;color:var(--muted)">${escapar(m.email)}</span><br><span style="font-size:.8rem;color:var(--muted)">${m.statusPlano} · 👥 ${m.nClientes} conta(s) · 📝 ${m.nPosts} post(s)</span></span></div>`).join('');
+    (resp.data||[]).forEach(r=>{
+      const c=r.conteudo||{}, a=c.assinatura||{};
+      const em=(a.email||'').trim().toLowerCase();
+      if(em) ativos[em]={ nClientes:(c.clientes||[]).length, nPosts:(c.posts||[]).length, plano:a.plano };
+    });
+  }catch(e){ /* segue sem status ao vivo */ }
+  let total=0;
+  const html = roster.map(m=>{
+    const ativo=ativos[m.email];
+    const nome=escapar(m.nome||m.email.split('@')[0]);
+    const plano=m.plano||'pro';
+    const extra=precoSeat(plano); total+=extra;
+    const rotPlano=((PLANOS[plano]&&PLANOS[plano].rotulo)||plano);
+    let status;
+    if(ativo){ status='<span style="color:#0a8a4a;font-weight:700">✅ já usa o Postou</span> · 👥 '+ativo.nClientes+' conta(s)'; }
+    else { status='<span style="color:#c026a8;font-weight:700">⏳ convidado</span> — ainda não entrou'; }
+    return `<div class="pag-linha"><span style="flex:1"><b>${nome}</b> <span style="font-size:.75rem;color:var(--muted)">${escapar(m.email)}</span><br><span style="font-size:.8rem;color:var(--muted)">${escapar(rotPlano)} · <b style="color:var(--g1)">+${dinheiro(extra)}/mês</b> · ${status}</span></span><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="removerFuncionario('${encodeURIComponent(m.email)}')">Remover</button></div>`;
+  }).join('');
   cont.innerHTML=html;
+  const totEl=document.getElementById('equipeTotal');
+  if(totEl) totEl.textContent = total>0 ? ('Total da equipe: +'+dinheiro(total)+'/mês') : '';
 }
 async function sair(){
   await sb.auth.signOut();
