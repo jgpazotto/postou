@@ -827,7 +827,17 @@ async function carregarDono(){
   const cont=document.getElementById('listaDono'); if(!cont) return;
   if(!ehDono()){ cont.innerHTML='<div class="vazio">Área exclusiva da dona. 💜</div>'; return; }
   cont.innerHTML='<div class="vazio">Carregando assinantes… ⏳</div>';
-  const { data, error } = await sb.from('organizador').select('user_id,conteudo,atualizado');
+  let respD;
+  try{
+    respD = await Promise.race([
+      sb.from('organizador').select('user_id,conteudo,atualizado'),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000))
+    ]);
+  }catch(e){
+    cont.innerHTML='<div class="vazio">A internet demorou para responder. Toque em 🔄 Atualizar para tentar de novo. 💜</div>';
+    return;
+  }
+  const { data, error } = respD;
   if(error){ cont.innerHTML=`<div class="vazio">Não consegui carregar: ${escapar(error.message)}</div>`; return; }
   const lista=(data||[]).map(row=>{
     const c=row.conteudo||{}, a=c.assinatura||{};
@@ -884,7 +894,17 @@ async function carregarEquipe(){
   const meuEmail=((dados.assinatura&&dados.assinatura.email)||(usuarioMeta&&usuarioMeta.email)||'').trim().toLowerCase();
   if(!meuEmail){ cont.innerHTML='<div class="vazio">Não achei seu e-mail para montar a equipe. Saia e entre de novo para atualizar. 💜</div>'; return; }
   cont.innerHTML='<div class="vazio">Carregando equipe… ⏳</div>';
-  const { data, error } = await sb.from('organizador').select('user_id,conteudo,atualizado');
+  let resp;
+  try{
+    resp = await Promise.race([
+      sb.from('organizador').select('user_id,conteudo,atualizado'),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),15000))
+    ]);
+  }catch(e){
+    cont.innerHTML='<div class="vazio">A internet demorou para responder. Toque em 🔄 Atualizar para tentar de novo. 💜</div>';
+    return;
+  }
+  const { data, error } = resp;
   if(error){ cont.innerHTML=`<div class="vazio">Não consegui carregar: ${escapar(error.message)}</div>`; return; }
   const membros=(data||[]).filter(r=>{
     const a=(r.conteudo&&r.conteudo.assinatura)||{};
