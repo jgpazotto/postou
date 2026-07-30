@@ -1809,15 +1809,18 @@ function abrirModalCliente(id){
       ${p&&p.nicho&&!NICHOS_PREDEFINIDOS[p.nicho]?`<option value="${escapar(p.nicho)}" selected>⭐ ${escapar(p.nicho)} (personalizado)</option>`:''}
       ${Object.entries(NICHOS_PREDEFINIDOS).map(([k,v])=>`<option value="${k}" ${p&&p.nicho===k?'selected':''}>${v}</option>`).join('')}
     </select>
-    <label>Nichos secundários (marque os que também se aplicam)</label>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;margin-bottom:10px;border:1px solid var(--line);border-radius:10px;padding:12px;background:#faf8fc">
-      ${Object.entries(NICHOS_PREDEFINIDOS).map(([k,v])=>`
-        <label style="display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:0;cursor:pointer;font-size:.85rem;line-height:1.2;text-align:left">
-          <input type="checkbox" id="mNichoSec_${k}" value="${k}" style="flex:none;width:16px;height:16px;margin:0" ${p&&p.nichos_tags&&p.nichos_tags.includes(k)?'checked':''}>
-          <span style="flex:1;text-align:left">${v.split(' ').slice(1).join(' ')}</span>
-        </label>
-      `).join('')}
-    </div>
+    <details style="margin-bottom:10px" ${p&&p.nichos_tags&&p.nichos_tags.length?'open':''}>
+      <summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:6px 0;color:var(--g1)">➕ Adicionar outros nichos (opcional)</summary>
+      <p style="font-size:.8rem;color:var(--muted);margin:4px 0 8px">Marque os que também se aplicam — assim as ideias combinam mais de um nicho. 💜</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px 16px;border:1px solid var(--line);border-radius:10px;padding:12px;background:#faf8fc;max-height:220px;overflow-y:auto">
+        ${Object.entries(NICHOS_PREDEFINIDOS).map(([k,v])=>`
+          <label style="display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:0;cursor:pointer;font-size:.85rem;line-height:1.2;text-align:left">
+            <input type="checkbox" id="mNichoSec_${k}" value="${k}" style="flex:none;width:16px;height:16px;margin:0" ${p&&p.nichos_tags&&p.nichos_tags.includes(k)?'checked':''}>
+            <span style="flex:1;text-align:left">${v.split(' ').slice(1).join(' ')}</span>
+          </label>
+        `).join('')}
+      </div>
+    </details>
     <label>WhatsApp do usuário (com código do país — EUA +1, Brasil +55)</label>
     <input id="mZap" value="${p?escapar(p.zap||''):''}" placeholder="Ex.: +15085551234 (EUA) ou +5511999998888">
     <label>E-mail do usuário (opcional)</label>
@@ -2353,31 +2356,148 @@ function renderTarefas(){
 /* ---------- IDEIAS ---------- */
 /* ---------- NICHOS PREDEFINIDOS ---------- */
 const NICHOS_PREDEFINIDOS = {
-  moda: '👗 Moda e acessórios',
-  beleza: '💅 Beleza e estética',
-  infantil: '🧸 Moda infantil / Kids',
-  comida: '🍕 Comida e restaurantes',
-  fitness: '💪 Fitness e saúde',
-  lojinha: '🛍 Loja e revenda',
-  servicos: '🔧 Serviços e profissionais',
-  pets: '🐶 Pets',
-  educacao: '📚 Educação e cursos',
+  advocacia: '⚖️ Advocacia e jurídico',
   artesanato: '🎨 Artesanato e criativos',
-  imobiliaria: '🏠 Imobiliária',
-  estacionamento: '🅿️ Estacionamento',
-  midiasocial: '📱 Mídia social (agência/gestão)',
-  odontologia: '🦷 Dentista / Odontologia',
-  lifestyle: '💫 Vida & Lifestyle (pessoal)',
-  vendasapp: '🚀 Vendas de App / SaaS',
+  barbearia: '💈 Barbearia',
+  beleza: '💅 Beleza e estética',
+  cafeteria: '☕ Cafeteria e padaria',
   carros: '🚗 Carros e automotivo',
-  promocoes: '🔥 Promoções e ofertas',
-  motivacional: '✨ Motivacional e frases',
+  comida: '🍕 Comida e restaurantes',
+  contabilidade: '📊 Contabilidade e finanças',
   general: '⭐ Conteúdo geral',
-  sociopolitico: '🗣 Social e política'
+  odontologia: '🦷 Dentista / Odontologia',
+  educacao: '📚 Educação e cursos',
+  estacionamento: '🅿️ Estacionamento',
+  eventos: '🎉 Festas e eventos',
+  fitness: '💪 Fitness e saúde',
+  fotografia: '📸 Fotografia e audiovisual',
+  imobiliaria: '🏠 Imobiliária',
+  jardinagem: '🌱 Jardinagem e paisagismo',
+  limpeza: '🧽 Limpeza e diarista',
+  lojinha: '🛍 Loja e revenda',
+  midiasocial: '📱 Mídia social (agência/gestão)',
+  moda: '👗 Moda e acessórios',
+  infantil: '🧸 Moda infantil / Kids',
+  motivacional: '✨ Motivacional e frases',
+  pets: '🐶 Pets',
+  promocoes: '🔥 Promoções e ofertas',
+  psicologia: '🧠 Psicologia e terapia',
+  reforma: '🛠 Reforma, pintura e faz-tudo',
+  saude: '🩺 Saúde e clínicas',
+  servicos: '🔧 Serviços e profissionais',
+  sociopolitico: '🗣 Social e política',
+  tecnologia: '💻 Tecnologia e assistência',
+  vendasapp: '🚀 Vendas de App / SaaS',
+  viagem: '✈️ Viagem e turismo',
+  lifestyle: '💫 Vida & Lifestyle (pessoal)'
 };
 
 /* ---------- SUGESTÕES POR NICHO ---------- */
 const SUGESTOES_NICHO = {
+  reforma: {nome:'🛠 Reforma, pintura e faz-tudo', kw:['reforma','pintura','pintor','papel de parede','faztudo','pedreiro','eletricista','encanador','marido de aluguel','reparo','obra'], ideias:[
+    {t:'Antes e depois da reforma', d:'Mostre um cômodo antes e depois do seu trabalho. A transformação é o que mais vende no seu ramo.', h:'#antesedepois #reforma #transformacao'},
+    {t:'Papel de parede na prática', d:'Grave um vídeo curto aplicando um papel de parede. Mostra capricho e dá vontade de fazer igual.', h:'#papeldeparede #decoracao #reforma'},
+    {t:'Dica de manutenção da casa', d:'Uma dica simples que evita dor de cabeça (infiltração, pintura, vazamento). Educa e gera confiança.', h:'#dicasdecasa #manutencao #faztudo'},
+    {t:'Tudo que eu resolvo', d:'Liste os serviços: pintura, elétrica, hidráulica, montagem, pequenos reparos. Muita gente não sabe que você faz tudo isso.', h:'#faztudo #servicos #reparos'},
+    {t:'Orçamento sem susto', d:'Explique como funciona seu orçamento e o que influencia o preço. Transparência atrai cliente sério.', h:'#orcamento #reforma #transparencia'},
+    {t:'Bastidor da obra', d:'Mostre a obra em andamento e a limpeza no final. Pessoas amam ver o processo e o capricho.', h:'#obra #bastidores #reforma'},
+    {t:'Depoimento de cliente', d:'Cliente feliz com o resultado. Prova social fecha contrato no seu ramo.', h:'#clientefeliz #depoimento #confianca'}]},
+  saude: {nome:'🩺 Saúde e clínicas', kw:['saude','clinica','medico','enfermagem','fisioterapia','nutricao','exame','consulta'], ideias:[
+    {t:'Dica de saúde do dia', d:'Uma orientação simples e confiável. Educa e aproxima o paciente.', h:'#saude #bemestar #dicadesaude'},
+    {t:'Mito ou verdade', d:'Desminta uma crença comum de saúde. Engaja e te posiciona como referência.', h:'#mitoouverdade #saude #cuidese'},
+    {t:'Conheça a clínica e a equipe', d:'Apresente os profissionais e o ambiente. Confiança começa por conhecer quem cuida.', h:'#clinica #equipe #saude'},
+    {t:'Sinais de alerta', d:'Liste sinais que merecem atenção e um convite pra procurar ajuda.', h:'#prevencao #saude #cuidados'},
+    {t:'Como agendar sua consulta', d:'Post objetivo com formas de contato, horários e o passo a passo pra marcar.', h:'#agende #consulta #saude'},
+    {t:'Data de conscientização', d:'Aproveite campanhas (Outubro Rosa, etc.) pra educar e engajar com propósito.', h:'#conscientizacao #prevencao #saude'},
+    {t:'Depoimento de paciente', d:'Com autorização, mostre uma experiência positiva. Prova social é forte na saúde.', h:'#depoimento #paciente #confianca'}]},
+  psicologia: {nome:'🧠 Psicologia e terapia', kw:['psicologia','psicologo','terapia','saude mental','ansiedade','autoconhecimento'], ideias:[
+    {t:'Reflexão da semana', d:'Um pensamento acolhedor que convida ao autoconhecimento. Salva e compartilha muito.', h:'#saudemental #reflexao #terapia'},
+    {t:'Desmistificando a terapia', d:'Responda um mito comum (ex.: terapia é só pra quem tem problema grave). Aproxima quem tem receio.', h:'#terapia #psicologia #saudemental'},
+    {t:'Sinais de que vale buscar ajuda', d:'Liste sinais com carinho e sem alarmismo, terminando com um convite gentil.', h:'#autocuidado #saudemental #bemestar'},
+    {t:'Técnica rápida pra ansiedade', d:'Ensine um exercício simples de respiração ou aterramento. Útil e salvável.', h:'#ansiedade #respiracao #autocuidado'},
+    {t:'Frase acolhedora', d:'Uma mensagem que abraça quem está passando por um dia difícil.', h:'#acolhimento #saudemental #frases'},
+    {t:'Como é a primeira sessão', d:'Explique o que esperar da primeira consulta. Reduz o medo do desconhecido.', h:'#terapia #primeirasessao #psicologia'},
+    {t:'Cuidar da mente é cuidar de você', d:'Normalize o cuidado com a saúde mental como parte da saúde geral.', h:'#saudemental #autocuidado #bemestar'}]},
+  advocacia: {nome:'⚖️ Advocacia e jurídico', kw:['advocacia','advogado','juridico','direito','contrato','processo'], ideias:[
+    {t:'Seu direito em 1 minuto', d:'Explique um direito comum de forma simples. Conteúdo útil que gera autoridade.', h:'#direitos #advocacia #juridico'},
+    {t:'Mito ou verdade jurídico', d:'Desminta uma crença comum sobre leis. Engaja e educa.', h:'#mitoouverdade #direito #advogado'},
+    {t:'Documentos pra guardar sempre', d:'Liste papéis importantes que as pessoas costumam perder. Prático e salvável.', h:'#dicasjuridicas #documentos #direito'},
+    {t:'Quando procurar um advogado', d:'Situações em que vale buscar orientação antes de agir sozinho.', h:'#advocacia #orientacao #juridico'},
+    {t:'Conheça minha atuação', d:'Apresente as áreas em que você atua e como pode ajudar. Sem juridiquês.', h:'#advogado #escritorio #direito'},
+    {t:'Dica de contrato seguro', d:'Um cuidado simples que evita problema (ler antes de assinar, guardar cópia).', h:'#contrato #dicas #direito'},
+    {t:'Caso comum resolvido', d:'Conte um tipo de caso que você resolve (sem expor cliente). Mostra experiência.', h:'#advocacia #experiencia #resultado'}]},
+  contabilidade: {nome:'📊 Contabilidade e finanças', kw:['contabilidade','contador','mei','imposto','financas','empresa','das'], ideias:[
+    {t:'Dica pra não cair no leão', d:'Uma orientação simples de imposto/declaração. Educa e gera confiança.', h:'#impostoderenda #contabilidade #dicas'},
+    {t:'MEI: o que você precisa saber', d:'Explique de forma leve uma regra do MEI (limite, DAS, obrigações).', h:'#mei #empreendedorismo #contabilidade'},
+    {t:'Erro comum de quem empreende', d:'Um erro financeiro frequente e como evitar. Posiciona você como especialista.', h:'#financas #empreendedorismo #dicas'},
+    {t:'Datas e prazos do mês', d:'Lembre os prazos importantes. Serviço útil que faz o cliente te seguir.', h:'#prazos #impostos #contabilidade'},
+    {t:'Organize suas finanças', d:'Uma dica prática de organização financeira pra pequenos negócios.', h:'#financas #organizacao #empreendedor'},
+    {t:'Vale a pena abrir empresa?', d:'Ajude a pessoa a entender quando formalizar. Gera consulta.', h:'#abrirempresa #mei #contabilidade'},
+    {t:'Conheça meus serviços', d:'Apresente o que o escritório faz e como facilita a vida do cliente.', h:'#contador #escritorio #servicos'}]},
+  viagem: {nome:'✈️ Viagem e turismo', kw:['viagem','turismo','pacote','agencia','destino','hotel','passagem'], ideias:[
+    {t:'Destino da semana', d:'Destaque um lugar com fotos lindas e o motivo pra visitar. Desperta o desejo de viajar.', h:'#destino #viagem #turismo'},
+    {t:'Dica pra economizar', d:'Um truque real pra gastar menos na viagem. Útil e muito compartilhável.', h:'#dicasdeviagem #economia #turismo'},
+    {t:'Roteiro de X dias', d:'Monte um mini roteiro pronto de um destino. Facilita a decisão de comprar.', h:'#roteiro #viagem #ferias'},
+    {t:'Erros de quem viaja sem planejar', d:'Liste furadas comuns e como evitar. Posiciona você como especialista.', h:'#dicasdeviagem #planejamento #turismo'},
+    {t:'Bastidor de uma experiência', d:'Mostre um cliente aproveitando um pacote seu. Prova social vende viagem.', h:'#experiencia #viagem #clientefeliz'},
+    {t:'Checklist da mala', d:'Uma listinha do que não pode faltar. Salvável e prática.', h:'#checklist #mala #viagem'},
+    {t:'Depoimento de viajante', d:'Cliente contando como foi a viagem que você organizou.', h:'#depoimento #viagem #confianca'}]},
+  eventos: {nome:'🎉 Festas e eventos', kw:['evento','festa','buffet','decoracao','aniversario','casamento','cerimonial'], ideias:[
+    {t:'Antes e depois da decoração', d:'Mostre o espaço vazio virando uma festa linda. A transformação encanta.', h:'#antesedepois #decoracao #festa'},
+    {t:'Bastidor de um evento', d:'Mostre a montagem e os detalhes. Pessoas amam ver o trabalho por trás.', h:'#bastidores #evento #festa'},
+    {t:'Ideias de tema pra festa', d:'Sugira temas criativos com exemplos. Inspira e gera contato.', h:'#temadefesta #decoracao #ideias'},
+    {t:'Checklist pra não esquecer nada', d:'Uma lista prática pra quem vai fazer um evento. Útil e salvável.', h:'#checklist #festa #evento'},
+    {t:'Pacotes e como orçar', d:'Explique o que está incluso e como pedir orçamento. Facilita o fechamento.', h:'#orcamento #festa #evento'},
+    {t:'Tendências de festa', d:'Mostre o que está em alta em decoração e temas. Conteúdo atual engaja.', h:'#tendencias #festa #decoracao'},
+    {t:'Depoimento de cliente', d:'Cliente emocionado com a festa que você fez. Fecha contrato.', h:'#depoimento #festa #clientefeliz'}]},
+  fotografia: {nome:'📸 Fotografia e audiovisual', kw:['fotografia','fotografo','ensaio','video','audiovisual','casamento','book'], ideias:[
+    {t:'Making of do ensaio', d:'Mostre os bastidores de uma sessão. Aproxima e mostra seu jeito de trabalhar.', h:'#makingof #fotografia #ensaio'},
+    {t:'Antes e depois da edição', d:'Foto crua x foto editada. Mostra o valor do seu trabalho.', h:'#antesedepois #edicao #fotografia'},
+    {t:'Dica pra fotos melhores no celular', d:'Ensine um truque simples de luz ou enquadramento. Conteúdo que salva.', h:'#dicasdefoto #celular #fotografia'},
+    {t:'Como funcionam meus pacotes', d:'Explique o que está incluso e como agendar. Facilita a decisão.', h:'#ensaio #pacotes #fotografia'},
+    {t:'Sua melhor foto da semana', d:'Poste um trabalho do qual você se orgulha, com a história por trás.', h:'#fotododia #fotografia #portfolio'},
+    {t:'Ideias de ensaio', d:'Sugira temas e locações. Inspira o cliente a marcar o dele.', h:'#ideiasdeensaio #book #fotografia'},
+    {t:'Depoimento de cliente', d:'Cliente amando as fotos. Prova social no seu ramo é ouro.', h:'#depoimento #clientefeliz #fotografia'}]},
+  limpeza: {nome:'🧽 Limpeza e diarista', kw:['limpeza','diarista','faxina','limpeza pos obra','higienizacao','domestica'], ideias:[
+    {t:'Antes e depois da limpeza', d:'Ambiente sujo virando um brilho. É o post que mais fecha serviço no seu ramo.', h:'#antesedepois #limpeza #faxina'},
+    {t:'Dica de limpeza que salva', d:'Um truque prático pra tirar aquela sujeira difícil. Útil e compartilhável.', h:'#dicasdelimpeza #casa #organizacao'},
+    {t:'Produtos que eu amo', d:'Mostre seus produtos favoritos e por que funcionam. Gera confiança.', h:'#produtosdelimpeza #dicas #limpeza'},
+    {t:'Como funciona meu serviço', d:'Explique o que está incluso, valores e como agendar. Sem enrolação.', h:'#diarista #servico #limpeza'},
+    {t:'Erros comuns de limpeza', d:'Mostre o que a maioria faz errado e o jeito certo. Posiciona você como profissional.', h:'#dicasdelimpeza #casa #cuidados'},
+    {t:'Rotina de limpeza da semana', d:'Sugira uma divisão de tarefas por dia. Ajuda e mantém você na mente do cliente.', h:'#rotina #organizacao #limpeza'},
+    {t:'Depoimento de cliente', d:'Cliente satisfeito com o resultado. Prova social fecha diária.', h:'#depoimento #clientefeliz #limpeza'}]},
+  barbearia: {nome:'💈 Barbearia', kw:['barbearia','barbeiro','corte','barba','cabelo masculino','navalha'], ideias:[
+    {t:'Antes e depois do corte', d:'Mostre a transformação do cliente. É o conteúdo que mais atrai no seu ramo.', h:'#antesedepois #barbearia #corte'},
+    {t:'Estilo da semana', d:'Destaque um corte ou combinação de barba em alta. Inspira o cliente a marcar.', h:'#corte #barba #estilo'},
+    {t:'Dica de cuidado com barba/cabelo', d:'Um cuidado simples pra manter o visual em casa. Útil e gera valor.', h:'#dicas #barba #cabelomasculino'},
+    {t:'Bastidor da barbearia', d:'Mostre o ambiente, a vibe e o atendimento. Barbearia é experiência.', h:'#bastidores #barbearia #vibe'},
+    {t:'Agende seu horário', d:'Post objetivo com como marcar e os horários disponíveis.', h:'#agende #barbearia #horario'},
+    {t:'Combo/promoção', d:'Corte + barba com condição especial. Aumenta o ticket.', h:'#combo #promocao #barbearia'},
+    {t:'Depoimento de cliente', d:'Cliente satisfeito saindo renovado. Prova social fideliza.', h:'#depoimento #clientefeliz #barbearia'}]},
+  cafeteria: {nome:'☕ Cafeteria e padaria', kw:['cafeteria','cafe','padaria','confeitaria','doceria','brunch','lanche'], ideias:[
+    {t:'Novidade do cardápio', d:'Mostre um item novo com uma foto irresistível. Dá água na boca e traz gente.', h:'#novidade #cafeteria #cardapio'},
+    {t:'Bastidor do preparo', d:'Grave o preparo de um produto. O processo artesanal encanta.', h:'#bastidores #preparo #confeitaria'},
+    {t:'Combo do dia', d:'Uma oferta gostosa (café + salgado) com preço especial. Aumenta o movimento.', h:'#combo #promocao #cafe'},
+    {t:'O aconchego do ambiente', d:'Mostre o cantinho perfeito pra sentar. Convida a pessoa a vir passar um tempo.', h:'#ambiente #aconchego #cafeteria'},
+    {t:'O segredo da casa', d:'Conte o diferencial de um produto (receita de família, ingrediente especial).', h:'#segredodacasa #artesanal #sabor'},
+    {t:'Encomendas e café da manhã', d:'Avise que faz encomendas e cestas. Muita gente não sabe.', h:'#encomendas #cafedamanha #padaria'},
+    {t:'Depoimento de cliente', d:'Cliente elogiando um produto. Prova social vale muito no ramo de comida.', h:'#depoimento #clientefeliz #cafeteria'}]},
+  jardinagem: {nome:'🌱 Jardinagem e paisagismo', kw:['jardinagem','jardineiro','paisagismo','plantas','jardim','horta'], ideias:[
+    {t:'Antes e depois do jardim', d:'Um espaço abandonado virando um jardim lindo. A transformação encanta.', h:'#antesedepois #jardim #paisagismo'},
+    {t:'Dica de cuidado com plantas', d:'Uma dica simples (rega, sol, adubo) que evita planta morta. Útil e salvável.', h:'#dicasdeplantas #jardinagem #plantas'},
+    {t:'Planta da semana', d:'Apresente uma planta com os cuidados dela. Educa e engaja quem ama verde.', h:'#plantadasemana #plantas #jardim'},
+    {t:'Serviços que eu faço', d:'Liste: manutenção, poda, projeto de jardim, horta. Mostra sua amplitude.', h:'#jardinagem #paisagismo #servicos'},
+    {t:'Bastidor do trabalho', d:'Mostre você cuidando de um jardim. O capricho gera confiança.', h:'#bastidores #jardinagem #trabalho'},
+    {t:'Ideias de paisagismo', d:'Inspire com ideias pra varanda, quintal ou empresa.', h:'#paisagismo #ideias #jardim'},
+    {t:'Depoimento de cliente', d:'Cliente feliz com o jardim novo. Prova social fecha projeto.', h:'#depoimento #clientefeliz #jardim'}]},
+  tecnologia: {nome:'💻 Tecnologia e assistência', kw:['tecnologia','assistencia','celular','computador','conserto','ti','informatica'], ideias:[
+    {t:'Dica de tecnologia rápida', d:'Um truque simples que facilita a vida (atalho, config, economia de bateria).', h:'#dicasdetecnologia #tech #dicas'},
+    {t:'Antes e depois do conserto', d:'Aparelho quebrado virando novo. Mostra a qualidade do seu serviço.', h:'#antesedepois #assistencia #conserto'},
+    {t:'Mito ou verdade tech', d:'Desminta uma crença comum (ex.: deixar carregando estraga a bateria).', h:'#mitoouverdade #tecnologia #dicas'},
+    {t:'Serviços que eu resolvo', d:'Liste tudo: celular, computador, formatação, backup. Mostra que você resolve.', h:'#assistenciatecnica #servicos #tech'},
+    {t:'Como funciona o orçamento', d:'Explique como avalia e cobra. Transparência atrai cliente.', h:'#orcamento #assistencia #tecnologia'},
+    {t:'Cuidados pro aparelho durar', d:'Dicas pra o celular/PC durar mais. Útil e gera autoridade.', h:'#dicas #cuidados #tecnologia'},
+    {t:'Depoimento de cliente', d:'Cliente satisfeito com o conserto rápido. Prova social fecha serviço.', h:'#depoimento #clientefeliz #assistencia'}]},
   carros: {nome:'🚗 Carros e automotivo', kw:['carro','auto','automotivo','veiculo','oficina','mecanica','lava rapido','seminovo','concessionaria','revisao'], ideias:[
     {t:'Carro da semana', d:'Destaque um veículo com fotos caprichadas, ano, km, opcionais e o diferencial. Chamada clara pra agendar um test-drive.', h:'#carrodasemana #seminovos #autos #carros'},
     {t:'Antes e depois (estética/lavagem)', d:'Mostre um carro opaco virando um brilho de novo. A transformação prende a atenção e mostra a qualidade do seu serviço.', h:'#antesedepois #esteticaautomotiva #detailing'},
