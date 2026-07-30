@@ -1707,9 +1707,9 @@ function renderClientes(){
       <div class="redes-lista">${redesHtml||'<span style="font-size:.78rem;color:var(--muted)">nenhuma rede cadastrada</span>'}</div>
       ${p.notas?`<div style="font-size:.82rem;color:var(--muted)">${escapar(p.notas)}</div>`:''}
       <div class="contagens">
-        <span>📌 <b>${nPosts}</b> pendentes</span>
+        <span role="button" tabindex="0" onclick="verPendentes(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver e ajustar os posts pendentes">📌 <b>${nPosts}</b> pendentes</span>
         <span>✅ <b>${nTar}</b> tarefas</span>
-        <span>💡 <b>${nId}</b> ideias</span>
+        <span role="button" tabindex="0" onclick="verIdeias(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver as ideias">💡 <b>${nId}</b> ideias</span>
       </div>
       ${p.metaPosts?(()=>{ const ym=hojeISO().slice(0,7); const pub=dados.posts.filter(x=>x.clienteId===p.id&&x.status==='publicado'&&x.data.startsWith(ym)).length; const pct=Math.min(100,Math.round(pub/p.metaPosts*100)); return `<div class="meta-prog"><div class="meta-barra"><div style="width:${pct}%"></div></div><span><b>${pub}/${p.metaPosts}</b> posts no mês</span></div>`; })():''}
       ${p.valor?(()=>{ const ym=hojeISO().slice(0,7); const pago=p.pagamentos&&p.pagamentos[ym]; return `<div style="font-size:.78rem;color:var(--muted);margin-top:6px">💰 ${dinheiro(p.valor)}/mês${p.diaPagamento?' · vence dia '+p.diaPagamento:''} ${pago?'· <b style="color:var(--ok)">✔ recebido</b>':''}</div>`; })():''}
@@ -1724,6 +1724,52 @@ function renderClientes(){
   }).join('');
 }
 
+function verPendentes(clienteId){
+  const c = clientePorId(clienteId);
+  const posts = dados.posts.filter(x=>x.clienteId===clienteId && x.status!=='publicado')
+    .sort((a,b)=>(a.data||'').localeCompare(b.data||''));
+  const meta = c && c.metaPosts ? c.metaPosts : 0;
+  let html = `<h3 style="margin-bottom:4px">📌 Posts pendentes — ${escapar(c?c.nome:'')}</h3>`;
+  html += `<p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">${posts.length} post(s) por publicar${meta?' · sua meta é '+meta+'/mês':''}. Confira e remova os repetidos aqui. 💜</p>`;
+  if(!posts.length){ html += '<div class="vazio">Nenhum post pendente por aqui. 🎉</div>'; }
+  else {
+    html += posts.map(p=>`<div class="pag-linha">
+      <span class="bolinha" style="background:${c?c.cor:'#999'}"></span>
+      <span style="flex:1"><b>${escapar(p.titulo)}</b><br><span style="font-size:.78rem;color:var(--muted)">${p.data?dataBR(p.data):'sem data'}${p.hora?' · '+escapar(p.hora):''} · ${TIPOS[p.tipo]||''}</span></span>
+      <button class="btn-mini" onclick="abrirModalPost(${p.id})" title="Abrir/editar">✏️</button>
+      <button class="btn-mini perigo" onclick="removerPostPendente(${p.id},${clienteId})" title="Remover">🗑</button>
+    </div>`).join('');
+  }
+  html += `<div style="margin-top:14px;text-align:right"><button class="btn-claro" onclick="fecharModal()">Fechar</button></div>`;
+  abrirModal(html);
+}
+function removerPostPendente(postId, clienteId){
+  dados.posts = dados.posts.filter(x=>x.id!==postId);
+  tocar();
+  verPendentes(clienteId);
+}
+function verIdeias(clienteId){
+  const c = clientePorId(clienteId);
+  const ids = dados.ideias.filter(x=>x.clienteId===clienteId);
+  let html = `<h3 style="margin-bottom:4px">💡 Ideias — ${escapar(c?c.nome:'')}</h3>`;
+  html += `<p style="font-size:.85rem;color:var(--muted);margin-bottom:12px">${ids.length} ideia(s) guardada(s).</p>`;
+  if(!ids.length){ html += '<div class="vazio">Nenhuma ideia guardada ainda.</div>'; }
+  else {
+    html += ids.map(i=>`<div class="pag-linha">
+      <span class="bolinha" style="background:${c?c.cor:'#999'}"></span>
+      <span style="flex:1"><b>${escapar(i.titulo)}</b>${i.texto?'<br><span style="font-size:.78rem;color:var(--muted)">'+escapar(String(i.texto).slice(0,90))+'</span>':''}</span>
+      <button class="btn-mini" onclick="abrirModalIdeia(${i.id})" title="Abrir/editar">✏️</button>
+      <button class="btn-mini perigo" onclick="removerIdeiaCliente(${i.id},${clienteId})" title="Remover">🗑</button>
+    </div>`).join('');
+  }
+  html += `<div style="margin-top:14px;text-align:right"><button class="btn-claro" onclick="fecharModal()">Fechar</button></div>`;
+  abrirModal(html);
+}
+function removerIdeiaCliente(ideiaId, clienteId){
+  dados.ideias = dados.ideias.filter(x=>x.id!==ideiaId);
+  tocar();
+  verIdeias(clienteId);
+}
 function linhaRedeHtml(i){
   const r = redesTemp[i];
   const info = REDE_DICA[r.tipo] || REDE_DICA.outra;
@@ -2032,7 +2078,8 @@ function renderCalSemana(el){
       <div class="cal-num"><b>${nomes[i]}</b> ${d.getDate()}</div>
       ${fer[iso]?`<div class="data-comem">🎉 ${fer[iso]}</div>`:''}
       ${aniversariosDoDia(iso).map(a=>`<div class="data-comem">${a}</div>`).join('')}
-      ${itens.join('') || '<div class="mais">—</div>'}
+      ${itens.length ? itens.slice(0,6).join('') : '<div class="mais">—</div>'}
+      ${itens.length>6?`<div class="mais">+${itens.length-6} mais</div>`:''}
     </div>`;
   }
   html += '</div>';
