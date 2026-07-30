@@ -2322,12 +2322,48 @@ const NICHOS_PREDEFINIDOS = {
   odontologia: '🦷 Dentista / Odontologia',
   lifestyle: '💫 Vida & Lifestyle (pessoal)',
   vendasapp: '🚀 Vendas de App / SaaS',
+  carros: '🚗 Carros e automotivo',
+  promocoes: '🔥 Promoções e ofertas',
+  motivacional: '✨ Motivacional e frases',
   general: '⭐ Conteúdo geral',
   sociopolitico: '🗣 Social e política'
 };
 
 /* ---------- SUGESTÕES POR NICHO ---------- */
 const SUGESTOES_NICHO = {
+  carros: {nome:'🚗 Carros e automotivo', kw:['carro','auto','automotivo','veiculo','oficina','mecanica','lava rapido','seminovo','concessionaria','revisao'], ideias:[
+    {t:'Carro da semana', d:'Destaque um veículo com fotos caprichadas, ano, km, opcionais e o diferencial. Chamada clara pra agendar um test-drive.', h:'#carrodasemana #seminovos #autos #carros'},
+    {t:'Antes e depois (estética/lavagem)', d:'Mostre um carro opaco virando um brilho de novo. A transformação prende a atenção e mostra a qualidade do seu serviço.', h:'#antesedepois #esteticaautomotiva #detailing'},
+    {t:'Dica de manutenção', d:'Uma dica rápida que evita dor de cabeça: calibragem, troca de óleo, revisão. Educa e gera confiança.', h:'#dicaautomotiva #manutencao #carro'},
+    {t:'Tour pelo veículo (360°)', d:'Grave um vídeo curto rodando por fora e por dentro, mostrando painel, porta-malas e detalhes. Vende muito melhor que foto parada.', h:'#testdrive #tour #seminovo'},
+    {t:'Condição especial / feirão', d:'Anuncie uma oferta com validade: entrada facilitada, taxa zero, brinde. Crie urgência.', h:'#feirao #oferta #financiamento'},
+    {t:'Depoimento de cliente', d:'Cliente saindo feliz com o carro novo ou elogiando o serviço. Prova social fecha vendas.', h:'#clientefeliz #depoimento #confianca'},
+    {t:'Mito ou verdade automotivo', d:'Desminta uma crença comum (ex.: trocar óleo só na revisão). Engaja e posiciona você como especialista.', h:'#mitoouverdade #dicas #mecanica'},
+    {t:'Bastidores da oficina/loja', d:'Mostre a equipe trabalhando, o cuidado com cada carro, o capricho. Humaniza a marca.', h:'#bastidores #oficina #equipe'},
+    {t:'Comparativo entre modelos', d:'Ajude o cliente a escolher: compare 2 modelos por consumo, espaço e preço, de forma honesta.', h:'#comparativo #comprarcarro #dicas'},
+    {t:'Checklist antes de viajar', d:'Lista rápida do que revisar antes de pegar a estrada. Útil, salvável e compartilhável.', h:'#viagem #checklist #seguranca'}]},
+  promocoes: {nome:'🔥 Promoções e ofertas', kw:['promocao','oferta','desconto','liquidacao','sale','cupom','combo'], ideias:[
+    {t:'Oferta do dia', d:'Um produto ou serviço com preço especial só hoje. Foto real, preço claro e como pedir. Simples e direto.', h:'#ofertadodia #promocao #desconto'},
+    {t:'Contagem regressiva', d:'Avise que a promoção acaba em X horas. Use o senso de urgência pra acelerar a decisão.', h:'#ultimashoras #corre #oferta'},
+    {t:'Compre 1 leve 2 / combo', d:'Monte um combo que dá sensação de vantagem. Facilita a escolha e aumenta o ticket.', h:'#combo #promocao #vantagem'},
+    {t:'Cupom de desconto', d:'Divulgue um cupom exclusivo pros seguidores. Recompensa quem te acompanha e gera vendas.', h:'#cupom #desconto #exclusivo'},
+    {t:'Liquidação / queima de estoque', d:'Avise que é por tempo limitado e enquanto durar o estoque. Mostre os itens em oferta.', h:'#liquidacao #queimadeestoque #promo'},
+    {t:'Frete grátis', d:'Uma condição que derruba a última objeção de compra. Deixe clara a regra (ex.: acima de um valor).', h:'#fretegratis #oferta #compreagora'},
+    {t:'Promoção relâmpago (flash sale)', d:'Poucas unidades, poucas horas. Publique de repente pra criar movimento rápido.', h:'#flashsale #relampago #corre'},
+    {t:'Última chamada', d:'Post final avisando que a promoção acaba hoje. Recupera quem ficou na dúvida.', h:'#ultimachamada #acabahoje #naopercao'},
+    {t:'Antes x depois do preço', d:'Mostre o valor cheio riscado e o novo valor. O contraste faz a oferta parecer ainda melhor.', h:'#desconto #oferta #economia'},
+    {t:'Brinde na compra', d:'Ganhe algo ao comprar. Aumenta o valor percebido sem precisar baixar tanto o preço.', h:'#brinde #promocao #compreganhe'}]},
+  motivacional: {nome:'✨ Motivacional e frases', kw:['motivacional','frase','inspiracao','mindset','foco','gratidao','desenvolvimento'], ideias:[
+    {t:'Frase da segunda', d:'Comece a semana com uma frase de força e uma legenda curta conectando com a rotina de quem te segue.', h:'#segundafeira #motivacao #foco'},
+    {t:'Reflexão do dia', d:'Um pensamento que faz a pessoa parar e refletir. Convide pra comentar a resposta.', h:'#reflexao #pensamento #mindset'},
+    {t:'Sua história / superação', d:'Conte um obstáculo real que você superou. Vulnerabilidade verdadeira inspira e aproxima.', h:'#superacao #historiareal #inspiracao'},
+    {t:'Dica de produtividade', d:'Um truque simples pra render mais no dia (ex.: a regra dos 2 minutos). Prático e salvável.', h:'#produtividade #dica #foco'},
+    {t:'Antes de desistir, leia isso', d:'Uma mensagem de encorajamento pra quem está cansado. Fale direto ao coração.', h:'#naodesista #forca #motivacao'},
+    {t:'Frase + chamada pra comentar', d:'Poste uma frase forte e pergunte: concorda? Frases geram muito compartilhamento.', h:'#frases #pensamentododia #atitude'},
+    {t:'Mini hábito que muda tudo', d:'Ensine 1 hábito pequeno com grande impacto (ex.: 5 min de gratidão). Fácil de aplicar.', h:'#habitos #desenvolvimentopessoal #rotina'},
+    {t:'Série motivacional semanal', d:'Crie uma série fixa de motivação toda semana. A constância cria expectativa e fideliza.', h:'#serie #motivacaosemanal #foco'},
+    {t:'Erro que virou aprendizado', d:'Compartilhe algo que deu errado e o que você aprendeu. Autêntico e inspirador.', h:'#aprendizado #mindset #evolucao'},
+    {t:'Gratidão do dia', d:'Liste 3 coisas simples pelas quais você é grata hoje e convide a pessoa a fazer o mesmo.', h:'#gratidao #positividade #bemestar'}]},
   moda: {nome:'👗 Moda e acessórios', kw:['moda','roupa','look','acessorio','boutique','brecho','calcado','sapato','bolsa'], ideias:[
     {t:'Look do dia (OOTD)', d:'Mostre uma combinação completa da loja, da cabeça aos pés, e conte onde usar: trabalho, festa ou dia a dia. Termine perguntando: qual peça você levaria?', h:'#lookdodia #ootd #moda #estilo'},
     {t:'1 peça, 3 looks', d:'Pegue uma peça-chave e monte 3 combinações diferentes com ela. Mostra versatilidade e ajuda o cliente a imaginar o uso.', h:'#dicasdemoda #looks #modafeminina'},
