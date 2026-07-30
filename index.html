@@ -708,7 +708,7 @@ async function fazerCadastro(){
   document.getElementById('btnCadastrar').textContent = '🎁 Começar meus 7 dias grátis';
   if(error){ msg.textContent = 'Erro ao criar conta: '+error.message; return; }
   if(data && data.session){ msg.textContent=''; await entrarNoApp(); }
-  else { msg.style.color = '#15803d'; msg.textContent = '✅ Conta criada! Agora abre seu e-mail e clica no link de confirmação — depois volta aqui e entra.'; mostrarEntrar(); }
+  else { mostrarEntrar(); msg.style.color = '#15803d'; msg.textContent = '✅ Conta criada! Falta só 1 passo: abra seu e-mail (olhe também a caixa de SPAM/Lixo eletrônico) e clique no link de confirmação. Depois volte aqui e entre. 💜'; }
 }
 async function fazerLogin(){
   const email = document.getElementById('loginEmail').value.trim();
@@ -719,7 +719,10 @@ async function fazerLogin(){
   const { error } = await sb.auth.signInWithPassword({ email, password: senha });
   document.getElementById('btnEntrar').textContent = 'Entrar';
   if(error){
-    msg.textContent = error.message.includes('Invalid') ? 'E-mail ou senha incorretos.' : 'Erro ao entrar: '+error.message;
+    const m = error.message||'';
+    if(/not confirmed|confirm/i.test(m)){ msg.style.color='#b45309'; msg.textContent='📧 Falta confirmar seu e-mail! Procure o e-mail do Postou (veja também o SPAM/Lixo eletrônico) e clique no link de confirmação. Depois volte e entre. 💜'; }
+    else if(/Invalid/i.test(m)){ msg.style.color=''; msg.textContent='E-mail ou senha incorretos.'; }
+    else { msg.style.color=''; msg.textContent='Erro ao entrar: '+m; }
     return;
   }
   msg.textContent = '';
