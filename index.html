@@ -405,6 +405,7 @@
     <button data-aba="vendas" onclick="trocarAba('vendas')">💵 Vendas</button>
     <button data-aba="caixa" onclick="trocarAba('caixa')">💰 Caixa</button>
     <button data-aba="ajuda" onclick="trocarAba('ajuda')">❓ Ajuda</button>
+    <button data-aba="contatos" onclick="trocarAba('contatos')" style="display:none">📇 Contatos</button>
     <button data-aba="equipe" onclick="trocarAba('equipe')" style="display:none">🏢 Equipe</button>
     <button data-aba="dono" onclick="trocarAba('dono')" style="display:none">👑 Dono</button>
   </nav>
@@ -505,6 +506,22 @@
       </div>
       <div id="equipeMsg" style="font-size:.82rem;margin-top:6px"></div>
     </details>
+  </section>
+  <section id="aba-contatos" style="display:none">
+    <div class="secao-topo"><h2>📇 Contatos e envios</h2></div>
+    <p style="font-size:.85rem;color:var(--muted);margin-top:-6px;margin-bottom:12px">Todos os seus clientes num lugar só, com e-mail e WhatsApp. Mande uma mensagem para vários de uma vez — ótimo para promoções. 💜</p>
+    <div class="cartao" style="margin-bottom:14px">
+      <h3 style="margin-bottom:8px">📣 Enviar para vários</h3>
+      <input id="massaAssunto" placeholder="Assunto (usado no e-mail)" style="width:100%;margin-bottom:8px">
+      <textarea id="massaMsg" placeholder="Escreva a mensagem aqui... (dica: escreva {nome} e no WhatsApp ele troca pelo primeiro nome de cada pessoa)" style="width:100%;min-height:96px;margin-bottom:8px;padding:10px;border:1px solid var(--line);border-radius:10px;font-family:inherit"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+        <label style="font-size:.85rem;display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="massaTodos" onclick="marcarTodosContatos(this.checked)"> Marcar todos</label>
+        <button class="btn" onclick="enviarEmailMassa()">✉️ E-mail pros marcados</button>
+        <button class="btn-claro" onclick="prepararWhatsMassa()">📱 WhatsApp pros marcados</button>
+      </div>
+      <div id="massaFeedback" style="font-size:.85rem"></div>
+    </div>
+    <div id="listaContatos"><div class="vazio">Carregando…</div></div>
   </section>
   <section id="aba-dono" style="display:none">
     <div class="secao-topo"><h2>👑 Painel do Dono · assinantes</h2><button class="btn-claro" onclick="carregarDono()">🔄 Atualizar</button></div>
@@ -789,10 +806,16 @@ function aplicarPlano(){
   if(btnD) btnD.style.display = ehDono() ? '' : 'none';
   const btnE = document.querySelector('nav button[data-aba="equipe"]');
   if(btnE) btnE.style.display = podeEquipe() ? '' : 'none';
+  const btnC = document.querySelector('nav button[data-aba="contatos"]');
+  if(btnC) btnC.style.display = podeContatos() ? '' : 'none';
 }
 function podeEquipe(){
   const pl = planoAtual();
   return pl==='ultra' || pl==='completo' || !!(dados.assinatura && dados.assinatura.equipe);
+}
+function podeContatos(){
+  const pl = planoAtual();
+  return pl==='pro' || pl==='ultra' || pl==='completo';
 }
 function verificarExpiracao(){
   if(planoAtual()!=='expirado') return;
@@ -985,6 +1008,59 @@ async function carregarEquipe(){
   const totEl=document.getElementById('equipeTotal');
   if(totEl) totEl.textContent = total>0 ? ('Total da equipe: +'+dinheiro(total)+'/mês') : '';
 }
+/* ---------- CENTRAL DE CONTATOS (Pro+) ---------- */
+function carregarContatos(){
+  const cont=document.getElementById('listaContatos'); if(!cont) return;
+  const tt=document.getElementById('massaTodos'); if(tt) tt.checked=false;
+  const cs=dados.clientes.filter(c=>!c.arquivado);
+  if(!cs.length){ cont.innerHTML='<div class="vazio">Cadastre clientes na aba 👥 Usuários para eles aparecerem aqui.</div>'; return; }
+  cont.innerHTML=cs.map(c=>{
+    const temZap=!!c.zap, temMail=!!c.email;
+    const contato = temZap||temMail
+      ? `${temZap?'📱 '+escapar(c.zap):''}${temZap&&temMail?' · ':''}${temMail?'✉️ '+escapar(c.email):''}`
+      : '<span style="color:#c0392b">sem contato cadastrado — adicione em Editar</span>';
+    return `<div class="pag-linha">
+      <input type="checkbox" class="ctSel" value="${c.id}" style="width:16px;height:16px;flex:none">
+      <span class="bolinha" style="background:${c.cor}"></span>
+      <span style="flex:1"><b>${escapar(c.nome)}</b><br><span style="font-size:.75rem;color:var(--muted)">${contato}</span></span>
+      ${temZap?`<button class="btn-mini" title="WhatsApp" onclick="zapContato(${c.id})">📱</button>`:''}
+      ${temMail?`<button class="btn-mini" title="E-mail" onclick="emailContato(${c.id})">✉️</button>`:''}
+    </div>`;
+  }).join('');
+}
+function marcarTodosContatos(v){ document.querySelectorAll('.ctSel').forEach(el=>el.checked=v); }
+function contatosMarcados(){ return Array.from(document.querySelectorAll('.ctSel:checked')).map(el=>clientePorId(parseInt(el.value))).filter(Boolean); }
+function fbMassa(txt,ok){ const el=document.getElementById('massaFeedback'); if(el){ el.style.color=ok?'#0a8a4a':'#c0392b'; el.innerHTML=txt; } }
+function msgComNome(corpo, nome){ const primeiro=(nome||'').split(' ')[0]; return (corpo||'').replace(/\{nome\}/g, primeiro); }
+function enviarEmailMassa(){
+  const assunto=(document.getElementById('massaAssunto').value||'').trim();
+  const corpo=(document.getElementById('massaMsg').value||'').trim();
+  const marcados=contatosMarcados().filter(c=>c.email);
+  document.getElementById('massaWhats') && (document.getElementById('massaWhats').innerHTML='');
+  if(!marcados.length){ fbMassa('Marque pelo menos uma pessoa que tenha e-mail cadastrado.',false); return; }
+  const bcc=marcados.map(c=>c.email).join(',');
+  window.location.href='mailto:?bcc='+encodeURIComponent(bcc)+'&subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
+  fbMassa('✅ Abri seu e-mail com <b>'+marcados.length+'</b> pessoa(s) em copia oculta (BCC). E so revisar e enviar! 💜',true);
+}
+function prepararWhatsMassa(){
+  const corpo=(document.getElementById('massaMsg').value||'').trim();
+  const marcados=contatosMarcados().filter(c=>c.zap);
+  if(!marcados.length){ fbMassa('Marque pelo menos uma pessoa que tenha WhatsApp cadastrado.',false); return; }
+  if(!corpo){ fbMassa('Escreva a mensagem primeiro. 💜',false); return; }
+  let html='<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-top:8px">'
+    +'<p style="font-size:.82rem;color:var(--muted);margin-bottom:8px">O WhatsApp nao deixa enviar para varios de uma vez (sem ferramenta paga). Entao clique em cada pessoa &#8212; abre a conversa com a mensagem ja escrita. 💜</p>';
+  html+=marcados.map(c=>{
+    const num=ddiSugerido(c.zap)+numeroLocal(c.zap);
+    const msg=msgComNome(corpo, c.nome);
+    const nm=escapar((c.nome||'').split(' ')[0]||c.nome);
+    return `<a class="btn-claro" style="display:inline-block;margin:3px;text-decoration:none;padding:6px 12px" target="_blank" href="https://wa.me/${num}?text=${encodeURIComponent(msg)}">📱 ${nm}</a>`;
+  }).join('');
+  html+='</div>';
+  fbMassa('Prontinho! Clique em cada pessoa abaixo para abrir o WhatsApp com a mensagem:',true);
+  document.getElementById('massaFeedback').insertAdjacentHTML('beforeend', html);
+}
+function zapContato(id){ const c=clientePorId(id); if(!c||!c.zap) return; const corpo=(document.getElementById('massaMsg').value||'').trim(); const primeiro=(c.nome||'').split(' ')[0]; const msg=msgComNome(corpo||('Oi '+primeiro+'! 💜'), c.nome); const num=ddiSugerido(c.zap)+numeroLocal(c.zap); window.open('https://wa.me/'+num+'?text='+encodeURIComponent(msg),'_blank'); }
+function emailContato(id){ const c=clientePorId(id); if(!c||!c.email) return; const assunto=(document.getElementById('massaAssunto').value||'').trim(); const corpo=(document.getElementById('massaMsg').value||'').trim(); window.location.href='mailto:'+c.email+'?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(msgComNome(corpo, c.nome)); }
 async function sair(){
   await sb.auth.signOut();
   location.reload();
@@ -1051,12 +1127,13 @@ function tocar(){ render(); agendarSalvar(); }
 function trocarAba(aba){
   abaAtual = aba;
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('ativo', b.dataset.aba===aba));
-  ['hoje','clientes','calendario','tarefas','ideias','quadro','vendas','caixa','ajuda','dono','equipe'].forEach(a=>{
+  ['hoje','clientes','calendario','tarefas','ideias','quadro','vendas','caixa','ajuda','dono','equipe','contatos'].forEach(a=>{
     const el=document.getElementById('aba-'+a); if(el) el.style.display = a===aba?'':'none';
   });
   render();
   if(aba==='dono') carregarDono();
   if(aba==='equipe') carregarEquipe();
+  if(aba==='contatos') carregarContatos();
 }
 
 function render(){
