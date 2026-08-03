@@ -417,6 +417,7 @@
   </section>
   <section id="aba-clientes" style="display:none">
     <div class="secao-topo"><h2>Meus usuários</h2><button class="btn" onclick="abrirModalCliente()">+ Novo usuário</button></div>
+    <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
     <div class="grade-clientes" id="listaClientes"></div>
   </section>
   <section id="aba-calendario" style="display:none">
@@ -1638,6 +1639,10 @@ function formaCobranca(c){
 function selFreq(p){ const v=(p&&p.metaFreq)||'mes'; const o=[['mes','por mês'],['semana','por semana'],['dia','por dia']]; return '<select id="mMetaFreq" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">'+o.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('')+'</select>'; }
 function selMoeda(){ const v=(typeof dados!=='undefined'&&dados.moeda==='$')?'$':'R$'; return '<select id="mMoeda" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px"><option value="R$" '+(v==='R$'?'selected':'')+'>R$ (Real)</option><option value="$" '+(v==='$'?'selected':'')+'>$ (Dólar)</option></select>'; }
 function selCobranca(p){ const v=(p&&p.cobrancaTipo)||'mensal'; const o=[['mensal','Mensal'],['semanal','Semanal'],['quinzenal','Quinzenal'],['diaria','Diária (por dia)'],['anual','Anual'],['servico','Por serviço'],['postagem','Por post']]; return '<select id="mCobranca" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">'+o.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('')+'</select>'; }
+function equipeMembros(){ return (dados.equipeGerida && dados.equipeGerida.membros) ? dados.equipeGerida.membros : []; }
+function temEquipe(){ return podeEquipe() && equipeMembros().length>0; }
+function nomeResponsavel(email){ if(!email) return 'Eu / dono(a)'; const m=equipeMembros().find(x=>x.email===email); return m ? (m.nome||m.email.split('@')[0]) : email.split('@')[0]; }
+function selResponsavel(p){ const v=(p&&p.responsavel)||''; const membros=equipeMembros(); let o='<option value="" '+(v===''?'selected':'')+'>Eu / dono(a)</option>'; o+=membros.map(m=>{ const nm=escapar(m.nome||m.email.split('@')[0]); return `<option value="${escapar(m.email)}" ${v===m.email?'selected':''}>${nm}</option>`; }).join(''); return '<select id="mResponsavel" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">'+o+'</select>'; }
 /* ---------- MÉTRICAS ---------- */
 function abrirMetricas(id){
   const c = clientePorId(id);
@@ -1766,13 +1771,27 @@ function resumoCliente(id){
 }
 
 /* ---------- CLIENTES ---------- */
+let filtroFunc = '';
+function setFiltroFunc(v){ filtroFunc = v; renderClientes(); }
 function renderClientes(){
   const f = filtroAtivo();
-  const todos = dados.clientes.filter(p=>!f||p.id===f);
+  const fw = document.getElementById('filtroFuncWrap');
+  if(fw){
+    if(temEquipe()){
+      const membros = equipeMembros();
+      const opts = '<option value="">👥 Todos os funcionários</option>'
+        + '<option value="__eu__" '+(filtroFunc==='__eu__'?'selected':'')+'>Eu / dono(a)</option>'
+        + membros.map(m=>`<option value="${escapar(m.email)}" ${filtroFunc===m.email?'selected':''}>${escapar(m.nome||m.email.split('@')[0])}</option>`).join('');
+      fw.innerHTML = '<label style="font-size:.82rem;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">Filtrar por funcionário</label><select onchange="setFiltroFunc(this.value)" style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;min-width:220px">'+opts+'</select>';
+      fw.style.display='';
+    } else { fw.style.display='none'; filtroFunc=''; }
+  }
+  const passaFunc = p => !filtroFunc || (filtroFunc==='__eu__' ? !p.responsavel : p.responsavel===filtroFunc);
+  const todos = dados.clientes.filter(p=>(!f||p.id===f) && passaFunc(p));
   const ativos = todos.filter(p=>!p.arquivado);
   const arquivados = todos.filter(p=>p.arquivado);
   const el = document.getElementById('listaClientes');
-  if(!todos.length){ el.innerHTML = '<div class="vazio">Nenhum usuário ainda. Clique em “+ Novo usuário” para começar!</div>'; return; }
+  if(!todos.length){ el.innerHTML = '<div class="vazio">'+(filtroFunc?'Nenhum cliente para esse funcionário ainda. 💜':'Nenhum usuário ainda. Clique em “+ Novo usuário” para começar!')+'</div>'; return; }
   const cardCli = (p, arq) => {
     const nPosts = dados.posts.filter(x=>x.clienteId===p.id && x.status!=='publicado').length;
     const nTar = dados.tarefas.filter(x=>x.clienteId===p.id && !x.feita).length;
@@ -1800,6 +1819,7 @@ function renderClientes(){
       ${p.nichos_tags && p.nichos_tags.length?`<span class="nicho" style="color:#7c3aed">+ ${p.nichos_tags.map(t=>NICHOS_PREDEFINIDOS[t]).filter(Boolean).join(', ')}</span>`:''}
       <div class="redes-lista">${redesHtml||'<span style="font-size:.78rem;color:var(--muted)">nenhuma rede cadastrada</span>'}</div>
       ${p.notas?`<div style="font-size:.82rem;color:var(--muted)">${escapar(p.notas)}</div>`:''}
+      ${temEquipe()&&p.responsavel?`<div style="font-size:.78rem;margin-top:4px"><span style="background:#f3ecfb;color:#7c3aed;border-radius:20px;padding:2px 10px;font-weight:700">👤 ${escapar(nomeResponsavel(p.responsavel))}</span></div>`:''}
       ${p.endereco?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px"><span role="button" tabindex="0" onclick="abrirMapa(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Abrir no Google Maps">📍 ${escapar(p.endereco)}</span></div>`:''}
       <div class="contagens">
         <span role="button" tabindex="0" onclick="verPendentes(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver e ajustar os posts pendentes">📌 <b>${nPosts}</b> pendentes</span>
@@ -1925,6 +1945,7 @@ function abrirModalCliente(id){
     <input id="mEmailCli" value="${p?escapar(p.email||''):''}" placeholder="cliente@email.com">
     <label>Endereço (opcional — ótimo para serviços 🧽🛠)</label>
     <input id="mEndereco" value="${p?escapar(p.endereco||''):''}" placeholder="Ex.: 123 Main St, cidade — ou cole o endereço">
+    ${temEquipe()?`<label>Funcionário responsável 👤</label>${selResponsavel(p)}<p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Quem cuida deste cliente. Você pode filtrar por funcionário lá em cima. 💜</p>`:''}
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink)">
       <input type="checkbox" id="mAvisar" style="width:18px;height:18px" ${p&&p.avisar?'checked':''}>
       O usuário quer receber aviso no WhatsApp quando um post for publicado
@@ -2009,6 +2030,7 @@ function salvarCliente(id){
   const zap = document.getElementById('mZap').value.replace(/[^\d+]/g,'');
   const email = document.getElementById('mEmailCli').value.trim();
   const endereco = document.getElementById('mEndereco') ? document.getElementById('mEndereco').value.trim() : (id&&clientePorId(id).endereco) || '';
+  const responsavel = document.getElementById('mResponsavel') ? document.getElementById('mResponsavel').value : ((id&&clientePorId(id).responsavel) || '');
   const avisar = document.getElementById('mAvisar').checked;
   const foto = document.getElementById('mFoto') ? document.getElementById('mFoto').value.trim() : '';
   const pegaCampo = cid => { const el = document.getElementById(cid); return el ? el.value : ''; };
@@ -2031,8 +2053,8 @@ function salvarCliente(id){
       return;
     }
   }
-  if(id){ Object.assign(clientePorId(id), {nome,nicho,nichos_tags,notas,cor,redes,zap,email,endereco,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
-  else { dados.clientes.push({id:novoId(), nome, nicho, nichos_tags, notas, cor, redes, zap, email, endereco, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
+  if(id){ Object.assign(clientePorId(id), {nome,nicho,nichos_tags,notas,cor,redes,zap,email,endereco,responsavel,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
+  else { dados.clientes.push({id:novoId(), nome, nicho, nichos_tags, notas, cor, redes, zap, email, endereco, responsavel, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
   fecharModal(); tocar();
 }
 function excluirCliente(id){
