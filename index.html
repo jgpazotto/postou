@@ -1528,7 +1528,7 @@ function enviarZap(numero, texto){
   window.open('https://wa.me/'+String(numero).replace(/\D/g,'')+'?text='+encodeURIComponent(texto), '_blank');
 }
 function dataBRcompleta(iso){ if(!iso) return ''; const p=iso.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
-function dinheiro(v){ const n=Number(v); return 'R$ '+n.toLocaleString('pt-BR',{minimumFractionDigits: n%1?2:0, maximumFractionDigits:2}); }
+function dinheiro(v){ const n=Number(v); const s=(typeof dados!=='undefined'&&dados.moeda==='$')?'$':'R$'; const loc=s==='$'?'en-US':'pt-BR'; return s+' '+n.toLocaleString(loc,{minimumFractionDigits: n%1?2:0, maximumFractionDigits:2}); }
 function marcarPago(cid){
   const c = clientePorId(cid);
   c.pagamentos = c.pagamentos||{};
@@ -1632,9 +1632,12 @@ function renderCaixa(){
   document.getElementById('listaCaixa').innerHTML = html;
 }
 function formaCobranca(c){
-  const m = { mensal:'/mês', semanal:'/semana', quinzenal:'/quinzena', servico:'por serviço', postagem:'por post' };
+  const m = { mensal:'/mês', semanal:'/semana', quinzenal:'/quinzena', anual:'/ano', servico:'por serviço', postagem:'por post' };
   return c.cobrancaTipo ? (m[c.cobrancaTipo]||'/mês') : '/mês';
 }
+function selFreq(p){ const v=(p&&p.metaFreq)||'mes'; const o=[['mes','por mês'],['semana','por semana'],['dia','por dia']]; return '<select id="mMetaFreq" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">'+o.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('')+'</select>'; }
+function selMoeda(){ const v=(typeof dados!=='undefined'&&dados.moeda==='$')?'$':'R$'; return '<select id="mMoeda" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px"><option value="R$" '+(v==='R$'?'selected':'')+'>R$ (Real)</option><option value="$" '+(v==='$'?'selected':'')+'>$ (Dólar)</option></select>'; }
+function selCobranca(p){ const v=(p&&p.cobrancaTipo)||'mensal'; const o=[['mensal','Mensal'],['semanal','Semanal'],['quinzenal','Quinzenal'],['anual','Anual'],['servico','Por serviço'],['postagem','Por post']]; return '<select id="mCobranca" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">'+o.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('')+'</select>'; }
 /* ---------- MÉTRICAS ---------- */
 function abrirMetricas(id){
   const c = clientePorId(id);
@@ -1800,7 +1803,7 @@ function renderClientes(){
         <span>✅ <b>${nTar}</b> tarefas</span>
         <span role="button" tabindex="0" onclick="verIdeias(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver as ideias">💡 <b>${nId}</b> ideias</span>
       </div>
-      ${!arq && p.metaPosts?(()=>{ const ym=hojeISO().slice(0,7); const pub=dados.posts.filter(x=>x.clienteId===p.id&&x.status==='publicado'&&x.data.startsWith(ym)).length; const pct=Math.min(100,Math.round(pub/p.metaPosts*100)); return `<div class="meta-prog"><div class="meta-barra"><div style="width:${pct}%"></div></div><span><b>${pub}/${p.metaPosts}</b> posts no mês</span></div>`; })():''}
+      ${!arq && p.metaPosts?(()=>{ const ym=hojeISO().slice(0,7); const pub=dados.posts.filter(x=>x.clienteId===p.id&&x.status==='publicado'&&x.data.startsWith(ym)).length; const mult=p.metaFreq==='dia'?30:p.metaFreq==='semana'?4:1; const alvo=Math.max(1,p.metaPosts*mult); const pct=Math.min(100,Math.round(pub/alvo*100)); const ft=p.metaFreq==='dia'?'/dia':p.metaFreq==='semana'?'/semana':'/mês'; return `<div class="meta-prog"><div class="meta-barra"><div style="width:${pct}%"></div></div><span><b>${pub}/${alvo}</b> no mês · meta ${p.metaPosts}${ft}</span></div>`; })():''}
       ${p.valor?(()=>{ const ym=hojeISO().slice(0,7); const pago=p.pagamentos&&p.pagamentos[ym]; return `<div style="font-size:.78rem;color:var(--muted);margin-top:6px">💰 ${dinheiro(p.valor)}${formaCobranca(p).replace(/^por/,' por')}${p.diaPagamento?' · vence dia '+p.diaPagamento:''} ${pago?'· <b style="color:var(--ok)">✔ recebido</b>':''}</div>`; })():''}
       <div class="acoes">${acoes}</div>
     </div>`;
@@ -1922,16 +1925,22 @@ function abrirModalCliente(id){
     ${planoConfig().umaPorRede ? `
     <div class="linha-flex">
       <div style="flex:1"><label>🎂 Seu aniversário</label><input type="date" id="mAniv" value="${p&&p.aniversario?p.aniversario:''}"></div>
-      <div style="flex:1"><label>Meta de posts/mês</label><input type="number" id="mMeta" min="0" value="${p&&p.metaPosts?p.metaPosts:''}" placeholder="Ex.: 12"></div>
+      <div style="flex:1"><label>Meta de posts</label><input type="number" id="mMeta" min="0" value="${p&&p.metaPosts?p.metaPosts:''}" placeholder="Ex.: 3"></div>
+      <div style="flex:1"><label>Frequência</label>${selFreq(p)}</div>
     </div>` : `
     <div class="linha-flex">
       <div style="flex:1"><label>🎂 Aniversário do usuário</label><input type="date" id="mAniv" value="${p&&p.aniversario?p.aniversario:''}"></div>
       <div style="flex:1"><label>🎈 Aniversário da página/perfil</label><input type="date" id="mAnivPag" value="${p&&p.aniversarioPagina?p.aniversarioPagina:''}"></div>
     </div>
     <div class="linha-flex">
-      <div style="flex:1"><label>Meta de posts/mês</label><input type="number" id="mMeta" min="0" value="${p&&p.metaPosts?p.metaPosts:''}" placeholder="Ex.: 12"></div>
-      <div style="flex:1"><label>Valor mensal (R$)</label><input id="mValor" value="${p&&p.valor?String(p.valor).replace('.',','):''}" placeholder="Ex.: 800"></div>
+      <div style="flex:1"><label>Meta de posts</label><input type="number" id="mMeta" min="0" value="${p&&p.metaPosts?p.metaPosts:''}" placeholder="Ex.: 3"></div>
+      <div style="flex:1"><label>Frequência</label>${selFreq(p)}</div>
       <div style="flex:1"><label>Dia do pagamento</label><input type="number" id="mDiaPag" min="1" max="31" value="${p&&p.diaPagamento?p.diaPagamento:''}" placeholder="Ex.: 5"></div>
+    </div>
+    <div class="linha-flex">
+      <div style="flex:1"><label>Moeda <span style="color:var(--muted);font-weight:400;font-size:.78rem">(vale p/ tudo)</span></label>${selMoeda()}</div>
+      <div style="flex:1"><label>Valor</label><input id="mValor" value="${p&&p.valor?String(p.valor).replace('.',','):''}" placeholder="Ex.: 800"></div>
+      <div style="flex:1"><label>Cobrança</label>${selCobranca(p)}</div>
     </div>`}
     <label>Redes sociais (o usuário sem o @ — ou cole o link completo da página, ex. Facebook)</label>
     <div id="mRedes"></div>
@@ -1998,6 +2007,9 @@ function salvarCliente(id){
   const aniversario = pegaCampo('mAniv') || '';
   const aniversarioPagina = pegaCampo('mAnivPag') || (id&&clientePorId(id).aniversarioPagina) || '';
   const metaPosts = parseInt(pegaCampo('mMeta'))||0;
+  const metaFreq = pegaCampo('mMetaFreq') || (id&&clientePorId(id).metaFreq) || 'mes';
+  const cobrancaTipo = pegaCampo('mCobranca') || (id&&clientePorId(id).cobrancaTipo) || 'mensal';
+  const moedaSel = pegaCampo('mMoeda'); if(moedaSel){ dados.moeda = moedaSel; }
   const valor = parseFloat(String(pegaCampo('mValor')).replace(/\./g,'').replace(',','.')) || (id&&clientePorId(id).valor) || 0;
   const diaPagamento = Math.min(31, Math.max(0, parseInt(pegaCampo('mDiaPag'))|| (id&&clientePorId(id).diaPagamento) || 0));
   const redes = redesTemp
@@ -2011,8 +2023,8 @@ function salvarCliente(id){
       return;
     }
   }
-  if(id){ Object.assign(clientePorId(id), {nome,nicho,nichos_tags,notas,cor,redes,zap,email,avisar,foto,metaPosts,valor,diaPagamento,aniversario,aniversarioPagina}); }
-  else { dados.clientes.push({id:novoId(), nome, nicho, nichos_tags, notas, cor, redes, zap, email, avisar, foto, metaPosts, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
+  if(id){ Object.assign(clientePorId(id), {nome,nicho,nichos_tags,notas,cor,redes,zap,email,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
+  else { dados.clientes.push({id:novoId(), nome, nicho, nichos_tags, notas, cor, redes, zap, email, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
   fecharModal(); tocar();
 }
 function excluirCliente(id){
@@ -3219,7 +3231,8 @@ function sugerirAgenda(clienteId){
   const c = clientePorId(clienteId);
   if(!c) return;
   const temMeta = c.metaPosts && c.metaPosts>0;
-  const metaPorMes = temMeta ? c.metaPosts : 8;
+  const multFreq = c.metaFreq==='dia'?30 : c.metaFreq==='semana'?4 : 1;
+  const metaPorMes = temMeta ? Math.min(60, c.metaPosts*multFreq) : 8;
   const nicho = nichoDaChave(c);
   const cfg = NICHO_AGENDA[nicho] || NICHO_AGENDA.geral;
   const ideias = embaralhar(SUGESTOES_NICHO[nicho].ideias);
