@@ -421,7 +421,7 @@
     <div id="listaHoje"></div>
   </section>
   <section id="aba-clientes" style="display:none">
-    <div class="secao-topo"><h2>Meus usuários</h2><button class="btn" onclick="abrirModalCliente()">+ Novo usuário</button></div>
+    <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="abrirModalCliente()">+ Novo usuário</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button></div></div>
     <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
     <div class="grade-clientes" id="listaClientes"></div>
   </section>
@@ -826,6 +826,8 @@ function aplicarPlano(){
   if(btnE) btnE.style.display = podeEquipe() ? '' : 'none';
   const btnC = document.querySelector('nav button[data-aba="contatos"]');
   if(btnC) btnC.style.display = podeContatos() ? '' : 'none';
+  const bns = document.getElementById('btnNovoServico');
+  if(bns) bns.style.display = (conf.umaPorRede) ? 'none' : '';
 }
 function podeEquipe(){
   const pl = planoAtual();
@@ -1697,6 +1699,7 @@ function renderCaixa(){
         <span class="bolinha" style="background:${c.cor}"></span>
         <span style="flex:1"><b>${escapar(c.nome)}</b> — ${dinheiro(c.valor)} <span style="color:var(--muted);font-size:.8rem">${forma}</span></span>
         ${c.diaPagamento?`<span class="venc">vence dia ${c.diaPagamento}</span>`:''}
+        ${c.zap?`<button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="cobrarCliente(${c.id})">🔔 Cobrar</button>`:''}
         <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="marcarPago(${c.id})">✔ Recebido</button>
       </div>`;
     }).join('');
@@ -1725,6 +1728,22 @@ function renderCaixa(){
 function formaCobranca(c){
   const m = { mensal:'/mês', semanal:'/semana', quinzenal:'/quinzena', diaria:'/dia', anual:'/ano', servico:'por serviço', postagem:'por post' };
   return c.cobrancaTipo ? (m[c.cobrancaTipo]||'/mês') : '/mês';
+}
+function cobrarCliente(id){
+  const c=clientePorId(id); if(!c) return;
+  if(!c.zap){ abrirModal(`<h3>🔔 Cobrar ${escapar(c.nome)}</h3><p style="font-size:.9rem">Esse cliente ainda não tem WhatsApp cadastrado. Coloque o WhatsApp dele em ✏️ Editar e você cobra num toque. 💜</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>`); return; }
+  const primeiro=(c.nome||'').split(' ')[0]||'';
+  const forma=formaCobranca(c).replace(/^por/,' por');
+  const quanto = c.valor ? ` de ${dinheiro(c.valor)}${forma}` : '';
+  const venc = c.diaPagamento ? ` (vencimento dia ${c.diaPagamento})` : '';
+  const msg=`Oi ${primeiro}! 💜 Passando só pra lembrar do pagamento${quanto}${venc}. Quando puder acertar, me avisa? Se já pagou, pode ignorar. Obrigada! 🙏`;
+  abrirModal(`<h3>🔔 Cobrar ${escapar(c.nome)}</h3>
+    <p style="font-size:.85rem;color:var(--muted)">Mensagem gentil já pronta — revise se quiser antes de enviar:</p>
+    <textarea id="mMsgCobranca" style="min-height:150px;margin-top:8px">${escapar(msg)}</textarea>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn" onclick="enviarZap('${c.zap}', document.getElementById('mMsgCobranca').value);fecharModal()">📱 Cobrar no WhatsApp</button>
+    </div>`);
 }
 function selFreq(p){ const v=(p&&p.metaFreq)||'mes'; const o=[['mes','por mês'],['semana','por semana'],['dia','por dia']]; return '<select id="mMetaFreq" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">'+o.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('')+'</select>'; }
 function selMoeda(){ const v=(typeof dados!=='undefined'&&dados.moeda==='$')?'$':'R$'; return '<select id="mMoeda" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px"><option value="R$" '+(v==='R$'?'selected':'')+'>R$ (Real)</option><option value="$" '+(v==='$'?'selected':'')+'>$ (Dólar)</option></select>'; }
@@ -2054,7 +2073,7 @@ function desenharRedes(){
   document.getElementById('mRedes').innerHTML = redesTemp.map((_,i)=>linhaRedeHtml(i)).join('') +
     `<button class="btn-claro" style="margin-top:4px" onclick="redesTemp.push({tipo:'instagram',usuario:'',link:''});desenharRedes()">+ Adicionar rede</button>`;
 }
-function abrirModalCliente(id){
+function abrirModalCliente(id, tipoInicial){
   if(!id){
     const conf = planoConfig();
     if(dados.clientes.length >= conf.maxClientes){
@@ -2165,7 +2184,7 @@ function abrirModalCliente(id){
     </div>`);
   desenharRedes();
   atualizarFotoPreview();
-  tipoCadastro = (p && p.tipo) || 'social';
+  tipoCadastro = (p && p.tipo) || tipoInicial || 'social';
   if(document.getElementById('btnTipoServico')) setTipoCadastro(tipoCadastro);
 }
 function escolherCor(el){ document.querySelectorAll('.cor-opcao').forEach(c=>c.classList.remove('escolhida')); el.classList.add('escolhida'); }
@@ -3823,7 +3842,7 @@ const BASE_CONHECIMENTO = [
   {k:['datas comemorativas','comemorativa','black friday','dia das maes','natal','feriado','campanha'], r:'O calendário já mostra as principais datas de marketing do Brasil automaticamente: Dia das Mães, Namorados, Dia do Cliente, Black Friday, Natal e muito mais — aparecem em rosa nos dias. Planeje as campanhas com antecedência!'},
   {k:['metricas','metrica','grafico','seguidores','alcance','crescimento','evolucao'], r:'No cartão do usuário, clique em "📈 Métricas": anote 1x por mês os seguidores (e alcance) de cada rede, e o Postou desenha o gráfico de crescimento — perfeito para mostrar resultado ao cliente!'},
   {k:['meta','metas','quantos posts','combinado'], r:'No cadastro do usuário, preencha a "Meta de posts/mês" (o que foi combinado no contrato). O cartão do usuário mostra a barrinha de progresso: quantos já foram publicados no mês e quantos faltam.'},
-  {k:['cobranca','cobrar','pagamento','valor','mensalidade','receber','vencimento','vence'], r:'No cadastro do usuário, preencha o valor mensal e o dia do pagamento. A aba Hoje mostra os "💰 Pagamentos por vir" (5 dias antes do vencimento) e o total a receber no mês. Quando o usuário pagar, clique em "✔ Recebido"!'},
+  {k:['cobranca','cobrar','pagamento','valor','mensalidade','receber','vencimento','vence','devedor','devendo','me deve','atrasado pagamento'], r:'No cadastro do usuário, preencha o valor e o dia do pagamento. Na aba 💰 Caixa, quem ainda não pagou aparece em "⏳ A receber este mês" com o botão 🔔 Cobrar — ele abre o WhatsApp com uma mensagem gentil de cobrança já pronta (com o valor). Quando a pessoa pagar, clique em ✔ Recebido. Dica: dá pra cadastrar um devedor como usuário só com nome, WhatsApp e valor, e cobrar por lá! 💜'},
   {k:['termos','privacidade','lgpd','dados pessoais','direitos autorais','copia'], r:'Os Termos de Uso e a Política de Privacidade estão na aba ❓ Ajuda (cartão 📜). Resumo: seus dados são usados só para operar o app, nunca vendidos, e você pode pedir exclusão quando quiser. O Postou é protegido por direitos autorais — © Joice Pazotto.'},
   {k:['venda','vendas','lucro','faturamento','ganhos','vendi','planilha'], r:'A aba 💵 Vendas é sua planilha de ganhos: registre cada venda (data, cliente, canal, valor e custo) e o Postou calcula o lucro sozinho, mostra o total do mês e o gráfico dos últimos 6 meses. Perfeito para quem vende pelo TikTok Shop, lojinha do Instagram ou WhatsApp!'},
   {k:['conquista','marco','bateu','comemorar','celebrar','10 mil','mil seguidores'], r:'O Postou celebra as conquistas com você! 🏆 Quando você anotar as métricas do mês (📈 Métricas no cartão do usuário) e a página tiver cruzado um marco — 1 mil, 5 mil, 10 mil, 100 mil seguidores... — aparece a tela de CONQUISTA DESBLOQUEADA, com botão para parabenizar o usuário no WhatsApp e para criar o post comemorativo na hora!'},
