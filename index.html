@@ -829,6 +829,10 @@ function aplicarPlano(){
   if(btnC) btnC.style.display = podeContatos() ? '' : 'none';
   const bns = document.getElementById('btnNovoServico');
   if(bns) bns.style.display = (conf.umaPorRede) ? 'none' : '';
+  const ocultas = (dados.assinatura&&dados.assinatura.abasOcultas)||[];
+  ['calendario','tarefas','ideias','quadro','caixa'].forEach(a=>{ const b=document.querySelector('nav button[data-aba="'+a+'"]'); if(b) b.style.display = ocultas.includes(a) ? 'none' : ''; });
+  ['vendas','contatos'].forEach(a=>{ if(ocultas.includes(a)){ const b=document.querySelector('nav button[data-aba="'+a+'"]'); if(b) b.style.display='none'; } });
+  if(ocultas.includes(abaAtual)) trocarAba('hoje');
 }
 function podeEquipe(){
   const pl = planoAtual();
@@ -1685,9 +1689,12 @@ function renderCaixa(){
     + vendas.filter(v=>(v.data||'').startsWith(ano)).reduce((s,v)=>s+(v.valor||0),0);
   const pendentes = dados.clientes.filter(c=>(!f||c.id===f) && !c.arquivado && c.valor>0 && !(c.pagamentos&&c.pagamentos[ym]));
   const aReceber = pendentes.reduce((s,c)=>s+c.valor,0);
+  const devedores = dados.clientes.filter(c=>(!f||c.id===f) && !c.arquivado && dividaRestante(c)>0).sort((a,b)=>dividaRestante(b)-dividaRestante(a));
+  const totalDivida = devedores.reduce((s,c)=>s+dividaRestante(c),0);
   tiles.innerHTML = `
     <div class="tile"><div class="num" style="font-size:1.25rem;line-height:2.2">${dinheiro(entradasMes)}</div><div class="rot">entrou no mês</div></div>
     <div class="tile"><div class="num" style="font-size:1.25rem;line-height:2.2">${dinheiro(aReceber)}</div><div class="rot">a receber (mensalidades)</div></div>
+    ${totalDivida>0?`<div class="tile"><div class="num" style="font-size:1.25rem;line-height:2.2">${dinheiro(totalDivida)}</div><div class="rot">devedores (dívidas)</div></div>`:''}
     <div class="tile"><div class="num" style="font-size:1.25rem;line-height:2.2">${dinheiro(recebAno)}</div><div class="rot">entrou no ano</div></div>`;
 
   let html = '';
@@ -1705,6 +1712,18 @@ function renderCaixa(){
         <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="marcarPago(${c.id})">✔ Recebido</button>
       </div>`;
     }).join('');
+  }
+  html += '</div>';
+  // DEVEDORES (dívidas a receber)
+  html += `<div class="hoje-grupo"><h3>💳 Devedores (dívidas a receber)</h3>`;
+  if(!devedores.length){ html += '<div class="vazio">Ninguém devendo por aqui! 🎉</div>'; }
+  else {
+    html += devedores.map(c=>`<div class="pag-linha">
+      <span class="bolinha" style="background:${c.cor}"></span>
+      <span style="flex:1"><b>${escapar(c.nome)}</b> — falta <b style="color:#b45309">${dinheiro(dividaRestante(c))}</b> <span style="color:var(--muted);font-size:.8rem">de ${dinheiro(c.dividaTotal)}${c.empresa?' · 🏬 '+escapar(c.empresa):''}</span></span>
+      ${c.zap?`<button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="cobrarCliente(${c.id})">🔔 Cobrar</button>`:''}
+      <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="registrarPagamentoDivida(${c.id})">💵 Recebi</button>
+    </div>`).join('');
   }
   html += '</div>';
   // ENTRADAS (recebimentos + vendas) do mes
@@ -1731,12 +1750,41 @@ function formaCobranca(c){
   const m = { mensal:'/mês', semanal:'/semana', quinzenal:'/quinzena', diaria:'/dia', anual:'/ano', servico:'por serviço', postagem:'por post' };
   return c.cobrancaTipo ? (m[c.cobrancaTipo]||'/mês') : '/mês';
 }
+function dividaPaga(c){ return ((c&&c.dividaPagamentos)||[]).reduce((s,x)=>s+(x.valor||0),0); }
+function dividaRestante(c){ return Math.max(0, ((c&&c.dividaTotal)||0) - dividaPaga(c)); }
+function registrarPagamentoDivida(id){
+  const c=clientePorId(id); if(!c) return;
+  const rest=dividaRestante(c);
+  abrirModal(`<h3>💵 Registrar pagamento</h3>
+    <p style="font-size:.85rem;color:var(--muted)"><b>${escapar(c.nome)}</b> ainda deve <b>${dinheiro(rest)}</b>. Quanto recebeu agora?</p>
+    <label>Valor recebido</label>
+    <input id="mPagDivida" inputmode="decimal" placeholder="Ex.: 500">
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn-claro" onclick="quitarDivida(${id})">✅ Quitar tudo</button>
+      <button class="btn" onclick="salvarPagamentoDivida(${id})">Salvar</button>
+    </div>`);
+}
+function salvarPagamentoDivida(id){
+  const c=clientePorId(id); if(!c) return;
+  const v=parseFloat(String((document.getElementById('mPagDivida')||{}).value||'').replace(/\./g,'').replace(',','.'))||0;
+  if(v<=0){ const el=document.getElementById('mPagDivida'); if(el){ el.style.borderColor='#b91c1c'; el.focus(); } return; }
+  c.dividaPagamentos=c.dividaPagamentos||[]; c.dividaPagamentos.push({data:hojeISO(), valor:v});
+  fecharModal(); tocar();
+}
+function quitarDivida(id){
+  const c=clientePorId(id); if(!c) return;
+  const rest=dividaRestante(c);
+  if(rest>0){ c.dividaPagamentos=c.dividaPagamentos||[]; c.dividaPagamentos.push({data:hojeISO(), valor:rest}); }
+  fecharModal(); tocar();
+}
 function cobrarCliente(id){
   const c=clientePorId(id); if(!c) return;
   if(!c.zap){ abrirModal(`<h3>🔔 Cobrar ${escapar(c.nome)}</h3><p style="font-size:.9rem">Esse cliente ainda não tem WhatsApp cadastrado. Coloque o WhatsApp dele em ✏️ Editar e você cobra num toque. 💜</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>`); return; }
   const primeiro=(c.nome||'').split(' ')[0]||'';
   const forma=formaCobranca(c).replace(/^por/,' por');
-  const quanto = c.valor ? ` de ${dinheiro(c.valor)}${forma}` : '';
+  const rest=dividaRestante(c);
+  const quanto = rest>0 ? ` de ${dinheiro(rest)}` : (c.valor ? ` de ${dinheiro(c.valor)}${forma}` : '');
   const venc = c.diaPagamento ? ` (vencimento dia ${c.diaPagamento})` : '';
   const msg=`Oi ${primeiro}! 💜 Passando só pra lembrar do pagamento${quanto}${venc}. Quando puder acertar, me avisa? Se já pagou, pode ignorar. Obrigada! 🙏`;
   abrirModal(`<h3>🔔 Cobrar ${escapar(c.nome)}</h3>
@@ -2000,6 +2048,7 @@ function renderClientes(){
       </div>
       ${!arq && p.metaPosts?(()=>{ const ym=hojeISO().slice(0,7); const pub=dados.posts.filter(x=>x.clienteId===p.id&&x.status==='publicado'&&x.data.startsWith(ym)).length; const mult=p.metaFreq==='dia'?30:p.metaFreq==='semana'?4:1; const alvo=Math.max(1,p.metaPosts*mult); const pct=Math.min(100,Math.round(pub/alvo*100)); const ft=p.metaFreq==='dia'?'/dia':p.metaFreq==='semana'?'/semana':'/mês'; return `<div class="meta-prog"><div class="meta-barra"><div style="width:${pct}%"></div></div><span><b>${pub}/${alvo}</b> no mês · meta ${p.metaPosts}${ft}</span></div>`; })():''}
       ${p.valor?(()=>{ const ym=hojeISO().slice(0,7); const pago=p.pagamentos&&p.pagamentos[ym]; return `<div style="font-size:.78rem;color:var(--muted);margin-top:6px">💰 ${dinheiro(p.valor)}${formaCobranca(p).replace(/^por/,' por')}${p.diaPagamento?' · vence dia '+p.diaPagamento:''} ${pago?'· <b style="color:var(--ok)">✔ recebido</b>':''}</div>`; })():''}
+      ${p.dividaTotal>0?(()=>{ const rest=dividaRestante(p); const pago=dividaPaga(p); const pct=p.dividaTotal?Math.min(100,Math.round(pago/p.dividaTotal*100)):0; const quit=rest<=0; return `<div style="font-size:.8rem;margin-top:6px;background:#fff8f1;border:1px solid #fde3c8;border-radius:8px;padding:7px 9px">💳 Deve <b style="color:${quit?'#0a8a4a':'#b45309'}">${dinheiro(rest)}</b> de ${dinheiro(p.dividaTotal)} ${quit?'· <b style="color:#0a8a4a">✔ quitado!</b>':''}<div class="meta-barra" style="margin-top:4px"><div style="width:${pct}%;background:#0a8a4a"></div></div>${!arq&&!quit?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-mini" onclick="registrarPagamentoDivida(${p.id})">💵 Recebi um valor</button>${p.zap?`<button class="btn-mini" onclick="cobrarCliente(${p.id})">🔔 Cobrar</button>`:''}</div>`:''}</div>`; })():''}
       <div class="acoes">${acoes}</div>
     </div>`;
   };
@@ -2155,7 +2204,8 @@ function abrirModalCliente(id, tipoInicial){
     <label>Endereço (opcional — ótimo para serviços 🧽🛠)</label>
     <input id="mEndereco" value="${p?escapar(p.endereco||''):''}" placeholder="Ex.: 123 Main St, cidade — ou cole o endereço">
     ${temEquipe()?`<label>Funcionário responsável 👤</label>${selResponsavel(p)}<p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Quem cuida deste cliente. Você pode filtrar por funcionário lá em cima. 💜</p>`:''}
-    ${!planoConfig().umaPorRede?`<label>🏬 Empresa / Loja (opcional)</label><input id="mEmpresa" list="listaEmpresas" value="${p?escapar(p.empresa||''):''}" placeholder="Ex.: Loja de Carros, Locação, Imóveis…"><datalist id="listaEmpresas">${listaEmpresas().map(e=>`<option value="${escapar(e)}">`).join('')}</datalist><p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Pra quem tem mais de um negócio. Digite uma vez e vira filtro lá em cima. 💜</p>`:''}
+    ${!planoConfig().umaPorRede?`<label>🏬 Empresa / Loja (opcional)</label><input id="mEmpresa" list="listaEmpresas" value="${p?escapar(p.empresa||''):''}" placeholder="Ex.: Loja de Carros, Locação, Imóveis…"><datalist id="listaEmpresas">${listaEmpresas().map(e=>`<option value="${escapar(e)}">`).join('')}</datalist><p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Pra quem tem mais de um negócio. Digite uma vez e vira filtro lá em cima. 💜</p>
+    <label>💳 Dívida total (opcional — quanto a pessoa te deve)</label><input id="mDivida" inputmode="decimal" value="${p&&p.dividaTotal?String(p.dividaTotal).replace('.',','):''}" placeholder="Ex.: 3000 (venda parcelada, devedor…)">${p&&p.dividaTotal>0?`<p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Já pago: ${dinheiro(dividaPaga(p))} · falta ${dinheiro(dividaRestante(p))}. Dê baixa no cartão (💵 Recebi). 💜</p>`:`<p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Pra vendas parceladas e devedores: bota o total e vá dando baixa conforme recebe. 💜</p>`}`:''}
     <div id="blocoAvisar">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink)">
       <input type="checkbox" id="mAvisar" style="width:18px;height:18px" ${p&&p.avisar?'checked':''}>
@@ -2258,6 +2308,7 @@ function salvarCliente(id){
   const endereco = document.getElementById('mEndereco') ? document.getElementById('mEndereco').value.trim() : (id&&clientePorId(id).endereco) || '';
   const responsavel = document.getElementById('mResponsavel') ? document.getElementById('mResponsavel').value : ((id&&clientePorId(id).responsavel) || '');
   const empresa = document.getElementById('mEmpresa') ? document.getElementById('mEmpresa').value.trim() : ((id&&clientePorId(id).empresa) || '');
+  const dividaTotal = document.getElementById('mDivida') ? (parseFloat(String(document.getElementById('mDivida').value).replace(/\./g,'').replace(',','.'))||0) : ((id&&clientePorId(id).dividaTotal) || 0);
   const avisar = document.getElementById('mAvisar').checked;
   const foto = document.getElementById('mFoto') ? document.getElementById('mFoto').value.trim() : '';
   const pegaCampo = cid => { const el = document.getElementById(cid); return el ? el.value : ''; };
@@ -2280,8 +2331,8 @@ function salvarCliente(id){
       return;
     }
   }
-  if(id){ Object.assign(clientePorId(id), {nome,tipo,servico,servicoDesc,recebimento,empresa,nicho,nichos_tags,notas,cor,redes,zap,email,endereco,responsavel,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
-  else { dados.clientes.push({id:novoId(), nome, tipo, servico, servicoDesc, recebimento, empresa, nicho, nichos_tags, notas, cor, redes, zap, email, endereco, responsavel, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
+  if(id){ Object.assign(clientePorId(id), {nome,tipo,servico,servicoDesc,recebimento,empresa,dividaTotal,nicho,nichos_tags,notas,cor,redes,zap,email,endereco,responsavel,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
+  else { dados.clientes.push({id:novoId(), nome, tipo, servico, servicoDesc, recebimento, empresa, dividaTotal, dividaPagamentos:[], nicho, nichos_tags, notas, cor, redes, zap, email, endereco, responsavel, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
   fecharModal(); tocar();
 }
 function excluirCliente(id){
@@ -2620,6 +2671,12 @@ function abrirConfig(){
     <p style="font-size:.78rem;color:var(--muted);margin:2px 0 6px">Cadastre seus negócios (ex.: Loja de Carros, Locação, Imóveis). Depois é só escolher a loja no cadastro de cada cliente. 💜</p>
     <div style="display:flex;gap:6px"><input id="cfgLoja" placeholder="Nome da loja / empresa" onkeydown="if(event.key==='Enter'){addLoja();event.preventDefault();}"><button class="btn-claro" style="white-space:nowrap" onclick="addLoja()">+ Add</button></div>
     <div id="cfgLojasLista" style="margin-top:8px"></div>`:''}
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <label>🎛 Botões que aparecem pra você</label>
+    <p style="font-size:.78rem;color:var(--muted);margin:2px 0 6px">Desmarque os que você não usa pra deixar o menu mais limpo. 💜</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">
+      ${[['calendario','📅 Calendário'],['tarefas','✅ Tarefas'],['ideias','💡 Ideias'],['quadro','🗂 Status'],['vendas','💵 Vendas'],['caixa','💰 Caixa'],['contatos','📇 Contatos']].map(([k,lbl])=>`<label style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;margin:0"><input type="checkbox" id="abaChk_${k}" ${((dados.assinatura&&dados.assinatura.abasOcultas)||[]).includes(k)?'':'checked'} style="width:16px;height:16px">${lbl}</label>`).join('')}
+    </div>
     <div id="cfgMsg" style="font-size:.85rem;margin-top:8px;font-weight:700"></div>
     <div class="rodape">
       <button class="btn-claro" onclick="fecharModal()">Fechar</button>
@@ -2638,6 +2695,8 @@ async function salvarConfig(){
   if(!nome){ if(msg){ msg.style.color='#b91c1c'; msg.textContent='Conta pra gente o seu nome. 😊'; } return; }
   dados.assinatura=dados.assinatura||{};
   dados.assinatura.nome=nome; dados.assinatura.zap=zap;
+  const opcionais=['calendario','tarefas','ideias','quadro','vendas','caixa','contatos'];
+  dados.assinatura.abasOcultas=opcionais.filter(k=>{ const el=document.getElementById('abaChk_'+k); return el && !el.checked; });
   if(usuarioMeta){ usuarioMeta.nome=nome; usuarioMeta.zap=zap; }
   try{ await sb.auth.updateUser({ data:{ nome, zap } }); }catch(e){}
   await salvarAgora();
