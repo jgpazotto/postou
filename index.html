@@ -423,6 +423,7 @@
   <section id="aba-clientes" style="display:none">
     <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="abrirModalCliente()">+ Novo usuário</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button></div></div>
     <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
+    <div id="filtroEmpresaWrap" style="display:none;margin:0 0 12px"></div>
     <div class="grade-clientes" id="listaClientes"></div>
   </section>
   <section id="aba-calendario" style="display:none">
@@ -1923,6 +1924,8 @@ function resumoCliente(id){
 /* ---------- CLIENTES ---------- */
 let filtroFunc = '';
 function setFiltroFunc(v){ filtroFunc = v; renderClientes(); }
+let filtroEmpresa = '';
+function setFiltroEmpresa(v){ filtroEmpresa = v; renderClientes(); }
 function renderClientes(){
   const f = filtroAtivo();
   const fw = document.getElementById('filtroFuncWrap');
@@ -1936,8 +1939,18 @@ function renderClientes(){
       fw.style.display='';
     } else { fw.style.display='none'; filtroFunc=''; }
   }
+  const ew = document.getElementById('filtroEmpresaWrap');
+  const empresas = [...new Set(dados.clientes.map(c=>c.empresa).filter(Boolean))].sort();
+  if(ew){
+    if(empresas.length){
+      const opts = '<option value="">🏬 Todas as lojas/empresas</option>' + empresas.map(e=>`<option value="${escapar(e)}" ${filtroEmpresa===e?'selected':''}>${escapar(e)}</option>`).join('');
+      ew.innerHTML = '<label style="font-size:.82rem;color:var(--muted);font-weight:700;display:block;margin-bottom:4px">Filtrar por loja/empresa 🏬</label><select onchange="setFiltroEmpresa(this.value)" style="padding:9px 12px;border:1px solid var(--line);border-radius:10px;min-width:220px">'+opts+'</select>';
+      ew.style.display='';
+    } else { ew.style.display='none'; filtroEmpresa=''; }
+  }
   const passaFunc = p => !filtroFunc || (filtroFunc==='__eu__' ? !p.responsavel : p.responsavel===filtroFunc);
-  const todos = dados.clientes.filter(p=>(!f||p.id===f) && passaFunc(p));
+  const passaEmpresa = p => !filtroEmpresa || p.empresa===filtroEmpresa;
+  const todos = dados.clientes.filter(p=>(!f||p.id===f) && passaFunc(p) && passaEmpresa(p));
   const ativos = todos.filter(p=>!p.arquivado);
   const arquivados = todos.filter(p=>p.arquivado);
   const el = document.getElementById('listaClientes');
@@ -1974,7 +1987,7 @@ function renderClientes(){
            ${p.nichos_tags && p.nichos_tags.length?`<span class="nicho" style="color:#7c3aed">+ ${p.nichos_tags.map(t=>NICHOS_PREDEFINIDOS[t]).filter(Boolean).join(', ')}</span>`:''}
            <div class="redes-lista">${redesHtml||'<span style="font-size:.78rem;color:var(--muted)">nenhuma rede cadastrada</span>'}</div>`}
       ${p.notas?`<div style="font-size:.82rem;color:var(--muted)">${escapar(p.notas)}</div>`:''}
-      ${temEquipe()&&p.responsavel?`<div style="font-size:.78rem;margin-top:4px"><span style="background:#f3ecfb;color:#7c3aed;border-radius:20px;padding:2px 10px;font-weight:700">👤 ${escapar(nomeResponsavel(p.responsavel))}</span></div>`:''}
+      ${(p.empresa||(temEquipe()&&p.responsavel))?`<div style="font-size:.78rem;margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">${p.empresa?`<span style="background:#eef6ff;color:#1d4ed8;border-radius:20px;padding:2px 10px;font-weight:700">🏬 ${escapar(p.empresa)}</span>`:''}${temEquipe()&&p.responsavel?`<span style="background:#f3ecfb;color:#7c3aed;border-radius:20px;padding:2px 10px;font-weight:700">👤 ${escapar(nomeResponsavel(p.responsavel))}</span>`:''}</div>`:''}
       ${p.endereco?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px"><span role="button" tabindex="0" onclick="abrirMapa(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Abrir no Google Maps">📍 ${escapar(p.endereco)}</span></div>`:''}
       <div class="contagens">
         ${p.tipo==='servico'
@@ -2130,6 +2143,7 @@ function abrirModalCliente(id, tipoInicial){
     <label>Endereço (opcional — ótimo para serviços 🧽🛠)</label>
     <input id="mEndereco" value="${p?escapar(p.endereco||''):''}" placeholder="Ex.: 123 Main St, cidade — ou cole o endereço">
     ${temEquipe()?`<label>Funcionário responsável 👤</label>${selResponsavel(p)}<p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Quem cuida deste cliente. Você pode filtrar por funcionário lá em cima. 💜</p>`:''}
+    ${!planoConfig().umaPorRede?`<label>🏬 Empresa / Loja (opcional)</label><input id="mEmpresa" list="listaEmpresas" value="${p?escapar(p.empresa||''):''}" placeholder="Ex.: Loja de Carros, Locação, Imóveis…"><datalist id="listaEmpresas">${[...new Set(dados.clientes.map(c=>c.empresa).filter(Boolean))].map(e=>`<option value="${escapar(e)}">`).join('')}</datalist><p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Pra quem tem mais de um negócio. Digite uma vez e vira filtro lá em cima. 💜</p>`:''}
     <div id="blocoAvisar">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink)">
       <input type="checkbox" id="mAvisar" style="width:18px;height:18px" ${p&&p.avisar?'checked':''}>
@@ -2231,6 +2245,7 @@ function salvarCliente(id){
   const email = document.getElementById('mEmailCli').value.trim();
   const endereco = document.getElementById('mEndereco') ? document.getElementById('mEndereco').value.trim() : (id&&clientePorId(id).endereco) || '';
   const responsavel = document.getElementById('mResponsavel') ? document.getElementById('mResponsavel').value : ((id&&clientePorId(id).responsavel) || '');
+  const empresa = document.getElementById('mEmpresa') ? document.getElementById('mEmpresa').value.trim() : ((id&&clientePorId(id).empresa) || '');
   const avisar = document.getElementById('mAvisar').checked;
   const foto = document.getElementById('mFoto') ? document.getElementById('mFoto').value.trim() : '';
   const pegaCampo = cid => { const el = document.getElementById(cid); return el ? el.value : ''; };
@@ -2253,8 +2268,8 @@ function salvarCliente(id){
       return;
     }
   }
-  if(id){ Object.assign(clientePorId(id), {nome,tipo,servico,servicoDesc,recebimento,nicho,nichos_tags,notas,cor,redes,zap,email,endereco,responsavel,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
-  else { dados.clientes.push({id:novoId(), nome, tipo, servico, servicoDesc, recebimento, nicho, nichos_tags, notas, cor, redes, zap, email, endereco, responsavel, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
+  if(id){ Object.assign(clientePorId(id), {nome,tipo,servico,servicoDesc,recebimento,empresa,nicho,nichos_tags,notas,cor,redes,zap,email,endereco,responsavel,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
+  else { dados.clientes.push({id:novoId(), nome, tipo, servico, servicoDesc, recebimento, empresa, nicho, nichos_tags, notas, cor, redes, zap, email, endereco, responsavel, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
   fecharModal(); tocar();
 }
 function excluirCliente(id){
@@ -3871,6 +3886,7 @@ const BASE_CONHECIMENTO = [
   {k:['viagem','evento','varios dias','vários dias','compromisso longo','feriado','ferias','período'], r:'Compromisso de vários dias (viagem, evento)? Na aba 📅 Calendário → Novo compromisso, preencha o "Dia" e também o campo "Até". Ele aparece 📅 em todos os dias do período. 💜'},
   {k:['mapa','endereco','google maps','como chegar','a caminho','estou a caminho','localizacao'], r:'No cartão de um usuário que tem endereço, o botão 📍 Mapa abre o Google Maps no endereço num clique, e o 🚗 A caminho manda um "Estou a caminho!" pronto no WhatsApp. Ótimo pra quem vai até o cliente! 🚗💜'},
   {k:['indicar','indicacao','indique','amiga','codigo','convidar amiga','premio','referral','ganhar semana'], r:'Adorou o Postou? Indique uma amiga! 💌 Na página 🏠 Hoje tem o botão "Indicar uma amiga" — ele mostra o SEU código de indicação e um convite pronto pra mandar no WhatsApp. Quando sua amiga se cadastrar colocando o seu código, vocês duas ganham 7 dias grátis. A dona vê as indicações no Painel do Dono. Todo mundo sai ganhando! 💜'},
+  {k:['empresa','loja','lojas','negocio','negocios','multiempresa','varias empresas','separar por loja','filial'], r:'Tem mais de um negócio (loja de carros, locação, imóveis…)? No cadastro do usuário (Pro+) tem o campo 🏬 Empresa / Loja — digite o nome da loja uma vez. Depois, no topo da aba 👥 Usuários, aparece o "Filtrar por loja/empresa" pra você ver os clientes de cada negócio separadinho. Tudo num Postou só! 💜'},
   {k:['configuracao','configuracoes','minha conta','atualizar dados','mudar meu nome','meu telefone','atualizar telefone','editar meu perfil','meus dados'], r:'Para atualizar seus dados: clique em ⚙️ Conta lá em cima, no topo. Você muda seu nome e seu WhatsApp e clica em Salvar — fica atualizado na hora. O e-mail (seu login) não muda por aí; se precisar, fale com a Joice. 💜'},
   {k:['agendar servico','agenda de servico','marcar servico','servico na agenda','repetir servico','servico toda semana','servico quinzenal','dia do servico'], r:'Para agendar um serviço: na aba 👥 Usuários, no cartão de um cliente de Serviço, clique em 🗓 Agendar serviço. Escolha a data, o horário e se repete (só esse dia, toda semana, a cada 15 dias ou todo mês). Ele entra no 📅 Calendário na cor do cliente, com o 🧰. Se repetir, já coloco os próximos 3 meses! 💜'}
 ];
