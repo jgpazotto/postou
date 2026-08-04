@@ -1852,9 +1852,36 @@ function desenharMetricas(id){
     mets.slice().reverse().map(m=>`<tr><td>${m.mes.slice(5)+'/'+m.mes.slice(0,4)}</td><td>${(REDES[m.rede]||REDES.outra).nome}</td><td>${m.seguidores.toLocaleString('pt-BR')}</td><td>${m.alcance?m.alcance.toLocaleString('pt-BR'):'—'}</td><td><button class="btn-mini perigo" onclick="excluirMetrica(${id},'${m.mes}','${m.rede}')">🗑</button></td></tr>`).join('') + '</table>';
   area.innerHTML = svg + tabela;
 }
+function verServicos(clienteId){
+  const c=clientePorId(clienteId); if(!c) return;
+  const futuros=(dados.compromissos||[]).filter(x=>x.clienteId===clienteId && x.tipoCompromisso==='servico' && x.data>=hojeISO()).sort((a,b)=>a.data.localeCompare(b.data));
+  abrirModal(`<h3>🗓 Serviços de ${escapar(c.nome)}</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Dias marcados daqui pra frente. Toque no 🗑 pra tirar um dia. 💜</p>
+    ${futuros.length ? futuros.map(s=>`<div class="pag-linha"><span style="flex:1">📅 <b>${dataBRcompleta(s.data)}</b>${s.hora?' às '+escapar(s.hora):''}</span><button class="btn-claro" style="padding:4px 9px;font-size:.75rem" onclick="removerServico(${s.id},${clienteId})">🗑</button></div>`).join('') : '<div class="vazio">Nenhum serviço marcado. Use 🗓 Agendar serviço no cartão. 💜</div>'}
+    <div class="rodape"><button class="btn" onclick="fecharModal()">Fechar</button></div>`);
+}
+function removerServico(id, clienteId){ dados.compromissos=(dados.compromissos||[]).filter(x=>x.id!==id); tocar(); verServicos(clienteId); }
 function resumoCliente(id){
   const c = clientePorId(id);
   const hoje = hojeISO();
+  if(c && c.tipo==='servico'){
+    const servs=(dados.compromissos||[]).filter(x=>x.clienteId===id && x.tipoCompromisso==='servico' && x.data>=hoje).sort((a,b)=>a.data.localeCompare(b.data)).slice(0,6);
+    let m=`Olá, ${c.nome}! 💜\n`;
+    if(c.servico) m+=`\n🧰 Serviço: ${c.servico}`;
+    if(c.servicoDesc) m+=`\n📋 ${c.servicoDesc}`;
+    if(c.valor) m+=`\n💰 ${dinheiro(c.valor)}${formaCobranca(c).replace(/^por/,' por')}`;
+    m+=`\n\n🗓 *Próximos dias marcados:*\n`;
+    m+= servs.length ? servs.map(s=>`• ${dataBRcompleta(s.data)}${s.hora?' às '+s.hora:''}`).join('\n') : '• (nenhum marcado ainda)';
+    m+=`\n\nQualquer coisa, é só me chamar!\n\n_— enviado via Postou_`;
+    abrirModal(`<h3>📊 Resumo para ${escapar(c.nome)}</h3>
+      <p style="font-size:.85rem;color:var(--muted)">Revise e edite à vontade antes de enviar:</p>
+      <textarea id="mMsgResumo" style="min-height:180px;margin-top:8px">${escapar(m)}</textarea>
+      <div class="rodape">
+        <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+        ${c.zap?`<button class="btn" onclick="enviarZap('${c.zap}', document.getElementById('mMsgResumo').value);fecharModal()">📱 Abrir WhatsApp</button>`:`<button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('mMsgResumo').value);this.textContent='✔ Copiado!'">📋 Copiar</button>`}
+      </div>`);
+    return;
+  }
   const seteDias = new Date(); seteDias.setDate(seteDias.getDate()-7);
   const desde = seteDias.getFullYear()+'-'+String(seteDias.getMonth()+1).padStart(2,'0')+'-'+String(seteDias.getDate()).padStart(2,'0');
   const publicados = dados.posts.filter(p=>p.clienteId===id && p.status==='publicado' && p.data>=desde);
@@ -1914,7 +1941,7 @@ function renderClientes(){
          ${p.tipo==='servico' ? `<button class="btn-mini" onclick="abrirAgendarServico(${p.id})">🗓 Agendar serviço</button>` : `<button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>`}
          ${p.endereco?`<button class="btn-mini" onclick="abrirMapa(${p.id})">📍 Mapa</button>`:''}
          ${p.zap?`<button class="btn-mini" onclick="aCaminho(${p.id})">🚗 A caminho</button>`:''}
-         <button class="btn-mini" onclick="abrirMetricas(${p.id})">📈 Métricas</button>
+         ${p.tipo==='servico' ? '' : `<button class="btn-mini" onclick="abrirMetricas(${p.id})">📈 Métricas</button>`}
          <button class="btn-mini" onclick="resumoCliente(${p.id})">📊 Resumo p/ usuário</button>
          <button class="btn-mini" onclick="abrirModalCliente(${p.id})">✏️ Editar</button>
          <button class="btn-mini" onclick="arquivarCliente(${p.id})">🗄 Arquivar</button>
@@ -1931,9 +1958,12 @@ function renderClientes(){
       ${temEquipe()&&p.responsavel?`<div style="font-size:.78rem;margin-top:4px"><span style="background:#f3ecfb;color:#7c3aed;border-radius:20px;padding:2px 10px;font-weight:700">👤 ${escapar(nomeResponsavel(p.responsavel))}</span></div>`:''}
       ${p.endereco?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px"><span role="button" tabindex="0" onclick="abrirMapa(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Abrir no Google Maps">📍 ${escapar(p.endereco)}</span></div>`:''}
       <div class="contagens">
-        <span role="button" tabindex="0" onclick="verPendentes(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver e ajustar os posts pendentes">📌 <b>${nPosts}</b> pendentes</span>
-        <span>✅ <b>${nTar}</b> tarefas</span>
-        <span role="button" tabindex="0" onclick="verIdeias(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver as ideias">💡 <b>${nId}</b> ideias</span>
+        ${p.tipo==='servico'
+          ? `<span role="button" tabindex="0" onclick="verServicos(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver os dias marcados">🗓 <b>${(dados.compromissos||[]).filter(x=>x.clienteId===p.id&&x.tipoCompromisso==='servico'&&x.data>=hojeISO()).length}</b> serviços marcados</span>
+             <span>✅ <b>${nTar}</b> tarefas</span>`
+          : `<span role="button" tabindex="0" onclick="verPendentes(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver e ajustar os posts pendentes">📌 <b>${nPosts}</b> pendentes</span>
+             <span>✅ <b>${nTar}</b> tarefas</span>
+             <span role="button" tabindex="0" onclick="verIdeias(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver as ideias">💡 <b>${nId}</b> ideias</span>`}
       </div>
       ${!arq && p.metaPosts?(()=>{ const ym=hojeISO().slice(0,7); const pub=dados.posts.filter(x=>x.clienteId===p.id&&x.status==='publicado'&&x.data.startsWith(ym)).length; const mult=p.metaFreq==='dia'?30:p.metaFreq==='semana'?4:1; const alvo=Math.max(1,p.metaPosts*mult); const pct=Math.min(100,Math.round(pub/alvo*100)); const ft=p.metaFreq==='dia'?'/dia':p.metaFreq==='semana'?'/semana':'/mês'; return `<div class="meta-prog"><div class="meta-barra"><div style="width:${pct}%"></div></div><span><b>${pub}/${alvo}</b> no mês · meta ${p.metaPosts}${ft}</span></div>`; })():''}
       ${p.valor?(()=>{ const ym=hojeISO().slice(0,7); const pago=p.pagamentos&&p.pagamentos[ym]; return `<div style="font-size:.78rem;color:var(--muted);margin-top:6px">💰 ${dinheiro(p.valor)}${formaCobranca(p).replace(/^por/,' por')}${p.diaPagamento?' · vence dia '+p.diaPagamento:''} ${pago?'· <b style="color:var(--ok)">✔ recebido</b>':''}</div>`; })():''}
@@ -2489,23 +2519,36 @@ function abrirAgendarServico(clienteId){
       <option value="mes">Todo mês (mesmo dia)</option>
     </select>
     <p style="font-size:.78rem;color:var(--muted);margin-top:6px">Se repetir, já coloco os próximos 3 meses na agenda. 💜</p>
+    <div id="svMsg" style="font-size:.82rem;margin-top:6px"></div>
     <div class="rodape">
       <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
-      <button class="btn" onclick="salvarAgendarServico(${clienteId})">Colocar na agenda</button>
+      <button class="btn" id="svBtn" onclick="salvarAgendarServico(${clienteId})">Colocar na agenda</button>
     </div>`);
 }
-function salvarAgendarServico(clienteId){
+function salvarAgendarServico(clienteId, forcar){
   const c=clientePorId(clienteId); if(!c) return;
   const data=document.getElementById('svData').value||hojeISO();
   const hora=document.getElementById('svHora').value||'';
   const rep=document.getElementById('svRepetir').value;
   if(!dados.compromissos) dados.compromissos=[];
+  // monta a lista de dias
+  const datas=[];
+  if(rep==='uma'){ datas.push(data); }
+  else if(rep==='mes'){ let d=data; for(let i=0;i<3;i++){ datas.push(d); d=isoMesSeguinte(d); } }
+  else { const passo = rep==='quinzena'?14:7; let d=data; const fim=isoSomaDias(data,92); let guarda=0; while(d<=fim && guarda<60){ datas.push(d); d=isoSomaDias(d,passo); guarda++; } }
+  // avisa se já tem algum compromisso nesses dias
+  if(!forcar){
+    const conflitos=datas.filter(d=>(dados.compromissos||[]).some(x=>x.data===d));
+    if(conflitos.length){
+      const msg=document.getElementById('svMsg'), btn=document.getElementById('svBtn');
+      if(msg){ msg.style.color='#b45309'; msg.innerHTML='⚠️ Já tem compromisso marcado em: <b>'+conflitos.slice(0,6).map(dataBRcompleta).join(', ')+(conflitos.length>6?'…':'')+'</b>. Cuidado pra não misturar os horários! Quer agendar mesmo assim?'; }
+      if(btn){ btn.textContent='Agendar mesmo assim'; btn.setAttribute('onclick',`salvarAgendarServico(${clienteId}, true)`); }
+      return;
+    }
+  }
   const titulo=(c.servico?c.servico+' · ':'')+c.nome;
   const obs=c.servicoDesc||'';
-  const criar=(d)=>{ dados.compromissos.push({ id:novoId(), data:d, dataFim:'', hora, titulo, obs, clienteId:c.id, tipoCompromisso:'servico', cor:c.cor }); };
-  if(rep==='uma'){ criar(data); }
-  else if(rep==='mes'){ let d=data; for(let i=0;i<3;i++){ criar(d); d=isoMesSeguinte(d); } }
-  else { const passo = rep==='quinzena'?14:7; let d=data; const fim=isoSomaDias(data,92); let guarda=0; while(d<=fim && guarda<60){ criar(d); d=isoSomaDias(d,passo); guarda++; } }
+  datas.forEach(d=>{ dados.compromissos.push({ id:novoId(), data:d, dataFim:'', hora, titulo, obs, clienteId:c.id, tipoCompromisso:'servico', cor:c.cor }); });
   fecharModal();
   mesAtual=dataFromISO(data); calVisao='dia'; marcarBotaoVisao();
   tocar();
