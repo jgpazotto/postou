@@ -395,6 +395,7 @@
     <select class="filtro" id="filtroCliente" onchange="render()">
       <option value="todos">Todos os usuários</option>
     </select>
+    <button class="btn-claro" onclick="abrirConfig()" title="Minha conta e configurações">⚙️ Conta</button>
     <button class="btn-claro" onclick="exportar()" title="Baixar uma cópia de segurança">⬇ Backup</button>
     <button class="btn-claro" onclick="sair()">Sair</button>
   </div>
@@ -1910,7 +1911,7 @@ function renderClientes(){
          <button class="btn-mini perigo" onclick="excluirCliente(${p.id})">🗑 Excluir</button>`
       : `<button class="btn-mini" onclick="moverCliente(${p.id},-1)" title="Subir na lista">⬆️</button>
          <button class="btn-mini" onclick="moverCliente(${p.id},1)" title="Descer na lista">⬇️</button>
-         <button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>
+         ${p.tipo==='servico' ? `<button class="btn-mini" onclick="abrirAgendarServico(${p.id})">🗓 Agendar serviço</button>` : `<button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>`}
          ${p.endereco?`<button class="btn-mini" onclick="abrirMapa(${p.id})">📍 Mapa</button>`:''}
          ${p.zap?`<button class="btn-mini" onclick="aCaminho(${p.id})">🚗 A caminho</button>`:''}
          <button class="btn-mini" onclick="abrirMetricas(${p.id})">📈 Métricas</button>
@@ -2302,8 +2303,10 @@ function chipPost(p){
   return `<button class="chip" style="background:${c?c.cor:'#999'}" onclick="event.stopPropagation();abrirModalPost(${p.id})" title="${nome}">${nome}</button>`;
 }
 function chipCompromisso(cm){
-  const multi = cm.dataFim ? '📅 ' : '🕐 ';
-  return `<button class="chip chip-compromisso" onclick="event.stopPropagation();abrirDia('${cm.data}')" title="${escapar(cm.titulo)}${cm.dataFim?' (até '+escapar(cm.dataFim)+')':''}">${multi}${cm.hora?escapar(cm.hora)+' ':''}${escapar(cm.titulo)}</button>`;
+  const ehServico = cm.tipoCompromisso==='servico';
+  const multi = cm.dataFim ? '📅 ' : (ehServico ? '🧰 ' : '🕐 ');
+  const estilo = (ehServico && cm.cor) ? `style="background:${cm.cor};color:#fff;border:none"` : '';
+  return `<button class="chip chip-compromisso" ${estilo} onclick="event.stopPropagation();abrirDia('${cm.data}')" title="${escapar(cm.titulo)}${cm.dataFim?' (até '+escapar(cm.dataFim)+')':''}">${multi}${cm.hora?escapar(cm.hora)+' ':''}${escapar(cm.titulo)}</button>`;
 }
 function pagamentosDoDia(iso){
   const dia = parseInt(iso.slice(8,10));
@@ -2467,6 +2470,80 @@ function salvarCompromisso(){
   fecharModal();
   mesAtual = dataFromISO(c.data); calVisao = 'dia'; marcarBotaoVisao();
   tocar();
+}
+function isoMesSeguinte(iso){ let y=parseInt(iso.slice(0,4)), m=parseInt(iso.slice(5,7)), d=parseInt(iso.slice(8,10)); m+=1; if(m>12){ m=1; y+=1; } const ultimo=new Date(y,m,0).getDate(); if(d>ultimo) d=ultimo; return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+function abrirAgendarServico(clienteId){
+  const c=clientePorId(clienteId); if(!c) return;
+  abrirModal(`
+    <h3>🗓 Agendar serviço</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">Para <b>${escapar(c.nome)}</b>${c.servico?` · ${escapar(c.servico)}`:''}</p>
+    <label>Data do serviço</label>
+    <input type="date" id="svData" value="${hojeISO()}">
+    <label>Horário (opcional)</label>
+    <input type="time" id="svHora">
+    <label>Com que frequência?</label>
+    <select id="svRepetir" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">
+      <option value="uma">Só esse dia</option>
+      <option value="semana">Toda semana (mesmo dia)</option>
+      <option value="quinzena">A cada 15 dias</option>
+      <option value="mes">Todo mês (mesmo dia)</option>
+    </select>
+    <p style="font-size:.78rem;color:var(--muted);margin-top:6px">Se repetir, já coloco os próximos 3 meses na agenda. 💜</p>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn" onclick="salvarAgendarServico(${clienteId})">Colocar na agenda</button>
+    </div>`);
+}
+function salvarAgendarServico(clienteId){
+  const c=clientePorId(clienteId); if(!c) return;
+  const data=document.getElementById('svData').value||hojeISO();
+  const hora=document.getElementById('svHora').value||'';
+  const rep=document.getElementById('svRepetir').value;
+  if(!dados.compromissos) dados.compromissos=[];
+  const titulo=(c.servico?c.servico+' · ':'')+c.nome;
+  const obs=c.servicoDesc||'';
+  const criar=(d)=>{ dados.compromissos.push({ id:novoId(), data:d, dataFim:'', hora, titulo, obs, clienteId:c.id, tipoCompromisso:'servico', cor:c.cor }); };
+  if(rep==='uma'){ criar(data); }
+  else if(rep==='mes'){ let d=data; for(let i=0;i<3;i++){ criar(d); d=isoMesSeguinte(d); } }
+  else { const passo = rep==='quinzena'?14:7; let d=data; const fim=isoSomaDias(data,92); let guarda=0; while(d<=fim && guarda<60){ criar(d); d=isoSomaDias(d,passo); guarda++; } }
+  fecharModal();
+  mesAtual=dataFromISO(data); calVisao='dia'; marcarBotaoVisao();
+  tocar();
+}
+function abrirConfig(){
+  const a=(typeof dados!=='undefined'&&dados.assinatura)||{};
+  const nome=a.nome||(usuarioMeta&&usuarioMeta.nome)||'';
+  const zap=a.zap||(usuarioMeta&&usuarioMeta.zap)||'';
+  const email=a.email||(usuarioMeta&&usuarioMeta.email)||'';
+  abrirModal(`
+    <h3>⚙️ Minha conta</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Mantenha seus dados sempre atualizados. 💜</p>
+    <label>Seu nome</label>
+    <input id="cfgNome" value="${escapar(nome)}" placeholder="Seu nome">
+    <label>Seu WhatsApp</label>
+    <input id="cfgZap" value="${escapar(zap)}" placeholder="Ex.: +15085551234 ou +5511999998888">
+    <label>Seu e-mail (login)</label>
+    <input id="cfgEmail" value="${escapar(email)}" disabled style="opacity:.7">
+    <p style="font-size:.75rem;color:var(--muted)">O e-mail é o seu login e não muda por aqui. Se precisar trocar, fale com a Joice. 💜</p>
+    <div id="cfgMsg" style="font-size:.85rem;margin-top:8px;font-weight:700"></div>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Fechar</button>
+      <button class="btn" onclick="salvarConfig()">Salvar</button>
+    </div>`);
+}
+async function salvarConfig(){
+  const nome=(document.getElementById('cfgNome').value||'').trim();
+  const zap=(document.getElementById('cfgZap').value||'').replace(/[^\d+]/g,'');
+  const msg=document.getElementById('cfgMsg');
+  if(!nome){ if(msg){ msg.style.color='#b91c1c'; msg.textContent='Conta pra gente o seu nome. 😊'; } return; }
+  dados.assinatura=dados.assinatura||{};
+  dados.assinatura.nome=nome; dados.assinatura.zap=zap;
+  if(usuarioMeta){ usuarioMeta.nome=nome; usuarioMeta.zap=zap; }
+  try{ await sb.auth.updateUser({ data:{ nome, zap } }); }catch(e){}
+  await salvarAgora();
+  if(typeof aplicarPlano==='function') aplicarPlano();
+  if(msg){ msg.style.color='#0a8a4a'; msg.textContent='✅ Salvo! Seus dados estão atualizados. 💜'; }
+  setTimeout(()=>{ fecharModal(); if(typeof tocar==='function') tocar(); }, 900);
 }
 function excluirCompromisso(id){
   dados.compromissos = (dados.compromissos||[]).filter(c=>c.id!==id);
@@ -3731,7 +3808,9 @@ const BASE_CONHECIMENTO = [
   {k:['ordem','ordenar','reordenar','prioridade','mudar posicao','subir card','organizar cards','mover cliente'], r:'Na aba 👥 Usuários, cada cartão tem as setinhas ⬆️ ⬇️: clique pra subir ou descer o usuário na lista. Assim você deixa os mais importantes no topo, na ordem que quiser. A ordem fica salva! 💜'},
   {k:['viagem','evento','varios dias','vários dias','compromisso longo','feriado','ferias','período'], r:'Compromisso de vários dias (viagem, evento)? Na aba 📅 Calendário → Novo compromisso, preencha o "Dia" e também o campo "Até". Ele aparece 📅 em todos os dias do período. 💜'},
   {k:['mapa','endereco','google maps','como chegar','a caminho','estou a caminho','localizacao'], r:'No cartão de um usuário que tem endereço, o botão 📍 Mapa abre o Google Maps no endereço num clique, e o 🚗 A caminho manda um "Estou a caminho!" pronto no WhatsApp. Ótimo pra quem vai até o cliente! 🚗💜'},
-  {k:['indicar','indicacao','indique','amiga','codigo','convidar amiga','premio','referral','ganhar semana'], r:'Adorou o Postou? Indique uma amiga! 💌 Na página 🏠 Hoje tem o botão "Indicar uma amiga" — ele mostra o SEU código de indicação e um convite pronto pra mandar no WhatsApp. Quando sua amiga se cadastrar colocando o seu código, você ganha um prêmio. A dona vê as indicações no Painel do Dono. Todo mundo sai ganhando! 💜'}
+  {k:['indicar','indicacao','indique','amiga','codigo','convidar amiga','premio','referral','ganhar semana'], r:'Adorou o Postou? Indique uma amiga! 💌 Na página 🏠 Hoje tem o botão "Indicar uma amiga" — ele mostra o SEU código de indicação e um convite pronto pra mandar no WhatsApp. Quando sua amiga se cadastrar colocando o seu código, vocês duas ganham 7 dias grátis. A dona vê as indicações no Painel do Dono. Todo mundo sai ganhando! 💜'},
+  {k:['configuracao','configuracoes','minha conta','atualizar dados','mudar meu nome','meu telefone','atualizar telefone','editar meu perfil','meus dados'], r:'Para atualizar seus dados: clique em ⚙️ Conta lá em cima, no topo. Você muda seu nome e seu WhatsApp e clica em Salvar — fica atualizado na hora. O e-mail (seu login) não muda por aí; se precisar, fale com a Joice. 💜'},
+  {k:['agendar servico','agenda de servico','marcar servico','servico na agenda','repetir servico','servico toda semana','servico quinzenal','dia do servico'], r:'Para agendar um serviço: na aba 👥 Usuários, no cartão de um cliente de Serviço, clique em 🗓 Agendar serviço. Escolha a data, o horário e se repete (só esse dia, toda semana, a cada 15 dias ou todo mês). Ele entra no 📅 Calendário na cor do cliente, com o 🧰. Se repetir, já coloco os próximos 3 meses! 💜'}
 ];
 const DICAS_DIA = [
   'Poste o imperfeito publicado em vez do perfeito guardado no rascunho. Feito é melhor que perfeito! 🚀',
