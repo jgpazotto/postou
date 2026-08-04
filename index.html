@@ -738,13 +738,24 @@ async function fazerLogin(){
   document.getElementById('btnEntrar').textContent = 'Entrar';
   if(error){
     const m = error.message||'';
-    if(/not confirmed|confirm/i.test(m)){ msg.style.color='#b45309'; msg.textContent='📧 Falta confirmar seu e-mail! Procure o e-mail do Postou (veja também o SPAM/Lixo eletrônico) e clique no link de confirmação. Depois volte e entre. 💜'; }
-    else if(/Invalid/i.test(m)){ msg.style.color=''; msg.textContent='E-mail ou senha incorretos.'; }
-    else { msg.style.color=''; msg.textContent='Erro ao entrar: '+m; }
+    msg.style.color='#b91c1c'; msg.style.fontWeight='700'; msg.style.fontSize='.92rem';
+    if(/not confirmed|confirm/i.test(m)){ msg.style.color='#b45309'; msg.innerHTML='📧 <b>Falta confirmar seu e-mail!</b> Procure o e-mail do Postou (veja também o SPAM/Lixo eletrônico) e clique no link. Depois volte e entre. 💜'; }
+    else if(/Invalid|credential/i.test(m)){ msg.innerHTML='❌ <b>E-mail ou senha incorretos.</b><br><span style="font-weight:400">Confira os dois com calma (cuidado com MAIÚSCULAS e espaços).</span><br>🔑 <a href="#" onclick="recuperarSenha();return false" style="color:#7c3aed;font-weight:700">Esqueci minha senha</a> &nbsp;·&nbsp; <a href="#" onclick="mostrarCadastro();return false" style="color:#7c3aed;font-weight:700">Ainda não tenho conta</a>'; }
+    else { msg.innerHTML='⚠️ Não consegui entrar agora. Tente de novo em instantes.<br><span style="font-weight:400;font-size:.8rem">('+escapar(m)+')</span>'; }
     return;
   }
-  msg.textContent = '';
+  msg.textContent = ''; msg.style.fontWeight=''; msg.style.fontSize='';
   await entrarNoApp();
+}
+async function recuperarSenha(){
+  const email = (document.getElementById('loginEmail').value||'').trim();
+  const msg = document.getElementById('msgLogin');
+  msg.style.fontWeight='700'; msg.style.fontSize='.92rem';
+  if(!email){ msg.style.color='#b91c1c'; msg.textContent='✍️ Primeiro digite seu e-mail no campo aí em cima, depois clique em "Esqueci minha senha". 💜'; return; }
+  msg.style.color='#7c3aed'; msg.textContent='Enviando o link… ⏳';
+  const { error } = await sb.auth.resetPasswordForEmail(email);
+  if(error){ msg.style.color='#b91c1c'; msg.textContent='Não consegui enviar agora: '+error.message; return; }
+  msg.style.color='#0a8a4a'; msg.innerHTML='✅ <b>Link enviado!</b> Abra o e-mail de <b>'+escapar(email)+'</b> (olhe também o SPAM) e crie uma senha nova. Depois volte e entre. 💜';
 }
 let usuarioMeta = {};
 async function entrarNoApp(){
@@ -1819,7 +1830,9 @@ function renderClientes(){
       ? `<button class="btn-mini" onclick="restaurarCliente(${p.id})">♻️ Restaurar</button>
          ${p.zap?`<button class="btn-mini" onclick="avisarZap('${encodeURIComponent(p.zap)}','${encodeURIComponent(p.nome)}')">📱 Chamar</button>`:''}
          <button class="btn-mini perigo" onclick="excluirCliente(${p.id})">🗑 Excluir</button>`
-      : `<button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>
+      : `<button class="btn-mini" onclick="moverCliente(${p.id},-1)" title="Subir na lista">⬆️</button>
+         <button class="btn-mini" onclick="moverCliente(${p.id},1)" title="Descer na lista">⬇️</button>
+         <button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>
          ${p.endereco?`<button class="btn-mini" onclick="abrirMapa(${p.id})">📍 Mapa</button>`:''}
          ${p.zap?`<button class="btn-mini" onclick="aCaminho(${p.id})">🚗 A caminho</button>`:''}
          <button class="btn-mini" onclick="abrirMetricas(${p.id})">📈 Métricas</button>
@@ -1853,6 +1866,17 @@ function renderClientes(){
     html += `<details style="margin-top:18px"><summary style="cursor:pointer;font-weight:700;color:var(--muted);padding:8px 0">🗄 Arquivados (${arquivados.length})</summary><p style="font-size:.82rem;color:var(--muted);margin:4px 0 10px">Guardados aqui pra você lembrar de chamar em promoções. Pode restaurar quando quiser. 💜</p>${arquivados.map(p=>cardCli(p,true)).join('')}</details>`;
   }
   el.innerHTML = html;
+}
+function moverCliente(id, dir){
+  const arr=dados.clientes;
+  const ativosIdx = arr.map((c,i)=>({c,i})).filter(x=>!x.c.arquivado).map(x=>x.i);
+  const pos = ativosIdx.findIndex(i=>arr[i].id===id);
+  if(pos<0) return;
+  const alvo = pos+dir;
+  if(alvo<0 || alvo>=ativosIdx.length) return;
+  const i1=ativosIdx[pos], i2=ativosIdx[alvo];
+  const tmp=arr[i1]; arr[i1]=arr[i2]; arr[i2]=tmp;
+  tocar();
 }
 function arquivarCliente(id){ const c=clientePorId(id); if(c){ c.arquivado=true; tocar(); } }
 function restaurarCliente(id){ const c=clientePorId(id); if(c){ c.arquivado=false; tocar(); } }
@@ -2182,7 +2206,7 @@ const MESES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out'
 function isoDe(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function dataFromISO(iso){ const p=String(iso).split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
 function postsDoDia(iso){ const f=filtroAtivo(); return dados.posts.filter(p=>p.data===iso && (!f||p.clienteId===f)); }
-function compromissosDoDia(iso){ return (dados.compromissos||[]).filter(c=>c.data===iso).sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')); }
+function compromissosDoDia(iso){ return (dados.compromissos||[]).filter(c=> c.dataFim ? (iso>=c.data && iso<=c.dataFim) : c.data===iso).sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')); }
 function marcarBotaoVisao(){ document.querySelectorAll('.cal-view-btn').forEach(b=>b.classList.toggle('ativo', b.dataset.v===calVisao)); }
 function setCalVisao(v){ calVisao = v; marcarBotaoVisao(); renderCalendario(); }
 function mudarPeriodo(n){
@@ -2200,7 +2224,8 @@ function chipPost(p){
   return `<button class="chip" style="background:${c?c.cor:'#999'}" onclick="event.stopPropagation();abrirModalPost(${p.id})" title="${nome}">${nome}</button>`;
 }
 function chipCompromisso(cm){
-  return `<button class="chip chip-compromisso" onclick="event.stopPropagation();abrirDia('${cm.data}')" title="${escapar(cm.titulo)}">🕐 ${cm.hora?escapar(cm.hora)+' ':''}${escapar(cm.titulo)}</button>`;
+  const multi = cm.dataFim ? '📅 ' : '🕐 ';
+  return `<button class="chip chip-compromisso" onclick="event.stopPropagation();abrirDia('${cm.data}')" title="${escapar(cm.titulo)}${cm.dataFim?' (até '+escapar(cm.dataFim)+')':''}">${multi}${cm.hora?escapar(cm.hora)+' ':''}${escapar(cm.titulo)}</button>`;
 }
 function pagamentosDoDia(iso){
   const dia = parseInt(iso.slice(8,10));
@@ -2338,6 +2363,8 @@ function abrirModalCompromisso(iso){
     <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">Pra organizar a vida, não só as redes 💜</p>
     <label>Dia</label>
     <input type="date" id="cmData" value="${iso||hojeISO()}">
+    <label>Até (opcional — pra evento ou viagem de vários dias)</label>
+    <input type="date" id="cmDataFim">
     <label>Horário (opcional)</label>
     <input type="time" id="cmHora">
     <label>O quê?</label>
@@ -2353,7 +2380,10 @@ function salvarCompromisso(){
   const titulo = document.getElementById('cmTitulo').value.trim();
   if(!titulo){ alertaCampo('cmTitulo'); return; }
   if(!dados.compromissos) dados.compromissos = [];
-  const c = { id: novoId(), data: document.getElementById('cmData').value || hojeISO(),
+  const dIni = document.getElementById('cmData').value || hojeISO();
+  let dFim = (document.getElementById('cmDataFim') && document.getElementById('cmDataFim').value) || '';
+  if(dFim && dFim < dIni) dFim = ''; // ignora fim antes do início
+  const c = { id: novoId(), data: dIni, dataFim: (dFim && dFim!==dIni) ? dFim : '',
     hora: document.getElementById('cmHora').value || '', titulo, obs: document.getElementById('cmObs').value.trim() };
   dados.compromissos.push(c);
   fecharModal();
