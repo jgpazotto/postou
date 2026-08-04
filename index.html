@@ -1370,12 +1370,13 @@ function renderVendas(){
 function renderFiltro(){
   const sel = document.getElementById('filtroCliente');
   const valor = sel.value;
+  const ativosOrd = dados.clientes.filter(p=>!p.arquivado).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt'));
   sel.innerHTML = '<option value="todos">Todos os usuários</option>' +
-    dados.clientes.map(p=>`<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
+    ativosOrd.map(p=>`<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
   if([...sel.options].some(o=>o.value===valor)) sel.value = valor;
   const selT = document.getElementById('tarefaCliente');
   const vT = selT.value;
-  selT.innerHTML = dados.clientes.map(p=>`<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
+  selT.innerHTML = ativosOrd.map(p=>`<option value="${p.id}">${escapar(p.nome)}</option>`).join('');
   if([...selT.options].some(o=>o.value===vT)) selT.value = vT;
 }
 
@@ -2002,7 +2003,16 @@ function renderClientes(){
       <div class="acoes">${acoes}</div>
     </div>`;
   };
-  let html = ativos.length ? ativos.map(p=>cardCli(p,false)).join('') : '<div class="vazio">Nenhum usuário ativo. Clique em “+ Novo usuário” para começar!</div>';
+  const tit = t => `<h3 style="grid-column:1/-1;margin:6px 0 0;color:var(--muted);font-size:.9rem">${t}</h3>`;
+  const social = ativos.filter(p=>p.tipo!=='servico');
+  const servicos = ativos.filter(p=>p.tipo==='servico');
+  let html='';
+  if(!ativos.length){ html = '<div class="vazio">Nenhum usuário ativo. Clique em “+ Novo usuário” para começar!</div>'; }
+  else if(servicos.length && social.length){
+    html = tit('📱 Redes sociais') + social.map(p=>cardCli(p,false)).join('') + tit('🧰 Serviços') + servicos.map(p=>cardCli(p,false)).join('');
+  } else {
+    html = ativos.map(p=>cardCli(p,false)).join('');
+  }
   if(arquivados.length){
     html += `<details style="margin-top:18px"><summary style="cursor:pointer;font-weight:700;color:var(--muted);padding:8px 0">🗄 Arquivados (${arquivados.length})</summary><p style="font-size:.82rem;color:var(--muted);margin:4px 0 10px">Guardados aqui pra você lembrar de chamar em promoções. Pode restaurar quando quiser. 💜</p>${arquivados.map(p=>cardCli(p,true)).join('')}</details>`;
   }
@@ -2104,10 +2114,12 @@ function abrirModalCliente(id, tipoInicial){
     <label>Nome do usuário / cliente / marca</label>
     <input id="mNome" value="${p?escapar(p.nome):''}" placeholder="Ex.: Loja da Maria">
     ${!planoConfig().umaPorRede?`
+    <div id="tipoToggleWrap" style="${p?'':'display:none'}">
     <label>Este cadastro é de…</label>
     <div style="display:flex;gap:8px;margin:2px 0 12px">
       <button type="button" id="btnTipoSocial" onclick="setTipoCadastro('social')" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer">📱 Rede social</button>
       <button type="button" id="btnTipoServico" onclick="setTipoCadastro('servico')" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer">🧰 Serviço</button>
+    </div>
     </div>
     <div id="blocoServico" style="display:none">
       <label>Tipo de serviço</label>
@@ -2143,7 +2155,7 @@ function abrirModalCliente(id, tipoInicial){
     <label>Endereço (opcional — ótimo para serviços 🧽🛠)</label>
     <input id="mEndereco" value="${p?escapar(p.endereco||''):''}" placeholder="Ex.: 123 Main St, cidade — ou cole o endereço">
     ${temEquipe()?`<label>Funcionário responsável 👤</label>${selResponsavel(p)}<p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Quem cuida deste cliente. Você pode filtrar por funcionário lá em cima. 💜</p>`:''}
-    ${!planoConfig().umaPorRede?`<label>🏬 Empresa / Loja (opcional)</label><input id="mEmpresa" list="listaEmpresas" value="${p?escapar(p.empresa||''):''}" placeholder="Ex.: Loja de Carros, Locação, Imóveis…"><datalist id="listaEmpresas">${[...new Set(dados.clientes.map(c=>c.empresa).filter(Boolean))].map(e=>`<option value="${escapar(e)}">`).join('')}</datalist><p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Pra quem tem mais de um negócio. Digite uma vez e vira filtro lá em cima. 💜</p>`:''}
+    ${!planoConfig().umaPorRede?`<label>🏬 Empresa / Loja (opcional)</label><input id="mEmpresa" list="listaEmpresas" value="${p?escapar(p.empresa||''):''}" placeholder="Ex.: Loja de Carros, Locação, Imóveis…"><datalist id="listaEmpresas">${listaEmpresas().map(e=>`<option value="${escapar(e)}">`).join('')}</datalist><p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Pra quem tem mais de um negócio. Digite uma vez e vira filtro lá em cima. 💜</p>`:''}
     <div id="blocoAvisar">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink)">
       <input type="checkbox" id="mAvisar" style="width:18px;height:18px" ${p&&p.avisar?'checked':''}>
@@ -2602,12 +2614,23 @@ function abrirConfig(){
     <label>Seu e-mail (login)</label>
     <input id="cfgEmail" value="${escapar(email)}" disabled style="opacity:.7">
     <p style="font-size:.75rem;color:var(--muted)">O e-mail é o seu login e não muda por aqui. Se precisar trocar, fale com a Joice. 💜</p>
+    ${!planoConfig().umaPorRede?`
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <label>🏬 Minhas lojas / empresas</label>
+    <p style="font-size:.78rem;color:var(--muted);margin:2px 0 6px">Cadastre seus negócios (ex.: Loja de Carros, Locação, Imóveis). Depois é só escolher a loja no cadastro de cada cliente. 💜</p>
+    <div style="display:flex;gap:6px"><input id="cfgLoja" placeholder="Nome da loja / empresa" onkeydown="if(event.key==='Enter'){addLoja();event.preventDefault();}"><button class="btn-claro" style="white-space:nowrap" onclick="addLoja()">+ Add</button></div>
+    <div id="cfgLojasLista" style="margin-top:8px"></div>`:''}
     <div id="cfgMsg" style="font-size:.85rem;margin-top:8px;font-weight:700"></div>
     <div class="rodape">
       <button class="btn-claro" onclick="fecharModal()">Fechar</button>
       <button class="btn" onclick="salvarConfig()">Salvar</button>
     </div>`);
+  renderLojasConfig();
 }
+function listaEmpresas(){ const set=new Set([...(dados.empresas||[]), ...dados.clientes.map(c=>c.empresa).filter(Boolean)]); return [...set].filter(Boolean).sort((a,b)=>a.localeCompare(b,'pt')); }
+function addLoja(){ const el=document.getElementById('cfgLoja'); const v=((el&&el.value)||'').trim(); if(!v) return; dados.empresas=dados.empresas||[]; if(!dados.empresas.includes(v)) dados.empresas.push(v); if(el){ el.value=''; el.focus(); } salvarAgora(); renderLojasConfig(); }
+function removerLoja(nomeEnc){ const nome=decodeURIComponent(nomeEnc); dados.empresas=(dados.empresas||[]).filter(x=>x!==nome); salvarAgora(); renderLojasConfig(); }
+function renderLojasConfig(){ const cont=document.getElementById('cfgLojasLista'); if(!cont) return; const ls=listaEmpresas(); cont.innerHTML = ls.length ? ls.map(e=>{ const propria=(dados.empresas||[]).includes(e); return `<div class="pag-linha"><span style="flex:1">🏬 ${escapar(e)}</span>${propria?`<button class="btn-claro" style="padding:3px 8px;font-size:.75rem" onclick="removerLoja('${encodeURIComponent(e)}')">🗑</button>`:'<span style="font-size:.7rem;color:var(--muted)">(usada por um cliente)</span>'}</div>`; }).join('') : '<div class="vazio" style="padding:8px;text-align:left">Nenhuma loja ainda. Adicione a primeira aí em cima! 💜</div>'; }
 async function salvarConfig(){
   const nome=(document.getElementById('cfgNome').value||'').trim();
   const zap=(document.getElementById('cfgZap').value||'').replace(/[^\d+]/g,'');
