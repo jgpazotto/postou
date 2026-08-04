@@ -1643,6 +1643,20 @@ function equipeMembros(){ return (dados.equipeGerida && dados.equipeGerida.membr
 function temEquipe(){ return podeEquipe() && equipeMembros().length>0; }
 function nomeResponsavel(email){ if(!email) return 'Eu / dono(a)'; const m=equipeMembros().find(x=>x.email===email); return m ? (m.nome||m.email.split('@')[0]) : email.split('@')[0]; }
 function selResponsavel(p){ const v=(p&&p.responsavel)||''; const membros=equipeMembros(); let o='<option value="" '+(v===''?'selected':'')+'>Eu / dono(a)</option>'; o+=membros.map(m=>{ const nm=escapar(m.nome||m.email.split('@')[0]); return `<option value="${escapar(m.email)}" ${v===m.email?'selected':''}>${nm}</option>`; }).join(''); return '<select id="mResponsavel" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">'+o+'</select>'; }
+function selRecebimento(p){ const v=(p&&p.recebimento)||''; const o=[['','—'],['pix','Pix'],['dinheiro','Dinheiro'],['cartao','Cartão'],['transferencia','Transferência / Zelle'],['boleto','Boleto'],['outro','Outro']]; return '<select id="mRecebimento" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">'+o.map(x=>`<option value="${x[0]}" ${v===x[0]?'selected':''}>${x[1]}</option>`).join('')+'</select>'; }
+const SERVICOS_SUGERIDOS = ['Faxina / Diária','Limpeza pós-obra','Obra / Reforma','Pintura','Faz-tudo / Marido de aluguel','Jardinagem','Vídeo maker','Fotografia','Montagem de móveis','Elétrica','Encanamento','Ar-condicionado','Frete / Mudança','Beleza a domicílio','Personal / Aula','Cuidador(a)','Pet care','Outro'];
+let tipoCadastro='social';
+function setTipoCadastro(t){
+  tipoCadastro=t;
+  const mostra=(id,ok)=>{ const el=document.getElementById(id); if(el) el.style.display= ok?'':'none'; };
+  mostra('blocoNicho', t==='social');
+  mostra('blocoRedes', t==='social');
+  mostra('blocoSocialExtra', t==='social');
+  mostra('blocoAvisar', t==='social');
+  mostra('blocoServico', t==='servico');
+  const bs=document.getElementById('btnTipoSocial'), bv=document.getElementById('btnTipoServico');
+  if(bs&&bv){ const on='background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;border-color:transparent'; const off='background:#fff;color:var(--muted)'; bs.setAttribute('style','flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer;'+(t==='social'?on:off)); bv.setAttribute('style','flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer;'+(t==='servico'?on:off)); }
+}
 /* ---------- MÉTRICAS ---------- */
 function abrirMetricas(id){
   const c = clientePorId(id);
@@ -1815,9 +1829,12 @@ function renderClientes(){
          <button class="btn-mini perigo" onclick="excluirCliente(${p.id})">🗑 Excluir</button>`;
     return `<div class="cartao cartao-cliente" style="--cor:${p.cor}${arq?';opacity:.72':''}">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:2px">${avatarHtml(p,46)}<h3 style="margin:0">${escapar(p.nome)}</h3>${arq?'<span style="font-size:.72rem;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:2px 8px">🗄 arquivado</span>':''}</div>
-      ${p.nicho?`<span class="nicho">${NICHOS_PREDEFINIDOS[p.nicho]||escapar(p.nicho)}</span>`:''}
-      ${p.nichos_tags && p.nichos_tags.length?`<span class="nicho" style="color:#7c3aed">+ ${p.nichos_tags.map(t=>NICHOS_PREDEFINIDOS[t]).filter(Boolean).join(', ')}</span>`:''}
-      <div class="redes-lista">${redesHtml||'<span style="font-size:.78rem;color:var(--muted)">nenhuma rede cadastrada</span>'}</div>
+      ${p.tipo==='servico'
+        ? `${p.servico?`<span class="nicho">🧰 ${escapar(p.servico)}</span>`:''}
+           ${p.servicoDesc?`<div style="font-size:.82rem;color:var(--ink);background:#faf8fc;border:1px solid var(--line);border-radius:8px;padding:6px 9px;margin-top:5px">📋 ${escapar(p.servicoDesc)}</div>`:''}`
+        : `${p.nicho?`<span class="nicho">${NICHOS_PREDEFINIDOS[p.nicho]||escapar(p.nicho)}</span>`:''}
+           ${p.nichos_tags && p.nichos_tags.length?`<span class="nicho" style="color:#7c3aed">+ ${p.nichos_tags.map(t=>NICHOS_PREDEFINIDOS[t]).filter(Boolean).join(', ')}</span>`:''}
+           <div class="redes-lista">${redesHtml||'<span style="font-size:.78rem;color:var(--muted)">nenhuma rede cadastrada</span>'}</div>`}
       ${p.notas?`<div style="font-size:.82rem;color:var(--muted)">${escapar(p.notas)}</div>`:''}
       ${temEquipe()&&p.responsavel?`<div style="font-size:.78rem;margin-top:4px"><span style="background:#f3ecfb;color:#7c3aed;border-radius:20px;padding:2px 10px;font-weight:700">👤 ${escapar(nomeResponsavel(p.responsavel))}</span></div>`:''}
       ${p.endereco?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px"><span role="button" tabindex="0" onclick="abrirMapa(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Abrir no Google Maps">📍 ${escapar(p.endereco)}</span></div>`:''}
@@ -1919,8 +1936,22 @@ function abrirModalCliente(id){
   redesTemp = p ? JSON.parse(JSON.stringify(p.redes||[])) : [{tipo:'instagram',usuario:'',link:''}];
   abrirModal(`
     <h3>${p?'Editar usuário':'Novo usuário'}</h3>
-    <label>Nome do usuário / marca</label>
+    <label>Nome do usuário / cliente / marca</label>
     <input id="mNome" value="${p?escapar(p.nome):''}" placeholder="Ex.: Loja da Maria">
+    ${!planoConfig().umaPorRede?`
+    <label>Este cadastro é de…</label>
+    <div style="display:flex;gap:8px;margin:2px 0 12px">
+      <button type="button" id="btnTipoSocial" onclick="setTipoCadastro('social')" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer">📱 Rede social</button>
+      <button type="button" id="btnTipoServico" onclick="setTipoCadastro('servico')" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer">🧰 Serviço</button>
+    </div>
+    <div id="blocoServico" style="display:none">
+      <label>Tipo de serviço</label>
+      <input id="mServico" list="listaServicos" value="${p?escapar(p.servico||''):''}" placeholder="Ex.: Faxina / Diária, Obra, Pintura, Vídeo…">
+      <datalist id="listaServicos">${SERVICOS_SUGERIDOS.map(s=>`<option value="${escapar(s)}">`).join('')}</datalist>
+      <label>Descrição para a equipe (o que precisam saber ao chegar)</label>
+      <textarea id="mServicoDesc" placeholder="Ex.: casa de 3 quartos, levar produtos de limpeza, portão azul, cachorro dócil…">${p?escapar(p.servicoDesc||''):''}</textarea>
+    </div>`:''}
+    <div id="blocoNicho">
     <label>Nicho principal</label>
     <select id="mNicho" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px;margin-bottom:10px">
       <option value="">— Selecione o nicho principal —</option>
@@ -1939,6 +1970,7 @@ function abrirModalCliente(id){
         `).join('')}
       </div>
     </details>
+    </div>
     <label>WhatsApp do usuário (com código do país — EUA +1, Brasil +55)</label>
     <input id="mZap" value="${p?escapar(p.zap||''):''}" placeholder="Ex.: +15085551234 (EUA) ou +5511999998888">
     <label>E-mail do usuário (opcional)</label>
@@ -1946,16 +1978,19 @@ function abrirModalCliente(id){
     <label>Endereço (opcional — ótimo para serviços 🧽🛠)</label>
     <input id="mEndereco" value="${p?escapar(p.endereco||''):''}" placeholder="Ex.: 123 Main St, cidade — ou cole o endereço">
     ${temEquipe()?`<label>Funcionário responsável 👤</label>${selResponsavel(p)}<p style="font-size:.78rem;color:var(--muted);margin:4px 0 6px">Quem cuida deste cliente. Você pode filtrar por funcionário lá em cima. 💜</p>`:''}
+    <div id="blocoAvisar">
     <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ink)">
       <input type="checkbox" id="mAvisar" style="width:18px;height:18px" ${p&&p.avisar?'checked':''}>
       O usuário quer receber aviso no WhatsApp quando um post for publicado
     </label>
+    </div>
     ${planoConfig().umaPorRede ? `
     <div class="linha-flex">
       <div style="flex:1"><label>🎂 Seu aniversário</label><input type="date" id="mAniv" value="${p&&p.aniversario?p.aniversario:''}"></div>
       <div style="flex:1"><label>Meta de posts</label><input type="number" id="mMeta" min="0" value="${p&&p.metaPosts?p.metaPosts:''}" placeholder="Ex.: 3"></div>
       <div style="flex:1"><label>Frequência</label>${selFreq(p)}</div>
     </div>` : `
+    <div id="blocoSocialExtra">
     <div class="linha-flex">
       <div style="flex:1"><label>🎂 Aniversário do usuário</label><input type="date" id="mAniv" value="${p&&p.aniversario?p.aniversario:''}"></div>
       <div style="flex:1"><label>🎈 Aniversário da página/perfil</label><input type="date" id="mAnivPag" value="${p&&p.aniversarioPagina?p.aniversarioPagina:''}"></div>
@@ -1963,16 +1998,22 @@ function abrirModalCliente(id){
     <div class="linha-flex">
       <div style="flex:1"><label>Meta de posts</label><input type="number" id="mMeta" min="0" value="${p&&p.metaPosts?p.metaPosts:''}" placeholder="Ex.: 3"></div>
       <div style="flex:1"><label>Frequência</label>${selFreq(p)}</div>
-      <div style="flex:1"><label>Dia do pagamento</label><input type="number" id="mDiaPag" min="1" max="31" value="${p&&p.diaPagamento?p.diaPagamento:''}" placeholder="Ex.: 5"></div>
+    </div>
     </div>
     <div class="linha-flex">
       <div style="flex:1"><label>Moeda <span style="color:var(--muted);font-weight:400;font-size:.78rem">(vale p/ tudo)</span></label>${selMoeda()}</div>
       <div style="flex:1"><label>Valor</label><input id="mValor" value="${p&&p.valor?String(p.valor).replace('.',','):''}" placeholder="Ex.: 800"></div>
       <div style="flex:1"><label>Cobrança</label>${selCobranca(p)}</div>
+    </div>
+    <div class="linha-flex">
+      <div style="flex:1"><label>Dia do pagamento</label><input type="number" id="mDiaPag" min="1" max="31" value="${p&&p.diaPagamento?p.diaPagamento:''}" placeholder="Ex.: 5"></div>
+      <div style="flex:1"><label>Forma de recebimento 💰</label>${selRecebimento(p)}</div>
     </div>`}
+    <div id="blocoRedes">
     <label>Redes sociais (o usuário sem o @ — ou cole o link completo da página, ex. Facebook)</label>
     <div id="mRedes"></div>
     <div id="avisoPlanoRedes" style="display:none;color:#b91c1c;font-size:.8rem;margin-top:4px">⚠️ Seu plano permite <b>1 conta por rede social</b> — remova a repetida. Precisa de mais? Fale com a Joice e migre para o Postou Business! 💜</div>
+    </div>
     <label>Anotações</label>
     <textarea id="mNotas" placeholder="Combinados, frequência de posts, senha do mídia kit...">${p?escapar(p.notas):''}</textarea>
     <label>Foto / logo (opcional — sem isso, usamos a foto da página do Facebook 💛)</label>
@@ -1991,6 +2032,8 @@ function abrirModalCliente(id){
     </div>`);
   desenharRedes();
   atualizarFotoPreview();
+  tipoCadastro = (p && p.tipo) || 'social';
+  if(document.getElementById('btnTipoServico')) setTipoCadastro(tipoCadastro);
 }
 function escolherCor(el){ document.querySelectorAll('.cor-opcao').forEach(c=>c.classList.remove('escolhida')); el.classList.add('escolhida'); }
 function fotoPreviewObj(){
@@ -2023,8 +2066,13 @@ function salvarCliente(id){
   const nome = document.getElementById('mNome').value.trim();
   if(!nome){ alertaCampo('mNome'); return; }
   const cor = document.querySelector('.cor-opcao.escolhida').dataset.cor;
+  const tipo = tipoCadastro || 'social';
   const nicho = document.getElementById('mNicho').value.trim();
-  if(!nicho){ alertaCampo('mNicho'); return; }
+  if(tipo==='social' && !nicho){ alertaCampo('mNicho'); return; }
+  const servico = document.getElementById('mServico') ? document.getElementById('mServico').value.trim() : (id&&clientePorId(id).servico) || '';
+  const servicoDesc = document.getElementById('mServicoDesc') ? document.getElementById('mServicoDesc').value.trim() : (id&&clientePorId(id).servicoDesc) || '';
+  const recebimento = document.getElementById('mRecebimento') ? document.getElementById('mRecebimento').value : (id&&clientePorId(id).recebimento) || '';
+  if(tipo==='servico' && !servico){ alertaCampo('mServico'); return; }
   const nichos_tags = Array.from(document.querySelectorAll('input[id^="mNichoSec_"]:checked')).map(el=>el.value);
   const notas = document.getElementById('mNotas').value.trim();
   const zap = document.getElementById('mZap').value.replace(/[^\d+]/g,'');
@@ -2053,8 +2101,8 @@ function salvarCliente(id){
       return;
     }
   }
-  if(id){ Object.assign(clientePorId(id), {nome,nicho,nichos_tags,notas,cor,redes,zap,email,endereco,responsavel,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
-  else { dados.clientes.push({id:novoId(), nome, nicho, nichos_tags, notas, cor, redes, zap, email, endereco, responsavel, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
+  if(id){ Object.assign(clientePorId(id), {nome,tipo,servico,servicoDesc,recebimento,nicho,nichos_tags,notas,cor,redes,zap,email,endereco,responsavel,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
+  else { dados.clientes.push({id:novoId(), nome, tipo, servico, servicoDesc, recebimento, nicho, nichos_tags, notas, cor, redes, zap, email, endereco, responsavel, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
   fecharModal(); tocar();
 }
 function excluirCliente(id){
