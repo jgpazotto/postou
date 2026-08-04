@@ -412,6 +412,7 @@
 </header>
 <main>
   <section id="aba-hoje">
+    <div id="recadoHoje"></div>
     <div class="tiles" id="tilesHoje"></div>
     <div id="listaHoje"></div>
   </section>
@@ -1372,6 +1373,17 @@ function renderRelatorioSemanal(){
 function renderHoje(){
   const f = filtroAtivo();
   const hoje = hojeISO();
+  const elRec = document.getElementById('recadoHoje');
+  if(elRec){
+    const primeiroNome = ((typeof usuarioMeta!=='undefined' && usuarioMeta.nome) || (dados.assinatura&&dados.assinatura.nome) || '').split(' ')[0];
+    const oi = primeiroNome ? ('Oi, '+escapar(primeiroNome)+'! ') : 'Oi! ';
+    const diaNum = parseInt(hoje.slice(0,4))*372 + parseInt(hoje.slice(5,7))*31 + parseInt(hoje.slice(8,10));
+    const rec = RECADINHOS[diaNum % RECADINHOS.length];
+    elRec.innerHTML = `<div style="background:linear-gradient(135deg,#faf5ff,#fdf2f8);border:1px solid #f0e6fb;border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(124,58,237,.06)">
+      <div style="font-size:.78rem;color:#9b6ec8;font-weight:800;letter-spacing:.3px;margin-bottom:3px">💜 RECADINHO DO DIA</div>
+      <div style="font-size:.95rem;color:#4b3a63;line-height:1.5">${oi}${rec}</div>
+    </div>`;
+  }
   const posts = dados.posts.filter(p=>(!f||p.clienteId===f));
   const deHoje = posts.filter(p=>p.data===hoje && p.status!=='publicado').sort((a,b)=>(a.hora||'99').localeCompare(b.hora||'99'));
   const atrasados = posts.filter(p=>p.data<hoje && p.status!=='publicado').sort((a,b)=>a.data.localeCompare(b.data));
@@ -3644,7 +3656,15 @@ const BASE_CONHECIMENTO = [
   {k:['stories','story','storys'], r:'Stories são a conversa diária com quem já te segue: mostre bastidores, enquetes, "chegou hoje", antes e depois. Não precisa ser perfeito — precisa ser frequente! Dica: todo story com produto/serviço merece uma chamada tipo "chama no WhatsApp" ou link.'},
   {k:['sugerir agenda','agenda','montar calendario','melhores dias','melhores horarios','sugestao de agenda','planejar mes','agendar o mes'], r:'Na aba 👥 Usuários, cada usuário tem o botão 🗓 Sugerir agenda: com base no nicho e na meta de posts/mês, o Postou monta um calendário nos melhores dias e horários, já com uma ideia pronta em cada post (entram como rascunho, para você revisar). É um ótimo ponto de partida — depois é só ajustar conforme o seu público responde! 🚀'},
   {k:['tendencia','tendencias','bombando','em alta','moda do momento','o que ta bombando','viral','onda'], r:'Na aba 💡 Ideias, o botão 🔥 Tendências mostra o que está rendendo agora, por nicho — com dicas de amiga que eu atualizo de tempos em tempos. 💛 Escolhe o nicho, guarda as que combinarem e vira postagem num clique!'},
-  {k:['facebook nao abre','link do facebook','pagina do facebook','fb nao abre','facebook nao funciona','selo do facebook'], r:'Algumas páginas do Facebook não abrem só com o nome — elas têm um endereço especial (às vezes com números). A solução é fácil: abra a sua página no Facebook, copie o endereço completo lá da barra do navegador (começa com https://...) e cole no lugar do usuário, no cadastro do usuário → rede Facebook. Pronto, o selo passa a abrir certinho! 💛 Isso vale para qualquer rede: se o selo não abrir, cole o link completo.'}
+  {k:['facebook nao abre','link do facebook','pagina do facebook','fb nao abre','facebook nao funciona','selo do facebook'], r:'Algumas páginas do Facebook não abrem só com o nome — elas têm um endereço especial (às vezes com números). A solução é fácil: abra a sua página no Facebook, copie o endereço completo lá da barra do navegador (começa com https://...) e cole no lugar do usuário, no cadastro do usuário → rede Facebook. Pronto, o selo passa a abrir certinho! 💛 Isso vale para qualquer rede: se o selo não abrir, cole o link completo.'},
+  {k:['equipe','funcionario','funcionarios','liberar funcionario','adicionar funcionario','convidar','membro','colaborador','time','assento'], r:'Para montar sua equipe (plano 👑 Ultra): vá na aba 🏢 Equipe → digite o nome e o e-mail de cada funcionário → "Adicionar". Depois é só pedir para a pessoa criar a conta dela no Postou com esse MESMO e-mail — aí ela aparece como "✅ já usa". Para dizer quem cuida de cada cliente, abra o usuário (✏️ Editar) e escolha o "Funcionário responsável 👤". No topo da aba Usuários dá pra filtrar por funcionário! 💜'},
+  {k:['liberar','liberar acesso','dar acesso','como libero','ativar cliente','liberar cliente','liberar geraldo'], r:'Se for liberar um funcionário: cadastre o e-mail dele na aba 🏢 Equipe e peça pra ele entrar no Postou com esse mesmo e-mail. Se for liberar um assinante que pagou (só a dona): use o 👑 Painel do Dono → botão "✅ Liberar" ao lado da pessoa. 💜'},
+  {k:['servico','serviço','faxina','diarista','diaria','obra','pintura','faz-tudo','house cleaner','limpeza','presta servico','sem rede social'], r:'O Postou também organiza quem presta serviço! Ao cadastrar um usuário (plano Pro ou acima), no topo escolha 🧰 Serviço em vez de 📱 Rede social. Aí você preenche o tipo de serviço, uma descrição pra equipe, o endereço (vira 📍 Mapa num clique) e o valor. No cartão aparecem os botões 📍 Mapa e 🚗 A caminho (manda "Estou a caminho" no WhatsApp). Perfeito pra diarista, obra, pintura, vídeo maker! 💜'},
+  {k:['pix','forma de recebimento','como recebo','recebimento','zelle','dinheiro','cartao','maquininha','taxa'], r:'No cadastro do usuário (modo Serviço) tem o campo "Forma de recebimento" — Pix, dinheiro, cartão, Zelle... Dica de amiga: receber por Pix costuma ser mais prático e sem taxa, diferente de cartão/gateway. Anote a forma combinada pra sua equipe já saber como cobrar no local. 💰'},
+  {k:['hashtag fixa','hashtags fixas','copiar hashtag','bloco de hashtag','conjunto de hashtag','minhas hashtags'], r:'Guarde seus blocos de hashtags favoritos na aba 💡 Ideias (dá pra copiar num toque) — ex.: o #Postou nas suas postagens, ou o #Pug pra página da Joy. Assim é só copiar e colar sempre. (Em breve vamos deixar isso ainda mais fácil, com a hashtag do cliente entrando junto nas sugestões! 💜)'},
+  {k:['ordem','ordenar','reordenar','prioridade','mudar posicao','subir card','organizar cards','mover cliente'], r:'Na aba 👥 Usuários, cada cartão tem as setinhas ⬆️ ⬇️: clique pra subir ou descer o usuário na lista. Assim você deixa os mais importantes no topo, na ordem que quiser. A ordem fica salva! 💜'},
+  {k:['viagem','evento','varios dias','vários dias','compromisso longo','feriado','ferias','período'], r:'Compromisso de vários dias (viagem, evento)? Na aba 📅 Calendário → Novo compromisso, preencha o "Dia" e também o campo "Até". Ele aparece 📅 em todos os dias do período. 💜'},
+  {k:['mapa','endereco','google maps','como chegar','a caminho','estou a caminho','localizacao'], r:'No cartão de um usuário que tem endereço, o botão 📍 Mapa abre o Google Maps no endereço num clique, e o 🚗 A caminho manda um "Estou a caminho!" pronto no WhatsApp. Ótimo pra quem vai até o cliente! 🚗💜'}
 ];
 const DICAS_DIA = [
   'Poste o imperfeito publicado em vez do perfeito guardado no rascunho. Feito é melhor que perfeito! 🚀',
@@ -3657,6 +3677,23 @@ const DICAS_DIA = [
   'Planeje a semana inteira de posts de uma vez no 📅 Calendário — segunda-feira agradece. 🗓',
   'Sem ideias? A aba 💡 Ideias tem o botão ✨ Ideias por nicho, cheio de formatos prontos. 💡',
   'Separe um percentual do lucro todo mês (o 🧮 Contador ajudante da aba Vendas calcula para você). 🐷'
+];
+const RECADINHOS = [
+  'hoje é um ótimo dia pra dar um passinho, mesmo que pequeno. Você é mais organizada do que imagina. 💪',
+  'lembra: constância vence perfeição. Faça o simples de hoje que o resultado vem. ✨',
+  'respira fundo. Uma coisa de cada vez — você dá conta de tudo que está aqui. 🌸',
+  'você não está sozinha nessa. O Postou está aqui pra segurar sua mão e organizar a bagunça. 💜',
+  'orgulho de você por continuar aparecendo, mesmo nos dias corridos. Isso é o que constrói. 🌟',
+  'seu trabalho tem valor — não se esqueça disso na correria de hoje. 💫',
+  'um cliente bem cuidado hoje é uma indicação amanhã. Capricha com carinho! 🤍',
+  'que tal começar pelo mais fácil? A energia vem depois do primeiro "feito". 🚀',
+  'você já venceu tantos dias difíceis. Esse aqui também vai ficar pra trás, e você mais forte. 🌈',
+  'anota uma vitória de hoje, por menor que seja. Elas somam. 🏆',
+  'se hoje render pouco, tudo bem. Amanhã tem mais. O importante é não desistir. 💛',
+  'você está construindo algo seu, com as suas mãos. Isso é lindo. Continua! 🌻',
+  'feito é melhor que perfeito. Publica aquele post que está parado no rascunho. 😉',
+  'cuida de você também, tá? Um café, um alongar, e voltamos pro trabalho. ☕',
+  'a sua dedicação de hoje é o sucesso que você vai colher. Bora com tudo! 🔥'
 ];
 function normalizarTexto(t){ return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
 function temPalavra(texto, kw){
