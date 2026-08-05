@@ -421,7 +421,7 @@
     <div id="listaHoje"></div>
   </section>
   <section id="aba-clientes" style="display:none">
-    <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="abrirModalCliente()">+ Novo usuário</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button></div></div>
+    <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="abrirModalCliente()">+ Novo usuário</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button><button class="btn" id="btnNovoCliente" onclick="abrirModalCliente(null,'cliente')" style="display:none">+ Novo cliente 👤</button></div></div>
     <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
     <div id="filtroEmpresaWrap" style="display:none;margin:0 0 12px"></div>
     <div class="grade-clientes" id="listaClientes"></div>
@@ -829,6 +829,8 @@ function aplicarPlano(){
   if(btnC) btnC.style.display = podeContatos() ? '' : 'none';
   const bns = document.getElementById('btnNovoServico');
   if(bns) bns.style.display = (conf.umaPorRede) ? 'none' : '';
+  const bnc = document.getElementById('btnNovoCliente');
+  if(bnc) bnc.style.display = (conf.umaPorRede) ? 'none' : '';
   const ocultas = (dados.assinatura&&dados.assinatura.abasOcultas)||[];
   ['calendario','tarefas','ideias','quadro','caixa'].forEach(a=>{ const b=document.querySelector('nav button[data-aba="'+a+'"]'); if(b) b.style.display = ocultas.includes(a) ? 'none' : ''; });
   ['vendas','contatos'].forEach(a=>{ if(ocultas.includes(a)){ const b=document.querySelector('nav button[data-aba="'+a+'"]'); if(b) b.style.display='none'; } });
@@ -1813,8 +1815,12 @@ function setTipoCadastro(t){
   mostra('blocoSocialExtra', t==='social');
   mostra('blocoAvisar', t==='social');
   mostra('blocoServico', t==='servico');
-  const bs=document.getElementById('btnTipoSocial'), bv=document.getElementById('btnTipoServico');
-  if(bs&&bv){ const on='background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;border-color:transparent'; const off='background:#fff;color:var(--muted)'; bs.setAttribute('style','flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer;'+(t==='social'?on:off)); bv.setAttribute('style','flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer;'+(t==='servico'?on:off)); }
+  const on='background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;border-color:transparent'; const off='background:#fff;color:var(--muted)';
+  const base='flex:1;padding:10px 6px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem;';
+  const bs=document.getElementById('btnTipoSocial'), bv=document.getElementById('btnTipoServico'), bc=document.getElementById('btnTipoCliente');
+  if(bs) bs.setAttribute('style', base+(t==='social'?on:off));
+  if(bv) bv.setAttribute('style', base+(t==='servico'?on:off));
+  if(bc) bc.setAttribute('style', base+(t==='cliente'?on:off));
 }
 /* ---------- MÉTRICAS ---------- */
 function abrirMetricas(id){
@@ -2019,11 +2025,11 @@ function renderClientes(){
          <button class="btn-mini perigo" onclick="excluirCliente(${p.id})">🗑 Excluir</button>`
       : `<button class="btn-mini" onclick="moverCliente(${p.id},-1)" title="Subir na lista">⬆️</button>
          <button class="btn-mini" onclick="moverCliente(${p.id},1)" title="Descer na lista">⬇️</button>
-         ${p.tipo==='servico' ? `<button class="btn-mini" onclick="abrirAgendarServico(${p.id})">🗓 Agendar serviço</button>` : `<button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>`}
+         ${p.tipo==='servico' ? `<button class="btn-mini" onclick="abrirAgendarServico(${p.id})">🗓 Agendar serviço</button>` : p.tipo==='cliente' ? '' : `<button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>`}
          ${p.endereco?`<button class="btn-mini" onclick="abrirMapa(${p.id})">📍 Mapa</button>`:''}
          ${p.zap?`<button class="btn-mini" onclick="aCaminho(${p.id})">🚗 A caminho</button>`:''}
-         ${p.tipo==='servico' ? '' : `<button class="btn-mini" onclick="abrirMetricas(${p.id})">📈 Métricas</button>`}
-         <button class="btn-mini" onclick="resumoCliente(${p.id})">📊 Resumo p/ usuário</button>
+         ${(p.tipo==='servico'||p.tipo==='cliente') ? '' : `<button class="btn-mini" onclick="abrirMetricas(${p.id})">📈 Métricas</button>`}
+         ${p.tipo==='cliente' ? '' : `<button class="btn-mini" onclick="resumoCliente(${p.id})">📊 Resumo p/ usuário</button>`}
          <button class="btn-mini" onclick="abrirModalCliente(${p.id})">✏️ Editar</button>
          <button class="btn-mini" onclick="arquivarCliente(${p.id})">🗄 Arquivar</button>
          <button class="btn-mini perigo" onclick="excluirCliente(${p.id})">🗑 Excluir</button>`;
@@ -2032,20 +2038,22 @@ function renderClientes(){
       ${p.tipo==='servico'
         ? `${p.servico?`<span class="nicho">🧰 ${escapar(p.servico)}</span>`:''}
            ${p.servicoDesc?`<div style="font-size:.82rem;color:var(--ink);background:#faf8fc;border:1px solid var(--line);border-radius:8px;padding:6px 9px;margin-top:5px">📋 ${escapar(p.servicoDesc)}</div>`:''}`
+        : p.tipo==='cliente'
+        ? `<span class="nicho">👤 Cliente</span>${p.zap?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px">📱 ${escapar(p.zap)}</div>`:''}`
         : `${p.nicho?`<span class="nicho">${NICHOS_PREDEFINIDOS[p.nicho]||escapar(p.nicho)}</span>`:''}
            ${p.nichos_tags && p.nichos_tags.length?`<span class="nicho" style="color:#7c3aed">+ ${p.nichos_tags.map(t=>NICHOS_PREDEFINIDOS[t]).filter(Boolean).join(', ')}</span>`:''}
            <div class="redes-lista">${redesHtml||'<span style="font-size:.78rem;color:var(--muted)">nenhuma rede cadastrada</span>'}</div>`}
       ${p.notas?`<div style="font-size:.82rem;color:var(--muted)">${escapar(p.notas)}</div>`:''}
       ${(p.empresa||(temEquipe()&&p.responsavel))?`<div style="font-size:.78rem;margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">${p.empresa?`<span style="background:#eef6ff;color:#1d4ed8;border-radius:20px;padding:2px 10px;font-weight:700">🏬 ${escapar(p.empresa)}</span>`:''}${temEquipe()&&p.responsavel?`<span style="background:#f3ecfb;color:#7c3aed;border-radius:20px;padding:2px 10px;font-weight:700">👤 ${escapar(nomeResponsavel(p.responsavel))}</span>`:''}</div>`:''}
       ${p.endereco?`<div style="font-size:.82rem;color:var(--muted);margin-top:4px"><span role="button" tabindex="0" onclick="abrirMapa(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Abrir no Google Maps">📍 ${escapar(p.endereco)}</span></div>`:''}
-      <div class="contagens">
+      ${p.tipo==='cliente' ? (nTar?`<div class="contagens"><span>✅ <b>${nTar}</b> tarefas</span></div>`:'') : `<div class="contagens">
         ${p.tipo==='servico'
           ? `<span role="button" tabindex="0" onclick="verServicos(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver os dias marcados">🗓 <b>${(dados.compromissos||[]).filter(x=>x.clienteId===p.id&&x.tipoCompromisso==='servico'&&x.data>=hojeISO()).length}</b> serviços marcados</span>
              <span>✅ <b>${nTar}</b> tarefas</span>`
           : `<span role="button" tabindex="0" onclick="verPendentes(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver e ajustar os posts pendentes">📌 <b>${nPosts}</b> pendentes</span>
              <span>✅ <b>${nTar}</b> tarefas</span>
              <span role="button" tabindex="0" onclick="verIdeias(${p.id})" style="cursor:pointer;text-decoration:underline dotted" title="Clique para ver as ideias">💡 <b>${nId}</b> ideias</span>`}
-      </div>
+      </div>`}
       ${!arq && p.metaPosts?(()=>{ const ym=hojeISO().slice(0,7); const pub=dados.posts.filter(x=>x.clienteId===p.id&&x.status==='publicado'&&x.data.startsWith(ym)).length; const mult=p.metaFreq==='dia'?30:p.metaFreq==='semana'?4:1; const alvo=Math.max(1,p.metaPosts*mult); const pct=Math.min(100,Math.round(pub/alvo*100)); const ft=p.metaFreq==='dia'?'/dia':p.metaFreq==='semana'?'/semana':'/mês'; return `<div class="meta-prog"><div class="meta-barra"><div style="width:${pct}%"></div></div><span><b>${pub}/${alvo}</b> no mês · meta ${p.metaPosts}${ft}</span></div>`; })():''}
       ${p.valor?(()=>{ const ym=hojeISO().slice(0,7); const pago=p.pagamentos&&p.pagamentos[ym]; return `<div style="font-size:.78rem;color:var(--muted);margin-top:6px">💰 ${dinheiro(p.valor)}${formaCobranca(p).replace(/^por/,' por')}${p.diaPagamento?' · vence dia '+p.diaPagamento:''} ${pago?'· <b style="color:var(--ok)">✔ recebido</b>':''}</div>`; })():''}
       ${p.dividaTotal>0?(()=>{ const rest=dividaRestante(p); const pago=dividaPaga(p); const pct=p.dividaTotal?Math.min(100,Math.round(pago/p.dividaTotal*100)):0; const quit=rest<=0; return `<div style="font-size:.8rem;margin-top:6px;background:#fff8f1;border:1px solid #fde3c8;border-radius:8px;padding:7px 9px">💳 Deve <b style="color:${quit?'#0a8a4a':'#b45309'}">${dinheiro(rest)}</b> de ${dinheiro(p.dividaTotal)} ${quit?'· <b style="color:#0a8a4a">✔ quitado!</b>':''}<div class="meta-barra" style="margin-top:4px"><div style="width:${pct}%;background:#0a8a4a"></div></div>${!arq&&!quit?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-mini" onclick="registrarPagamentoDivida(${p.id})">💵 Recebi um valor</button>${p.zap?`<button class="btn-mini" onclick="cobrarCliente(${p.id})">🔔 Cobrar</button>`:''}</div>`:''}</div>`; })():''}
@@ -2053,12 +2061,16 @@ function renderClientes(){
     </div>`;
   };
   const tit = t => `<h3 style="grid-column:1/-1;margin:6px 0 0;color:var(--muted);font-size:.9rem">${t}</h3>`;
-  const social = ativos.filter(p=>p.tipo!=='servico');
+  const social = ativos.filter(p=>!p.tipo || p.tipo==='social');
   const servicos = ativos.filter(p=>p.tipo==='servico');
+  const clientes = ativos.filter(p=>p.tipo==='cliente');
+  const grupos = [social, servicos, clientes].filter(g=>g.length).length;
   let html='';
   if(!ativos.length){ html = '<div class="vazio">Nenhum usuário ativo. Clique em “+ Novo usuário” para começar!</div>'; }
-  else if(servicos.length && social.length){
-    html = tit('📱 Redes sociais') + social.map(p=>cardCli(p,false)).join('') + tit('🧰 Serviços') + servicos.map(p=>cardCli(p,false)).join('');
+  else if(grupos>1){
+    if(social.length) html += tit('📱 Redes sociais') + social.map(p=>cardCli(p,false)).join('');
+    if(servicos.length) html += tit('🧰 Serviços') + servicos.map(p=>cardCli(p,false)).join('');
+    if(clientes.length) html += tit('👤 Clientes') + clientes.map(p=>cardCli(p,false)).join('');
   } else {
     html = ativos.map(p=>cardCli(p,false)).join('');
   }
@@ -2159,15 +2171,16 @@ function abrirModalCliente(id, tipoInicial){
   const cor = p?p.cor:CORES[dados.clientes.length % CORES.length];
   redesTemp = p ? JSON.parse(JSON.stringify(p.redes||[])) : [{tipo:'instagram',usuario:'',link:''}];
   abrirModal(`
-    <h3>${p?'Editar usuário':'Novo usuário'}</h3>
-    <label>Nome do usuário / cliente / marca</label>
+    <h3>${p?'Editar cadastro':'Novo cadastro'}</h3>
+    <label>Nome / marca</label>
     <input id="mNome" value="${p?escapar(p.nome):''}" placeholder="Ex.: Loja da Maria">
     ${!planoConfig().umaPorRede?`
     <div id="tipoToggleWrap" style="${p?'':'display:none'}">
     <label>Este cadastro é de…</label>
-    <div style="display:flex;gap:8px;margin:2px 0 12px">
-      <button type="button" id="btnTipoSocial" onclick="setTipoCadastro('social')" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer">📱 Rede social</button>
-      <button type="button" id="btnTipoServico" onclick="setTipoCadastro('servico')" style="flex:1;padding:11px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer">🧰 Serviço</button>
+    <div style="display:flex;gap:6px;margin:2px 0 12px">
+      <button type="button" id="btnTipoSocial" onclick="setTipoCadastro('social')" style="flex:1;padding:10px 6px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem">📱 Rede social</button>
+      <button type="button" id="btnTipoServico" onclick="setTipoCadastro('servico')" style="flex:1;padding:10px 6px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem">🧰 Serviço</button>
+      <button type="button" id="btnTipoCliente" onclick="setTipoCadastro('cliente')" style="flex:1;padding:10px 6px;border:1px solid var(--line);border-radius:10px;font-weight:700;cursor:pointer;font-size:.9rem">👤 Cliente</button>
     </div>
     </div>
     <div id="blocoServico" style="display:none">
