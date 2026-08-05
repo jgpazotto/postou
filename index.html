@@ -2347,7 +2347,23 @@ function salvarCliente(id){
   }
   if(id){ Object.assign(clientePorId(id), {nome,tipo,servico,servicoDesc,recebimento,empresa,dividaTotal,nicho,nichos_tags,notas,cor,redes,zap,email,endereco,responsavel,avisar,foto,metaPosts,metaFreq,cobrancaTipo,valor,diaPagamento,aniversario,aniversarioPagina}); }
   else { dados.clientes.push({id:novoId(), nome, tipo, servico, servicoDesc, recebimento, empresa, dividaTotal, dividaPagamentos:[], nicho, nichos_tags, notas, cor, redes, zap, email, endereco, responsavel, avisar, foto, metaPosts, metaFreq, cobrancaTipo, valor, diaPagamento, aniversario, aniversarioPagina, pagamentos:{}, metricas:[]}); }
+  const cidSalvo = id || (dados.clientes.length ? dados.clientes[dados.clientes.length-1].id : null);
   fecharModal(); tocar();
+  const cliSalvo = clientePorId(cidSalvo);
+  if(cliSalvo && cliSalvo.valor>0 && ['mensal','semanal','quinzenal','diaria'].includes(cliSalvo.cobrancaTipo)){
+    const jaTem = (dados.compromissos||[]).some(x=>x.clienteId===cidSalvo && x.tipoCompromisso==='pagamento' && !x.pago);
+    if(!jaTem) setTimeout(()=>ofertarAgendarRecebimento(cidSalvo), 250);
+  }
+}
+function ofertarAgendarRecebimento(id){
+  const c=clientePorId(id); if(!c) return;
+  const rot={mensal:'todo mês',semanal:'toda semana',quinzenal:'a cada 15 dias',diaria:'todo dia'}[c.cobrancaTipo]||'';
+  abrirModal(`<h3>💰 Colocar na agenda?</h3>
+    <p style="font-size:.92rem;line-height:1.5"><b>${escapar(c.nome)}</b> paga <b>${dinheiro(c.valor)} ${rot}</b>. Quer que eu já coloque os recebimentos no calendário pra você lembrar de receber/cobrar? 💜</p>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Agora não</button>
+      <button class="btn" onclick="fecharModal();abrirAgendarRecebimento(${id})">Sim, agendar 🗓</button>
+    </div>`);
 }
 function excluirCliente(id){
   const p = clientePorId(id);
@@ -2671,9 +2687,12 @@ function salvarAgendarServico(clienteId, forcar){
   mesAtual=dataFromISO(data); calVisao='dia'; marcarBotaoVisao();
   tocar();
 }
-function abrirAgendarRecebimento(clienteId){
+function abrirAgendarRecebimento(clienteId, freqInicial){
   const c=clientePorId(clienteId); if(!c) return;
   const valorSug = c.valor ? String(c.valor).replace('.',',') : '';
+  const mapF={mensal:'mes',semanal:'semana',quinzenal:'quinzena',diaria:'semana'};
+  const fq = mapF[freqInicial||c.cobrancaTipo] || 'semana';
+  const opt=(v,t)=>`<option value="${v}" ${fq===v?'selected':''}>${t}</option>`;
   abrirModal(`
     <h3>💰 Agendar recebimento</h3>
     <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">De <b>${escapar(c.nome)}</b> &#8212; entra na agenda pra você lembrar de cobrar/receber.</p>
@@ -2683,10 +2702,10 @@ function abrirAgendarRecebimento(clienteId){
     <input id="rcValor" inputmode="decimal" value="${valorSug}" placeholder="Ex.: 300">
     <label>Com que frequência?</label>
     <select id="rcRepetir" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">
-      <option value="semana">Toda semana</option>
-      <option value="quinzena">A cada 15 dias</option>
-      <option value="mes">Todo mês</option>
-      <option value="uma">Só esse dia</option>
+      ${opt('semana','Toda semana')}
+      ${opt('quinzena','A cada 15 dias')}
+      ${opt('mes','Todo mês')}
+      ${opt('uma','Só esse dia')}
     </select>
     <label>Até quando?</label>
     <select id="rcAte" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">
