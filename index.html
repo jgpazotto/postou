@@ -1755,6 +1755,7 @@ function formaCobranca(c){
 function atrasadoCliente(c){ if(!c) return 0; const hj=hojeISO(); return (dados.compromissos||[]).filter(x=>x.clienteId===c.id && x.tipoCompromisso==='pagamento' && !x.pago && x.data<hj).reduce((s,x)=>s+(x.valor||0),0); }
 function dividaPaga(c){ return ((c&&c.dividaPagamentos)||[]).reduce((s,x)=>s+(x.valor||0),0); }
 function dividaRestante(c){ return Math.max(0, ((c&&c.dividaTotal)||0) - dividaPaga(c)); }
+function parcelasRestantes(c){ if(!c||!c.valor||c.valor<=0) return 0; const r=dividaRestante(c); return r>0 ? Math.ceil(r/c.valor) : 0; }
 function registrarPagamentoDivida(id){
   const c=clientePorId(id); if(!c) return;
   const rest=dividaRestante(c);
@@ -2061,7 +2062,7 @@ function renderClientes(){
       </div>`}
       ${!arq && p.metaPosts?(()=>{ const ym=hojeISO().slice(0,7); const pub=dados.posts.filter(x=>x.clienteId===p.id&&x.status==='publicado'&&x.data.startsWith(ym)).length; const mult=p.metaFreq==='dia'?30:p.metaFreq==='semana'?4:1; const alvo=Math.max(1,p.metaPosts*mult); const pct=Math.min(100,Math.round(pub/alvo*100)); const ft=p.metaFreq==='dia'?'/dia':p.metaFreq==='semana'?'/semana':'/mês'; return `<div class="meta-prog"><div class="meta-barra"><div style="width:${pct}%"></div></div><span><b>${pub}/${alvo}</b> no mês · meta ${p.metaPosts}${ft}</span></div>`; })():''}
       ${p.valor?(()=>{ const ym=hojeISO().slice(0,7); const pago=p.pagamentos&&p.pagamentos[ym]; return `<div style="font-size:.78rem;color:var(--muted);margin-top:6px">💰 ${dinheiro(p.valor)}${formaCobranca(p).replace(/^por/,' por')}${p.diaPagamento?' · vence dia '+p.diaPagamento:''} ${pago?'· <b style="color:var(--ok)">✔ recebido</b>':''}</div>`; })():''}
-      ${p.dividaTotal>0?(()=>{ const rest=dividaRestante(p); const pago=dividaPaga(p); const pct=p.dividaTotal?Math.min(100,Math.round(pago/p.dividaTotal*100)):0; const quit=rest<=0; return `<div style="font-size:.8rem;margin-top:6px;background:#fff8f1;border:1px solid #fde3c8;border-radius:8px;padding:7px 9px">💳 Deve <b style="color:${quit?'#0a8a4a':'#b45309'}">${dinheiro(rest)}</b> de ${dinheiro(p.dividaTotal)} ${quit?'· <b style="color:#0a8a4a">✔ quitado!</b>':''}<div class="meta-barra" style="margin-top:4px"><div style="width:${pct}%;background:#0a8a4a"></div></div>${!arq&&!quit?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-mini" onclick="registrarPagamentoDivida(${p.id})">💵 Recebi um valor</button>${p.zap?`<button class="btn-mini" onclick="cobrarCliente(${p.id})">🔔 Cobrar</button>`:''}</div>`:''}</div>`; })():''}
+      ${p.dividaTotal>0?(()=>{ const rest=dividaRestante(p); const pago=dividaPaga(p); const pct=p.dividaTotal?Math.min(100,Math.round(pago/p.dividaTotal*100)):0; const quit=rest<=0; return `<div style="font-size:.8rem;margin-top:6px;background:#fff8f1;border:1px solid #fde3c8;border-radius:8px;padding:7px 9px">💳 Deve <b style="color:${quit?'#0a8a4a':'#b45309'}">${dinheiro(rest)}</b> de ${dinheiro(p.dividaTotal)} ${quit?'· <b style="color:#0a8a4a">✔ quitado!</b>':''}${parcelasRestantes(p)>0?` · <b style="color:#1d4ed8">faltam ${parcelasRestantes(p)}x</b>`:''}<div class="meta-barra" style="margin-top:4px"><div style="width:${pct}%;background:#0a8a4a"></div></div>${!arq&&!quit?`<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-mini" onclick="registrarPagamentoDivida(${p.id})">💵 Recebi um valor</button>${p.zap?`<button class="btn-mini" onclick="cobrarCliente(${p.id})">🔔 Cobrar</button>`:''}</div>`:''}</div>`; })():''}
       <div class="acoes">${acoes}</div>
     </div>`;
   };
@@ -2120,6 +2121,7 @@ function verFicha(id){
       <div style="flex:1;min-width:120px;background:#fff8f1;border:1px solid #fde3c8;border-radius:10px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted)">Falta receber</div><b style="color:#b45309">${dinheiro(aReceber)}</b></div>
       ${c.dividaTotal>0?`<div style="flex:1;min-width:120px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted)">Dívida total</div><b style="color:#7c3aed">${dinheiro(c.dividaTotal)}</b></div>`:''}
     </div>
+    ${parcelasRestantes(c)>0?`<div style="background:#eef6ff;border:1px solid #c7ddff;border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:.92rem;text-align:center">🔢 Faltam <b style="color:#1d4ed8">${parcelasRestantes(c)}</b> parcela(s) de <b>${dinheiro(c.valor)}</b> <span style="color:var(--muted);font-size:.8rem">(falta ${dinheiro(dividaRestante(c))})</span></div>`:''}
     <div style="max-height:320px;overflow-y:auto">${linhas}</div>
     <div class="rodape">${c.zap?`<button class="btn-claro" onclick="fecharModal();cobrarCliente(${id})">🔔 Cobrar</button>`:''}<button class="btn" onclick="fecharModal()">Fechar</button></div>`);
 }
