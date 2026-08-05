@@ -1752,6 +1752,7 @@ function formaCobranca(c){
   const m = { mensal:'/mês', semanal:'/semana', quinzenal:'/quinzena', diaria:'/dia', anual:'/ano', servico:'por serviço', postagem:'por post' };
   return c.cobrancaTipo ? (m[c.cobrancaTipo]||'/mês') : '/mês';
 }
+function atrasadoCliente(c){ if(!c) return 0; const hj=hojeISO(); return (dados.compromissos||[]).filter(x=>x.clienteId===c.id && x.tipoCompromisso==='pagamento' && !x.pago && x.data<hj).reduce((s,x)=>s+(x.valor||0),0); }
 function dividaPaga(c){ return ((c&&c.dividaPagamentos)||[]).reduce((s,x)=>s+(x.valor||0),0); }
 function dividaRestante(c){ return Math.max(0, ((c&&c.dividaTotal)||0) - dividaPaga(c)); }
 function registrarPagamentoDivida(id){
@@ -1785,9 +1786,9 @@ function cobrarCliente(id){
   if(!c.zap){ abrirModal(`<h3>🔔 Cobrar ${escapar(c.nome)}</h3><p style="font-size:.9rem">Esse cliente ainda não tem WhatsApp cadastrado. Coloque o WhatsApp dele em ✏️ Editar e você cobra num toque. 💜</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>`); return; }
   const primeiro=(c.nome||'').split(' ')[0]||'';
   const forma=formaCobranca(c).replace(/^por/,' por');
-  const rest=dividaRestante(c);
-  const quanto = rest>0 ? ` de ${dinheiro(rest)}` : (c.valor ? ` de ${dinheiro(c.valor)}${forma}` : '');
-  const venc = c.diaPagamento ? ` (vencimento dia ${c.diaPagamento})` : '';
+  const atrasado=atrasadoCliente(c);
+  const quanto = atrasado>0 ? ` de ${dinheiro(atrasado)} que está em atraso` : (c.valor ? ` de ${dinheiro(c.valor)}${forma}` : '');
+  const venc = (atrasado<=0 && c.diaPagamento) ? ` (vencimento dia ${c.diaPagamento})` : '';
   const msg=`Oi ${primeiro}! 💜 Passando só pra lembrar do pagamento${quanto}${venc}. Quando puder acertar, me avisa? Se já pagou, pode ignorar. Obrigada! 🙏`;
   abrirModal(`<h3>🔔 Cobrar ${escapar(c.nome)}</h3>
     <p style="font-size:.85rem;color:var(--muted)">Mensagem gentil já pronta — revise se quiser antes de enviar:</p>
@@ -2027,8 +2028,11 @@ function renderClientes(){
          <button class="btn-mini" onclick="moverCliente(${p.id},1)" title="Descer na lista">⬇️</button>
          ${p.tipo==='servico' ? `<button class="btn-mini" onclick="abrirAgendarServico(${p.id})">🗓 Agendar serviço</button>` : p.tipo==='cliente' ? '' : `<button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>`}
          ${(p.valor>0||p.dividaTotal>0)?`<button class="btn-mini" onclick="abrirAgendarRecebimento(${p.id})">💰 Agendar recebimento</button>`:''}
+         ${(p.tipo==='cliente'&&(p.valor>0||p.dividaTotal>0))?`<button class="btn-mini" onclick="verFicha(${p.id})">📄 Ficha</button>`:''}
          ${p.endereco?`<button class="btn-mini" onclick="abrirMapa(${p.id})">📍 Mapa</button>`:''}
-         ${p.zap?`<button class="btn-mini" onclick="aCaminho(${p.id})">🚗 A caminho</button>`:''}
+         ${(p.zap && p.tipo!=='cliente')?`<button class="btn-mini" onclick="aCaminho(${p.id})">🚗 A caminho</button>`:''}
+         ${(p.tipo==='cliente'&&p.zap)?`<button class="btn-mini" onclick="mensagemRapida(${p.id})">💬 Mensagem</button>`:''}
+         ${(p.tipo==='cliente'&&p.email)?`<button class="btn-mini" onclick="emailRapido(${p.id})">✉️ E-mail</button>`:''}
          ${(p.tipo==='servico'||p.tipo==='cliente') ? '' : `<button class="btn-mini" onclick="abrirMetricas(${p.id})">📈 Métricas</button>`}
          ${p.tipo==='cliente' ? '' : `<button class="btn-mini" onclick="resumoCliente(${p.id})">📊 Resumo p/ usuário</button>`}
          <button class="btn-mini" onclick="abrirModalCliente(${p.id})">✏️ Editar</button>
@@ -2095,6 +2099,30 @@ function arquivarCliente(id){ const c=clientePorId(id); if(c){ c.arquivado=true;
 function restaurarCliente(id){ const c=clientePorId(id); if(c){ c.arquivado=false; tocar(); } }
 function abrirMapa(id){ const c=clientePorId(id); if(!c||!c.endereco) return; window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(c.endereco),'_blank'); }
 function aCaminho(id){ const c=clientePorId(id); if(!c||!c.zap) return; const num=ddiSugerido(c.zap)+numeroLocal(c.zap); const primeiro=(c.nome||'').split(' ')[0]||''; const msg=`Oi ${primeiro}! 🚗 Estou a caminho, chego já! 💜`; window.open('https://wa.me/'+num+'?text='+encodeURIComponent(msg),'_blank'); }
+function mensagemRapida(id){ const c=clientePorId(id); if(!c||!c.zap) return; const num=ddiSugerido(c.zap)+numeroLocal(c.zap); const primeiro=(c.nome||'').split(' ')[0]||''; window.open('https://wa.me/'+num+'?text='+encodeURIComponent('Oi '+primeiro+'! 💜'),'_blank'); }
+function emailRapido(id){ const c=clientePorId(id); if(!c||!c.email) return; window.open('mailto:'+c.email,'_blank'); }
+function verFicha(id){
+  const c=clientePorId(id); if(!c) return;
+  const parcelas=(dados.compromissos||[]).filter(x=>x.clienteId===id && x.tipoCompromisso==='pagamento').sort((a,b)=>a.data.localeCompare(b.data));
+  const recebido=parcelas.filter(x=>x.pago).reduce((s,x)=>s+(x.valor||0),0);
+  const aReceber=parcelas.filter(x=>!x.pago).reduce((s,x)=>s+(x.valor||0),0);
+  const totalAgendado=recebido+aReceber;
+  const hj=hojeISO();
+  const linhas = parcelas.length ? parcelas.map((x,i)=>{
+    const atras = !x.pago && x.data<hj;
+    const cor = x.pago?'#0a8a4a':(atras?'#b91c1c':'#6b6478');
+    const status = x.pago?'✔ pago':(atras?'⚠ atrasado':'a vencer');
+    return `<div class="pag-linha"><span style="width:26px;color:var(--muted);font-size:.78rem">${i+1}</span><span style="flex:1">${dataBRcompleta(x.data)} — <b>${dinheiro(x.valor)}</b> <span style="color:${cor};font-size:.78rem;font-weight:700">${status}</span></span>${!x.pago?`<button class="btn-claro" style="padding:3px 8px;font-size:.72rem" onclick="darBaixaRecebimento(${x.id});fecharModal();verFicha(${id})">✔ Recebi</button>`:''}</div>`;
+  }).join('') : '<div class="vazio">Nenhuma parcela agendada. Use 💰 Agendar recebimento. 💜</div>';
+  abrirModal(`<h3>📄 Ficha de ${escapar(c.nome)}</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px">
+      <div style="flex:1;min-width:120px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted)">Recebido</div><b style="color:#0a8a4a">${dinheiro(recebido)}</b></div>
+      <div style="flex:1;min-width:120px;background:#fff8f1;border:1px solid #fde3c8;border-radius:10px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted)">Falta receber</div><b style="color:#b45309">${dinheiro(aReceber)}</b></div>
+      ${c.dividaTotal>0?`<div style="flex:1;min-width:120px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted)">Dívida total</div><b style="color:#7c3aed">${dinheiro(c.dividaTotal)}</b></div>`:''}
+    </div>
+    <div style="max-height:320px;overflow-y:auto">${linhas}</div>
+    <div class="rodape">${c.zap?`<button class="btn-claro" onclick="fecharModal();cobrarCliente(${id})">🔔 Cobrar</button>`:''}<button class="btn" onclick="fecharModal()">Fechar</button></div>`);
+}
 
 function verPendentes(clienteId){
   const c = clientePorId(clienteId);
@@ -2714,20 +2742,28 @@ function abrirAgendarRecebimento(clienteId, freqInicial){
       <option value="vezes">Um número de vezes</option>
     </select>
     <input id="rcVezes" type="number" min="1" placeholder="Quantas vezes? (ex.: 10)" style="display:none;margin-top:8px">
+    <div id="rcMsg" style="font-size:.82rem;margin-top:6px"></div>
     <div class="rodape">
       <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
-      <button class="btn" onclick="salvarAgendarRecebimento(${clienteId})">Colocar na agenda</button>
+      <button class="btn" id="rcBtn" onclick="salvarAgendarRecebimento(${clienteId})">Colocar na agenda</button>
     </div>`);
   const sel=document.getElementById('rcAte'); const vz=document.getElementById('rcVezes');
   if(sel&&vz){ sel.addEventListener('change',()=>{ vz.style.display = sel.value==='vezes' ? '' : 'none'; }); }
 }
-function salvarAgendarRecebimento(clienteId){
+function salvarAgendarRecebimento(clienteId, forcar){
   const c=clientePorId(clienteId); if(!c) return;
   const data=document.getElementById('rcData').value||hojeISO();
   const valor=parseFloat(String((document.getElementById('rcValor')||{}).value||'').replace(/\./g,'').replace(',','.'))||0;
   const rep=document.getElementById('rcRepetir').value;
   const ate=document.getElementById('rcAte').value;
   if(!dados.compromissos) dados.compromissos=[];
+  const jaAgendados=(dados.compromissos||[]).filter(x=>x.clienteId===c.id && x.tipoCompromisso==='pagamento' && !x.pago).length;
+  if(jaAgendados && !forcar){
+    const msg=document.getElementById('rcMsg'), btn=document.getElementById('rcBtn');
+    if(msg){ msg.style.color='#b45309'; msg.innerHTML='⚠️ Esse cliente já tem <b>'+jaAgendados+'</b> recebimento(s) na agenda. Pra não encavalar, cancele e dê baixa nos que já existem, ou clique de novo pra adicionar assim mesmo.'; }
+    if(btn){ btn.textContent='Adicionar assim mesmo'; btn.setAttribute('onclick',`salvarAgendarRecebimento(${clienteId}, true)`); }
+    return;
+  }
   const passo = rep==='quinzena'?14 : rep==='semana'?7 : 0; // 0 = mensal ou unico
   let limite;
   if(rep==='uma'){ limite=1; }
