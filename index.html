@@ -421,7 +421,7 @@
     <div id="listaHoje"></div>
   </section>
   <section id="aba-clientes" style="display:none">
-    <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="abrirModalCliente()">+ Novo usuário</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button><button class="btn" id="btnNovoCliente" onclick="abrirModalCliente(null,'cliente')" style="display:none">+ Novo cliente 👤</button></div></div>
+    <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="abrirModalCliente()">+ Novo usuário 📱</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button><button class="btn" id="btnNovoCliente" onclick="abrirModalCliente(null,'cliente')" style="display:none">+ Novo cliente 👤</button></div></div>
     <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
     <div id="filtroEmpresaWrap" style="display:none;margin:0 0 12px"></div>
     <div class="grade-clientes" id="listaClientes"></div>
@@ -2026,6 +2026,7 @@ function renderClientes(){
       : `<button class="btn-mini" onclick="moverCliente(${p.id},-1)" title="Subir na lista">⬆️</button>
          <button class="btn-mini" onclick="moverCliente(${p.id},1)" title="Descer na lista">⬇️</button>
          ${p.tipo==='servico' ? `<button class="btn-mini" onclick="abrirAgendarServico(${p.id})">🗓 Agendar serviço</button>` : p.tipo==='cliente' ? '' : `<button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>`}
+         ${(p.valor>0||p.dividaTotal>0)?`<button class="btn-mini" onclick="abrirAgendarRecebimento(${p.id})">💰 Agendar recebimento</button>`:''}
          ${p.endereco?`<button class="btn-mini" onclick="abrirMapa(${p.id})">📍 Mapa</button>`:''}
          ${p.zap?`<button class="btn-mini" onclick="aCaminho(${p.id})">🚗 A caminho</button>`:''}
          ${(p.tipo==='servico'||p.tipo==='cliente') ? '' : `<button class="btn-mini" onclick="abrirMetricas(${p.id})">📈 Métricas</button>`}
@@ -2444,9 +2445,11 @@ function chipPost(p){
 }
 function chipCompromisso(cm){
   const ehServico = cm.tipoCompromisso==='servico';
-  const multi = cm.dataFim ? '📅 ' : (ehServico ? '🧰 ' : '🕐 ');
-  const estilo = (ehServico && cm.cor) ? `style="background:${cm.cor};color:#fff;border:none"` : '';
-  return `<button class="chip chip-compromisso" ${estilo} onclick="event.stopPropagation();abrirDia('${cm.data}')" title="${escapar(cm.titulo)}${cm.dataFim?' (até '+escapar(cm.dataFim)+')':''}">${multi}${cm.hora?escapar(cm.hora)+' ':''}${escapar(cm.titulo)}</button>`;
+  const ehPag = cm.tipoCompromisso==='pagamento';
+  const multi = cm.dataFim ? '📅 ' : ehPag ? (cm.pago?'✅ ':'💰 ') : (ehServico ? '🧰 ' : '🕐 ');
+  const estilo = ((ehServico||ehPag) && cm.cor) ? `style="background:${cm.pago?'#0a8a4a':cm.cor};color:#fff;border:none${cm.pago?';opacity:.6':''}"` : '';
+  const rot = ehPag ? (cm.titulo+(cm.valor?' ('+dinheiro(cm.valor)+')':'')) : cm.titulo;
+  return `<button class="chip chip-compromisso" ${estilo} onclick="event.stopPropagation();abrirDia('${cm.data}')" title="${escapar(rot)}${cm.dataFim?' (até '+escapar(cm.dataFim)+')':''}">${multi}${cm.hora?escapar(cm.hora)+' ':''}${escapar(rot)}</button>`;
 }
 function pagamentosDoDia(iso){
   const dia = parseInt(iso.slice(8,10));
@@ -2552,10 +2555,15 @@ function renderCalDia(el){
     html += `<div class="vazio">Nada marcado. Ex.: médico, reunião, dentista…</div>`;
   } else {
     comps.forEach(cm=>{
+      const ehPag = cm.tipoCompromisso==='pagamento';
+      const extra = ehPag ? `${cm.valor?' — <b>'+dinheiro(cm.valor)+'</b>':''}${cm.pago?' · <b style="color:var(--ok)">✔ recebido</b>':''}` : (cm.obs?`<br><span style="font-size:.82rem;color:var(--muted)">${escapar(cm.obs)}</span>`:'');
+      const botao = (ehPag && !cm.pago)
+        ? `<button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="darBaixaRecebimento(${cm.id})">✔ Recebi</button> <button class="btn-mini perigo" onclick="excluirCompromisso(${cm.id})">🗑</button>`
+        : `<button class="btn-mini perigo" onclick="excluirCompromisso(${cm.id})">🗑</button>`;
       html += `<div class="dia-item">
-        <span class="pt-cor" style="background:var(--g3)"></span>
-        <div style="flex:1"><b>${cm.hora?escapar(cm.hora)+' · ':''}${escapar(cm.titulo)}</b>${cm.obs?`<br><span style="font-size:.82rem;color:var(--muted)">${escapar(cm.obs)}</span>`:''}</div>
-        <button class="btn-mini perigo" onclick="excluirCompromisso(${cm.id})">🗑</button>
+        <span class="pt-cor" style="background:${(cm.tipoCompromisso==='servico'||ehPag)&&cm.cor?cm.cor:'var(--g3)'}"></span>
+        <div style="flex:1"><b>${ehPag?'💰 ':''}${cm.hora?escapar(cm.hora)+' · ':''}${escapar(cm.titulo)}</b>${extra}</div>
+        ${botao}
       </div>`;
     });
   }
@@ -2661,6 +2669,68 @@ function salvarAgendarServico(clienteId, forcar){
   datas.forEach(d=>{ dados.compromissos.push({ id:novoId(), data:d, dataFim:'', hora, titulo, obs, clienteId:c.id, tipoCompromisso:'servico', cor:c.cor }); });
   fecharModal();
   mesAtual=dataFromISO(data); calVisao='dia'; marcarBotaoVisao();
+  tocar();
+}
+function abrirAgendarRecebimento(clienteId){
+  const c=clientePorId(clienteId); if(!c) return;
+  const valorSug = c.valor ? String(c.valor).replace('.',',') : '';
+  abrirModal(`
+    <h3>💰 Agendar recebimento</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">De <b>${escapar(c.nome)}</b> &#8212; entra na agenda pra você lembrar de cobrar/receber.</p>
+    <label>Primeiro pagamento</label>
+    <input type="date" id="rcData" value="${hojeISO()}">
+    <label>Valor de cada pagamento</label>
+    <input id="rcValor" inputmode="decimal" value="${valorSug}" placeholder="Ex.: 300">
+    <label>Com que frequência?</label>
+    <select id="rcRepetir" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">
+      <option value="semana">Toda semana</option>
+      <option value="quinzena">A cada 15 dias</option>
+      <option value="mes">Todo mês</option>
+      <option value="uma">Só esse dia</option>
+    </select>
+    <label>Até quando?</label>
+    <select id="rcAte" style="width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:10px">
+      <option value="semfim">Sem fim (coloco os próximos 3 meses)</option>
+      ${c.dividaTotal>0?'<option value="quitar">Até quitar a dívida</option>':''}
+      <option value="vezes">Um número de vezes</option>
+    </select>
+    <input id="rcVezes" type="number" min="1" placeholder="Quantas vezes? (ex.: 10)" style="display:none;margin-top:8px">
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      <button class="btn" onclick="salvarAgendarRecebimento(${clienteId})">Colocar na agenda</button>
+    </div>`);
+  const sel=document.getElementById('rcAte'); const vz=document.getElementById('rcVezes');
+  if(sel&&vz){ sel.addEventListener('change',()=>{ vz.style.display = sel.value==='vezes' ? '' : 'none'; }); }
+}
+function salvarAgendarRecebimento(clienteId){
+  const c=clientePorId(clienteId); if(!c) return;
+  const data=document.getElementById('rcData').value||hojeISO();
+  const valor=parseFloat(String((document.getElementById('rcValor')||{}).value||'').replace(/\./g,'').replace(',','.'))||0;
+  const rep=document.getElementById('rcRepetir').value;
+  const ate=document.getElementById('rcAte').value;
+  if(!dados.compromissos) dados.compromissos=[];
+  const passo = rep==='quinzena'?14 : rep==='semana'?7 : 0; // 0 = mensal ou unico
+  let limite;
+  if(rep==='uma'){ limite=1; }
+  else if(ate==='vezes'){ limite=Math.max(1, parseInt((document.getElementById('rcVezes')||{}).value)||1); }
+  else if(ate==='quitar' && valor>0){ limite=Math.ceil(dividaRestante(c)/valor)||1; }
+  else { limite=(rep==='mes')?3:13; } // sem fim: ~3 meses
+  limite=Math.min(limite, 60);
+  const datas=[]; let d=data;
+  for(let i=0;i<limite;i++){ datas.push(d); d = (rep==='mes') ? isoMesSeguinte(d) : isoSomaDias(d, passo||30); }
+  const titulo='Receber · '+c.nome;
+  datas.forEach(dd=>{ dados.compromissos.push({ id:novoId(), data:dd, dataFim:'', hora:'', titulo, obs:'', clienteId:c.id, tipoCompromisso:'pagamento', valor, cor:c.cor, pago:false }); });
+  fecharModal();
+  mesAtual=dataFromISO(data); calVisao='dia'; marcarBotaoVisao();
+  tocar();
+}
+function darBaixaRecebimento(id){
+  const cm=(dados.compromissos||[]).find(x=>x.id===id); if(!cm) return;
+  cm.pago=true;
+  const c=clientePorId(cm.clienteId);
+  dados.recebimentos=dados.recebimentos||[];
+  dados.recebimentos.push({ id:novoId(), clienteId:cm.clienteId, valor:cm.valor||0, data:hojeISO() });
+  if(c && dividaRestante(c)>0 && cm.valor>0){ c.dividaPagamentos=c.dividaPagamentos||[]; c.dividaPagamentos.push({data:hojeISO(), valor:cm.valor}); }
   tocar();
 }
 function abrirConfig(){
