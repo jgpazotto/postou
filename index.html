@@ -986,6 +986,8 @@ async function liberarUsuario(userId){
   carregarDono();
 }
 function isoSomaDias(iso, n){ const d=new Date(parseInt(iso.slice(0,4)),parseInt(iso.slice(5,7))-1,parseInt(iso.slice(8,10))); d.setDate(d.getDate()+n); const mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return d.getFullYear()+'-'+mm+'-'+dd; }
+function proximaDataDia(dia){ if(!dia||dia<1) return hojeISO(); const hj=new Date(); hj.setHours(0,0,0,0); let y=hj.getFullYear(), m=hj.getMonth(); for(let k=0;k<4;k++){ const ult=new Date(y,m+1,0).getDate(); const d=Math.min(dia,ult); const cand=new Date(y,m,d); if(cand>=hj){ return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'); } m++; if(m>11){m=0;y++;} } return hojeISO(); }
+function limparRecebimentos(id){ dados.compromissos=(dados.compromissos||[]).filter(x=>!(x.clienteId===id && x.tipoCompromisso==='pagamento' && !x.pago)); fecharModal(); tocar(); }
 async function darSemana(userId){
   const cont=document.getElementById('listaDono');
   const { data } = await sb.from('organizador').select('conteudo').eq('user_id',userId).maybeSingle();
@@ -2123,6 +2125,7 @@ function verFicha(id){
     </div>
     ${parcelasRestantes(c)>0?`<div style="background:#eef6ff;border:1px solid #c7ddff;border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:.92rem;text-align:center">🔢 Faltam <b style="color:#1d4ed8">${parcelasRestantes(c)}</b> parcela(s) de <b>${dinheiro(c.valor)}</b> <span style="color:var(--muted);font-size:.8rem">(falta ${dinheiro(dividaRestante(c))})</span></div>`:''}
     <div style="max-height:320px;overflow-y:auto">${linhas}</div>
+    ${parcelas.some(x=>!x.pago)?`<p style="margin-top:8px"><a href="#" onclick="if(confirm('Apagar as parcelas em aberto (não pagas) deste cliente?')){limparRecebimentos(${id});}return false" style="color:#b91c1c;font-size:.82rem">🗑 Limpar parcelas em aberto (recomeçar)</a></p>`:''}
     <div class="rodape">${c.zap?`<button class="btn-claro" onclick="fecharModal();cobrarCliente(${id})">🔔 Cobrar</button>`:''}<button class="btn" onclick="fecharModal()">Fechar</button></div>`);
 }
 
@@ -2362,8 +2365,8 @@ function salvarCliente(id){
   const metaFreq = pegaCampo('mMetaFreq') || (id&&clientePorId(id).metaFreq) || 'mes';
   const cobrancaTipo = pegaCampo('mCobranca') || (id&&clientePorId(id).cobrancaTipo) || 'mensal';
   const moedaSel = pegaCampo('mMoeda'); if(moedaSel){ dados.moeda = moedaSel; }
-  const valor = parseFloat(String(pegaCampo('mValor')).replace(/\./g,'').replace(',','.')) || (id&&clientePorId(id).valor) || 0;
-  const diaPagamento = Math.min(31, Math.max(0, parseInt(pegaCampo('mDiaPag'))|| (id&&clientePorId(id).diaPagamento) || 0));
+  const valor = document.getElementById('mValor') ? (parseFloat(String(pegaCampo('mValor')).replace(/\./g,'').replace(',','.'))||0) : ((id&&clientePorId(id).valor)||0);
+  const diaPagamento = document.getElementById('mDiaPag') ? Math.min(31, Math.max(0, parseInt(pegaCampo('mDiaPag'))||0)) : ((id&&clientePorId(id).diaPagamento)||0);
   const redes = redesTemp
     .map(r=>({tipo:r.tipo, usuario:String(r.usuario||'').trim().replace(/^@/,''), link:r.tipo==='outra'?String(r.usuario||'').trim():''}))
     .filter(r=>r.usuario);
@@ -2727,7 +2730,7 @@ function abrirAgendarRecebimento(clienteId, freqInicial){
     <h3>💰 Agendar recebimento</h3>
     <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">De <b>${escapar(c.nome)}</b> &#8212; entra na agenda pra você lembrar de cobrar/receber.</p>
     <label>Primeiro pagamento</label>
-    <input type="date" id="rcData" value="${hojeISO()}">
+    <input type="date" id="rcData" value="${proximaDataDia(c.diaPagamento)}">
     <label>Valor de cada pagamento</label>
     <input id="rcValor" inputmode="decimal" value="${valorSug}" placeholder="Ex.: 300">
     <label>Com que frequência?</label>
