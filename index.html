@@ -2606,9 +2606,10 @@ function renderCalDia(el){
     comps.forEach(cm=>{
       const ehPag = cm.tipoCompromisso==='pagamento';
       const extra = ehPag ? `${cm.valor?' — <b>'+dinheiro(cm.valor)+'</b>':''}${cm.pago?' · <b style="color:var(--ok)">✔ recebido</b>':''}` : (cm.obs?`<br><span style="font-size:.82rem;color:var(--muted)">${escapar(cm.obs)}</span>`:'');
+      const btnEd = !ehPag ? `<button class="btn-mini" onclick="abrirModalCompromisso('${cm.data}', ${cm.id})">✏️</button> ` : '';
       const botao = (ehPag && !cm.pago)
         ? `<button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="darBaixaRecebimento(${cm.id})">✔ Recebi</button> <button class="btn-mini perigo" onclick="excluirCompromisso(${cm.id})">🗑</button>`
-        : `<button class="btn-mini perigo" onclick="excluirCompromisso(${cm.id})">🗑</button>`;
+        : `${btnEd}<button class="btn-mini perigo" onclick="excluirCompromisso(${cm.id})">🗑</button>`;
       html += `<div class="dia-item">
         <span class="pt-cor" style="background:${(cm.tipoCompromisso==='servico'||ehPag)&&cm.cor?cm.cor:'var(--g3)'}"></span>
         <div style="flex:1"><b>${ehPag?'💰 ':''}${cm.hora?escapar(cm.hora)+' · ':''}${escapar(cm.titulo)}</b>${extra}</div>
@@ -2635,37 +2636,44 @@ function renderCalDia(el){
   el.innerHTML = html;
 }
 
-function abrirModalCompromisso(iso){
+function abrirModalCompromisso(iso, editId){
+  const cm = editId ? (dados.compromissos||[]).find(x=>x.id===editId) : null;
   abrirModal(`
-    <h3>Novo compromisso</h3>
+    <h3>${cm?'Editar compromisso':'Novo compromisso'}</h3>
     <p style="font-size:.82rem;color:var(--muted);margin-bottom:6px">Pra organizar a vida, não só as redes 💜</p>
     <label>Dia</label>
-    <input type="date" id="cmData" value="${iso||hojeISO()}">
+    <input type="date" id="cmData" value="${cm?cm.data:(iso||hojeISO())}">
     <label>Até (opcional — pra evento ou viagem de vários dias)</label>
-    <input type="date" id="cmDataFim">
+    <input type="date" id="cmDataFim" value="${cm&&cm.dataFim?cm.dataFim:''}">
     <label>Horário (opcional)</label>
-    <input type="time" id="cmHora">
+    <input type="time" id="cmHora" value="${cm&&cm.hora?cm.hora:''}">
     <label>O quê?</label>
-    <input id="cmTitulo" placeholder="Ex.: Médico, reunião, dentista…">
+    <input id="cmTitulo" placeholder="Ex.: Médico, reunião, dentista…" value="${cm?escapar(cm.titulo||''):''}">
     <label>Observação (opcional)</label>
-    <input id="cmObs" placeholder="Ex.: levar exames">
+    <input id="cmObs" placeholder="Ex.: levar exames" value="${cm?escapar(cm.obs||''):''}">
     <div class="rodape">
       <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
-      <button class="btn" onclick="salvarCompromisso()">Salvar</button>
+      <button class="btn" onclick="salvarCompromisso(${editId||0})">Salvar</button>
     </div>`);
 }
-function salvarCompromisso(){
+function salvarCompromisso(editId){
   const titulo = document.getElementById('cmTitulo').value.trim();
   if(!titulo){ alertaCampo('cmTitulo'); return; }
   if(!dados.compromissos) dados.compromissos = [];
   const dIni = document.getElementById('cmData').value || hojeISO();
   let dFim = (document.getElementById('cmDataFim') && document.getElementById('cmDataFim').value) || '';
   if(dFim && dFim < dIni) dFim = ''; // ignora fim antes do início
-  const c = { id: novoId(), data: dIni, dataFim: (dFim && dFim!==dIni) ? dFim : '',
-    hora: document.getElementById('cmHora').value || '', titulo, obs: document.getElementById('cmObs').value.trim() };
-  dados.compromissos.push(c);
+  const hora = document.getElementById('cmHora').value || '';
+  const obs = document.getElementById('cmObs').value.trim();
+  const fim = (dFim && dFim!==dIni) ? dFim : '';
+  if(editId){
+    const ex = (dados.compromissos||[]).find(x=>x.id===editId);
+    if(ex){ ex.data=dIni; ex.dataFim=fim; ex.hora=hora; ex.titulo=titulo; ex.obs=obs; }
+  } else {
+    dados.compromissos.push({ id: novoId(), data: dIni, dataFim: fim, hora, titulo, obs });
+  }
   fecharModal();
-  mesAtual = dataFromISO(c.data); calVisao = 'dia'; marcarBotaoVisao();
+  mesAtual = dataFromISO(dIni); calVisao = 'dia'; marcarBotaoVisao();
   tocar();
 }
 function isoMesSeguinte(iso){ let y=parseInt(iso.slice(0,4)), m=parseInt(iso.slice(5,7)), d=parseInt(iso.slice(8,10)); m+=1; if(m>12){ m=1; y+=1; } const ultimo=new Date(y,m,0).getDate(); if(d>ultimo) d=ultimo; return y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
