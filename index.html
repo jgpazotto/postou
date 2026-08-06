@@ -3893,6 +3893,19 @@ function sugerirAgenda(clienteId){
       });
     }
   }
+  // Casar com as datas comemorativas do período (posts temáticos ligados ao dia)
+  const comem = (typeof proximasDatasComem==='function' ? proximasDatasComem(janela) : []).slice(0,5);
+  comem.forEach((dc,idx)=>{
+    const dt = dataFromISO(dc.iso);
+    escolhidas.push({
+      clienteId, data:dc.iso, dow:dt.getDay(),
+      hora: cfg.horas[idx % cfg.horas.length],
+      titulo:'🎉 '+dc.nome,
+      texto:'Post temático de '+dc.nome+' — combine a data com o seu nicho e pegue carona no assunto do dia (um bastidor, uma oferta especial ou uma mensagem no clima da data).',
+      hashtags:((ideias[idx % ideias.length]||{}).h || '')+' #datacomemorativa',
+      rede: redes[idx % Math.max(1,redes.length)] || 'instagram'
+    });
+  });
   escolhidas.sort((a,b)=>a.data.localeCompare(b.data));
   agendaSugerida = escolhidas;
 
