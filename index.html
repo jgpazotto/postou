@@ -289,9 +289,9 @@
   </nav>
 
   <header class="lp-hero">
-    <div class="lp-badge">✨ Não é só rede social — agora também organiza serviços e a sua vida</div>
+    <div class="lp-badge">✨ Agora com cadastro de clientes e serviços — redes, agenda e dinheiro num app só</div>
     <h1>Organize sua <span>vida</span>, não só suas redes</h1>
-    <p class="lp-lead">Calendário, ideias prontas por nicho, financeiro e postagem em poucos cliques — e agora também pra quem presta serviço: agenda do dia a dia, endereço no mapa e cobrança por diária. Sua vida e seu trabalho, num lugar só. 💜</p>
+    <p class="lp-lead">Cadastre seus <b>clientes</b> e <b>serviços</b>, planeje posts com ideias prontas pro seu nicho, controle quem te deve e organize a sua rotina — tudo num lugar só. Pra social media, prestador de serviço, vendedor e quem cuida de vários negócios. 💜</p>
     <div class="lp-cta">
       <a href="#" class="lp-btn-grande" onclick="irCadastro();return false">🎁 Testar 15 dias grátis</a>
       <a href="#lp-recursos" class="lp-btn-claro">Ver o que faz</a>
@@ -303,6 +303,8 @@
     <h2>Tudo que você precisa, num lugar só</h2>
     <p class="lp-sub">Pare de se perder entre apps, blocos de notas e planilhas.</p>
     <div class="lp-grid">
+      <div class="lp-card"><div class="lp-ic">👥</div><h3>Cadastre clientes e serviços</h3><p>Clientes das redes, serviços (obra, faxina, diária) e uma agenda de cada um. Cadastro rápido, do jeito que você trabalha.</p></div>
+      <div class="lp-card"><div class="lp-ic">🧩</div><h3>Tem pra sua profissão</h3><p>Ideias prontas por nicho: social media, psicologia, carros, diarista, brasileiros nos EUA, confeitaria e muito mais.</p></div>
       <div class="lp-card"><div class="lp-ic">📅</div><h3>Calendário inteligente</h3><p>Veja por dia, semana ou mês. Planeje as postagens e nunca mais perca uma data.</p></div>
       <div class="lp-card"><div class="lp-ic">💡</div><h3>Ideias por nicho</h3><p>Centenas de ideias prontas pro seu nicho, com legendas e hashtags. Chega de bloqueio criativo.</p></div>
       <div class="lp-card"><div class="lp-ic">🚀</div><h3>Postar em poucos cliques</h3><p>Legenda pronta e botão direto pra cada rede. Publicar ficou rápido.</p></div>
@@ -322,7 +324,7 @@
         <h2>Como funciona</h2>
         <p class="lp-sub">Em 3 passos simples você já está no controle.</p>
         <div class="lp-grid3">
-          <div class="lp-passo"><span class="lp-num">1</span><h3>Cadastre seus perfis</h3><p>Adicione você ou seus clientes, com nicho, redes e metas.</p></div>
+          <div class="lp-passo"><span class="lp-num">1</span><h3>Cadastre clientes e serviços</h3><p>Adicione seus perfis, clientes e serviços — com nicho, redes, agenda e valores.</p></div>
           <div class="lp-passo"><span class="lp-num">2</span><h3>Planeje com ideias prontas</h3><p>Escolha ideias do seu nicho e agende no calendário num toque.</p></div>
           <div class="lp-passo"><span class="lp-num">3</span><h3>Publique e acompanhe</h3><p>Poste, marque como feito e veja tudo organizado — inclusive o financeiro.</p></div>
         </div>
@@ -775,6 +777,46 @@ async function entrarNoApp(){
   await carregarDados();
   render();
   verificarExpiracao();
+  if(planoAtual()!=='expirado' && !(dados.assinatura && dados.assinatura.tourVisto)){ setTimeout(iniciarTour, 550); }
+}
+/* ---------- TUTORIAL DE BOAS-VINDAS (primeiros passos) ---------- */
+const TOUR_PASSOS = [
+  {emoji:'💜', titulo:'Bem-vinda ao Postou!', txt:'Em 1 minutinho eu te mostro como deixar sua vida e seu trabalho organizados num lugar só. Pode ir no <b>Próximo</b>! 👉'},
+  {emoji:'👥', titulo:'Cadastre clientes e serviços', txt:'Aqui é o coração do Postou. Na aba <b>👥 Usuários</b> você cadastra <b>📱 quem você cuida nas redes</b>, <b>🧰 serviços</b> (obra, faxina, diária) e <b>👤 clientes</b>. É só clicar em <b>“+ Novo”</b> e preencher. 💜'},
+  {emoji:'🏠', titulo:'Seu dia num olhar só', txt:'A tela <b>🏠 Hoje</b> mostra o que fazer hoje: posts, compromissos, <b>datas comemorativas chegando</b> e quem tem <b>pagamento pra receber</b>. Nada mais passa batido!'},
+  {emoji:'💡', titulo:'Ideias e calendário prontos', txt:'Planeje seus posts no <b>📅 Calendário</b> e pegue <b>ideias prontas pro seu nicho</b> em <b>💡 Ideias</b> — com legenda e hashtag pra copiar e colar. ✨'},
+  {emoji:'💰', titulo:'Seu dinheiro organizado', txt:'No <b>💰 Caixa</b> você controla quem te deve, monta o <b>carnê</b> e registra recebimentos — e dá pra <b>cobrar num toque</b> no WhatsApp. 💪'},
+  {emoji:'🎛️', titulo:'Deixe com a SUA cara', txt:'Não usa alguma aba? Em <b>⚙️ Conta</b> você <b>esconde os botões que não precisa</b> e deixa o Postou do jeitinho que você quer. Simples e limpo, do seu jeito. 💜'},
+  {emoji:'🎉', titulo:'Prontinho, é sua!', txt:'É só começar! Qualquer dúvida, a aba <b>❓ Ajuda</b> te socorre. Bora organizar? 💜'}
+];
+let tourIdx = 0;
+function iniciarTour(){ tourIdx = 0; renderTour(); }
+function renderTour(){
+  let ov = document.getElementById('tourOverlay');
+  if(!ov){ ov = document.createElement('div'); ov.id='tourOverlay'; document.body.appendChild(ov); }
+  const p = TOUR_PASSOS[tourIdx];
+  const ultimo = tourIdx === TOUR_PASSOS.length-1;
+  const dots = TOUR_PASSOS.map((_,i)=>`<span style="width:8px;height:8px;border-radius:50%;background:${i===tourIdx?'#7c3aed':'#e2d6f5'};display:inline-block"></span>`).join('');
+  ov.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(40,25,60,.55);display:flex;align-items:center;justify-content:center;padding:18px';
+  ov.innerHTML = `
+    <div style="background:#fff;border-radius:22px;max-width:400px;width:100%;padding:26px 24px 20px;box-shadow:0 24px 60px rgba(80,40,120,.35);text-align:center">
+      <div style="font-size:56px;line-height:1;margin-bottom:12px">${p.emoji}</div>
+      <div style="font-size:1.28rem;font-weight:800;color:#3a2f4d;margin-bottom:8px">${p.titulo}</div>
+      <div style="font-size:.96rem;color:#5b5170;line-height:1.5;margin-bottom:18px">${p.txt}</div>
+      <div style="display:flex;gap:6px;justify-content:center;margin-bottom:18px">${dots}</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="fecharTour(true)" style="background:none;border:none;color:#9b8fb3;font-size:.85rem;cursor:pointer;padding:8px">Pular</button>
+        <div style="flex:1"></div>
+        ${tourIdx>0?`<button onclick="tourVoltar()" style="background:#f3ecfb;border:none;color:#7c3aed;font-weight:700;border-radius:40px;padding:11px 18px;cursor:pointer;font-size:.92rem">← Voltar</button>`:''}
+        <button onclick="tourAvancar()" style="background:linear-gradient(135deg,#7c3aed,#ec4899);border:none;color:#fff;font-weight:800;border-radius:40px;padding:11px 22px;cursor:pointer;font-size:.95rem">${ultimo?'Começar 🎉':'Próximo →'}</button>
+      </div>
+    </div>`;
+}
+function tourAvancar(){ if(tourIdx>=TOUR_PASSOS.length-1){ fecharTour(true); } else { tourIdx++; renderTour(); } }
+function tourVoltar(){ if(tourIdx>0){ tourIdx--; renderTour(); } }
+function fecharTour(marcarVisto){
+  const ov=document.getElementById('tourOverlay'); if(ov) ov.remove();
+  if(marcarVisto){ dados.assinatura=dados.assinatura||{}; if(!dados.assinatura.tourVisto){ dados.assinatura.tourVisto=true; if(typeof salvarAgora==='function') salvarAgora(); } }
 }
 /* ---------- PLANOS E TESTE GRÁTIS ---------- */
 const PLANOS = {
@@ -2861,6 +2903,8 @@ function abrirConfig(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">
       ${[['calendario','📅 Calendário'],['tarefas','✅ Tarefas'],['ideias','💡 Ideias'],['quadro','🗂 Status'],['vendas','💵 Vendas'],['caixa','💰 Caixa'],['contatos','📇 Contatos']].map(([k,lbl])=>`<label style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;margin:0"><input type="checkbox" id="abaChk_${k}" ${((dados.assinatura&&dados.assinatura.abasOcultas)||[]).includes(k)?'':'checked'} style="width:16px;height:16px">${lbl}</label>`).join('')}
     </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <button class="btn-claro" style="width:100%" onclick="fecharModal();setTimeout(iniciarTour,150)">▶️ Ver o tutorial de novo</button>
     <div id="cfgMsg" style="font-size:.85rem;margin-top:8px;font-weight:700"></div>
     <div class="rodape">
       <button class="btn-claro" onclick="fecharModal()">Fechar</button>
