@@ -423,7 +423,7 @@
     <div id="listaHoje"></div>
   </section>
   <section id="aba-clientes" style="display:none">
-    <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="abrirModalCliente()">+ Novo usuário 📱</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button><button class="btn" id="btnNovoCliente" onclick="abrirModalCliente(null,'cliente')" style="display:none">+ Novo cliente 👤</button></div></div>
+    <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="btnNovoUsuario" onclick="abrirModalCliente()">+ Novo usuário 📱</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button><button class="btn" id="btnNovoCliente" onclick="abrirModalCliente(null,'cliente')" style="display:none">+ Novo cliente 👤</button></div></div>
     <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
     <div id="filtroEmpresaWrap" style="display:none;margin:0 0 12px"></div>
     <div class="grade-clientes" id="listaClientes"></div>
@@ -872,10 +872,13 @@ function aplicarPlano(){
   if(btnE) btnE.style.display = podeEquipe() ? '' : 'none';
   const btnC = document.querySelector('nav button[data-aba="contatos"]');
   if(btnC) btnC.style.display = podeContatos() ? '' : 'none';
+  const botOc = (dados.assinatura && dados.assinatura.botoesOcultos) || [];
+  const bnu = document.getElementById('btnNovoUsuario');
+  if(bnu) bnu.style.display = botOc.includes('usuario') ? 'none' : '';
   const bns = document.getElementById('btnNovoServico');
-  if(bns) bns.style.display = (conf.umaPorRede) ? 'none' : '';
+  if(bns) bns.style.display = (conf.umaPorRede || botOc.includes('servico')) ? 'none' : '';
   const bnc = document.getElementById('btnNovoCliente');
-  if(bnc) bnc.style.display = (conf.umaPorRede) ? 'none' : '';
+  if(bnc) bnc.style.display = (conf.umaPorRede || botOc.includes('cliente')) ? 'none' : '';
   const ocultas = (dados.assinatura&&dados.assinatura.abasOcultas)||[];
   ['calendario','tarefas','ideias','quadro','caixa'].forEach(a=>{ const b=document.querySelector('nav button[data-aba="'+a+'"]'); if(b) b.style.display = ocultas.includes(a) ? 'none' : ''; });
   ['vendas','contatos'].forEach(a=>{ if(ocultas.includes(a)){ const b=document.querySelector('nav button[data-aba="'+a+'"]'); if(b) b.style.display='none'; } });
@@ -2904,6 +2907,12 @@ function abrirConfig(){
       ${[['calendario','📅 Calendário'],['tarefas','✅ Tarefas'],['ideias','💡 Ideias'],['quadro','🗂 Status'],['vendas','💵 Vendas'],['caixa','💰 Caixa'],['contatos','📇 Contatos']].map(([k,lbl])=>`<label style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;margin:0"><input type="checkbox" id="abaChk_${k}" ${((dados.assinatura&&dados.assinatura.abasOcultas)||[]).includes(k)?'':'checked'} style="width:16px;height:16px">${lbl}</label>`).join('')}
     </div>
     <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <label>➕ Botões de cadastro (aba 👥 Usuários)</label>
+    <p style="font-size:.78rem;color:var(--muted);margin:2px 0 6px">Escolha quais botões de "+ Novo" aparecem pra você. 💜</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">
+      ${(function(){ const bo=(dados.assinatura&&dados.assinatura.botoesOcultos)||[]; const itens=[['usuario','📱 Novo usuário']]; if(!planoConfig().umaPorRede){ itens.push(['servico','🧰 Novo serviço']); itens.push(['cliente','👤 Novo cliente']); } return itens.map(function(par){ return '<label style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;margin:0"><input type="checkbox" id="botChk_'+par[0]+'" '+(bo.includes(par[0])?'':'checked')+' style="width:16px;height:16px">'+par[1]+'</label>'; }).join(''); })()}
+    </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
     <button class="btn-claro" style="width:100%" onclick="fecharModal();setTimeout(iniciarTour,150)">▶️ Ver o tutorial de novo</button>
     <div id="cfgMsg" style="font-size:.85rem;margin-top:8px;font-weight:700"></div>
     <div class="rodape">
@@ -2925,6 +2934,9 @@ async function salvarConfig(){
   dados.assinatura.nome=nome; dados.assinatura.zap=zap;
   const opcionais=['calendario','tarefas','ideias','quadro','vendas','caixa','contatos'];
   dados.assinatura.abasOcultas=opcionais.filter(k=>{ const el=document.getElementById('abaChk_'+k); return el && !el.checked; });
+  const botoesCad=['usuario','servico','cliente'];
+  const botPrev=(dados.assinatura.botoesOcultos)||[];
+  dados.assinatura.botoesOcultos=botoesCad.filter(k=>{ const el=document.getElementById('botChk_'+k); if(!el) return botPrev.includes(k); return !el.checked; });
   if(usuarioMeta){ usuarioMeta.nome=nome; usuarioMeta.zap=zap; }
   try{ await sb.auth.updateUser({ data:{ nome, zap } }); }catch(e){}
   await salvarAgora();
