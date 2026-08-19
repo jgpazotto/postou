@@ -1274,7 +1274,13 @@ function trocarAba(aba){
   if(aba==='contatos') carregarContatos();
 }
 
+function ordenarClientes(){
+  if(dados && Array.isArray(dados.clientes)){
+    dados.clientes.sort((a,b)=>(a&&a.nome||'').localeCompare((b&&b.nome||''),'pt',{sensitivity:'base',numeric:true}));
+  }
+}
 function render(){
+  ordenarClientes();
   aplicarPlano();
   renderFiltro();
   renderHoje();
