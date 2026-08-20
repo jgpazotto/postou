@@ -2178,7 +2178,7 @@ function verFicha(id){
     const atras = !x.pago && x.data<hj;
     const cor = x.pago?'#0a8a4a':(atras?'#b91c1c':'#6b6478');
     const status = x.pago?'✔ pago':(atras?'⚠ atrasado':'a vencer');
-    return `<div class="pag-linha"><span style="width:26px;color:var(--muted);font-size:.78rem">${i+1}</span><span style="flex:1">${dataBRcompleta(x.data)} — <b>${dinheiro(x.valor)}</b> <span style="color:${cor};font-size:.78rem;font-weight:700">${status}</span></span>${!x.pago?`<button class="btn-claro" style="padding:3px 8px;font-size:.72rem" onclick="darBaixaRecebimento(${x.id});fecharModal();verFicha(${id})">✔ Recebi</button>`:''}</div>`;
+    return `<div class="pag-linha"><span style="width:26px;color:var(--muted);font-size:.78rem">${i+1}</span><span style="flex:1">${dataBRcompleta(x.data)} — <b>${dinheiro(x.valor)}</b> <span style="color:${cor};font-size:.78rem;font-weight:700">${status}</span></span><button class="btn-claro" style="padding:3px 7px;font-size:.72rem" onclick="editarDataParcela(${x.id},${id})" title="Mudar a data desta parcela">✏️</button>${!x.pago?`<button class="btn-claro" style="padding:3px 8px;font-size:.72rem" onclick="darBaixaRecebimento(${x.id});fecharModal();verFicha(${id})">✔ Recebi</button>`:''}</div>`;
   }).join('') : '<div class="vazio">Nenhuma parcela agendada. Use 💰 Agendar recebimento. 💜</div>';
   abrirModal(`<h3>📄 Ficha de ${escapar(c.nome)}</h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px">
@@ -2190,6 +2190,45 @@ function verFicha(id){
     <div style="max-height:320px;overflow-y:auto">${linhas}</div>
     ${parcelas.some(x=>!x.pago)?`<p style="margin-top:8px"><a href="#" onclick="if(confirm('Apagar as parcelas em aberto (não pagas) deste cliente?')){limparRecebimentos(${id});}return false" style="color:#b91c1c;font-size:.82rem">🗑 Limpar parcelas em aberto (recomeçar)</a></p>`:''}
     <div class="rodape">${c.zap?`<button class="btn-claro" onclick="fecharModal();cobrarCliente(${id})">🔔 Cobrar</button>`:''}<button class="btn" onclick="fecharModal()">Fechar</button></div>`);
+}
+
+function diasEntreISO(a,b){
+  const da=new Date(parseInt(a.slice(0,4)),parseInt(a.slice(5,7))-1,parseInt(a.slice(8,10)));
+  const db=new Date(parseInt(b.slice(0,4)),parseInt(b.slice(5,7))-1,parseInt(b.slice(8,10)));
+  return Math.round((db-da)/864e5);
+}
+function editarDataParcela(compId, clienteId){
+  const x=(dados.compromissos||[]).find(p=>p.id===compId); if(!x) return;
+  abrirModal(`<h3>📅 Mudar a data da parcela</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Escolha o dia certo do vencimento. 💜</p>
+    <label>Data do vencimento</label>
+    <input type="date" id="edParcData" value="${x.data}">
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-size:.9rem;cursor:pointer">
+      <input type="checkbox" id="edMoverJunto" checked style="width:16px;height:16px;flex:none"> Mover as próximas parcelas junto (mantendo o mesmo intervalo)
+    </label>
+    <p style="font-size:.76rem;color:var(--muted);margin-top:6px">Ideal quando você acerta o <b>primeiro pagamento</b>: as seguintes se ajustam sozinhas. Desmarque pra mudar só esta.</p>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal();verFicha(${clienteId})">Cancelar</button>
+      <button class="btn" onclick="salvarDataParcela(${compId},${clienteId})">Salvar</button>
+    </div>`);
+}
+function salvarDataParcela(compId, clienteId){
+  const lista=(dados.compromissos||[]).filter(p=>p.clienteId===clienteId && p.tipoCompromisso==='pagamento').sort((a,b)=>a.data.localeCompare(b.data));
+  const x=lista.find(p=>p.id===compId); if(!x){ fecharModal(); verFicha(clienteId); return; }
+  const nova=(document.getElementById('edParcData')||{}).value;
+  if(!nova){ fecharModal(); verFicha(clienteId); return; }
+  const mover=!!(document.getElementById('edMoverJunto')||{}).checked;
+  const delta=diasEntreISO(x.data, nova);
+  if(mover && delta!==0){
+    const idx=lista.indexOf(x);
+    for(let i=idx;i<lista.length;i++){
+      if(i===idx || !lista[i].pago){ lista[i].data=isoSomaDias(lista[i].data, delta); }
+    }
+  } else {
+    x.data=nova;
+  }
+  if(typeof salvarAgora==='function') salvarAgora();
+  fecharModal(); verFicha(clienteId);
 }
 
 function verPendentes(clienteId){
