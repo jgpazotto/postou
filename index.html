@@ -1562,6 +1562,7 @@ function renderHoje(){
         ${botoesPostar}
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="marcarPublicado(${p.id})">✅ Publicado!</button>
         <button class="btn-mini" onclick="abrirModalPost(${p.id})">✏️</button>
+        <button class="btn-mini" style="color:#b91c1c" title="Excluir este post" onclick="event.stopPropagation();if(confirm('Excluir este post? 🗑\\nEssa ação não dá pra desfazer.')){excluirPost(${p.id});}">🗑</button>
       </div>
     </div>`;
   }
