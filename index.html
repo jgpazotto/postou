@@ -335,6 +335,10 @@
   <section id="lp-planos" class="lp-sec">
     <h2>Escolha o seu plano</h2>
     <p class="lp-sub">Comece com 15 dias grátis — no teste você experimenta tudo.</p>
+    <div style="max-width:640px;margin:0 auto 22px;background:linear-gradient(135deg,#fdf2ff,#f3e8ff);border:1.5px solid #e9d5ff;border-radius:16px;padding:16px 18px;text-align:center">
+      <div style="font-size:1.05rem;font-weight:800;color:#7c3aed">🎁 Assinou o Postou? O e-book é seu de presente!</div>
+      <div style="font-size:.9rem;color:#6b7280;margin-top:4px">Quem assina qualquer plano ganha o e-book <b>“Redes Organizadas em 7 Dias”</b> — sem custo nenhum. 💜</div>
+    </div>
     <div class="lp-planos">
       <div class="lp-plano"><h3>🌱 Pessoal</h3><div class="lp-tagline">Pro seu próprio perfil</div><div class="lp-preco">R$ 4,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 49/ano 💜</div><ul><li>1 perfil</li><li>Calendário completo</li><li>Ideias por nicho</li><li>Compromissos e lembretes</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a><a class="lp-assinar" href="https://mpago.la/1nsxRvD" target="_blank" rel="noopener">Assinar mensal</a><a class="lp-assinar" href="https://mpago.la/1C6pRjY" target="_blank" rel="noopener">Assinar 1 ano</a></div>
       <div class="lp-plano"><h3>💵 Vendas</h3><div class="lp-tagline">Pra quem vende pelas redes</div><div class="lp-preco">R$ 9,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 99/ano 💜</div><ul><li>Tudo do Pessoal</li><li>Controle de vendas e lucros</li><li>Caixa e recebimentos</li><li>Contador ajudante</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a><a class="lp-assinar" href="https://mpago.la/2xX71dj" target="_blank" rel="noopener">Assinar mensal</a><a class="lp-assinar" href="https://mpago.la/1NDSrK2" target="_blank" rel="noopener">Assinar 1 ano</a></div>
@@ -986,11 +990,11 @@ async function carregarDono(){
     let badge='', cor='#0a8a4a', expirado=false;
     if(plano==='trial'){ const dias=diasDesde(a.inicio); if(dias>15){ expirado=true; badge=`⛔ Teste expirado (${dias} dias)`; cor='#c0392b'; } else { badge=`🎁 Teste · faltam ${Math.max(0,15-dias)} dia(s)`; cor='#c026a8'; } }
     else { badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo'); }
-    return {userId:row.user_id, nome, badge, cor, expirado, zap:a.zap||'', email:a.email||'', interesse:a.interesse||'pessoal', codigo:codigoIndicacao(a.email||'',nome), indicadoPor:(a.indicadoPor||'').toUpperCase(), ehEu:row.user_id===usuarioId};
+    return {userId:row.user_id, nome, badge, cor, expirado, plano:(a.plano||''), zap:a.zap||'', email:a.email||'', interesse:a.interesse||'pessoal', codigo:codigoIndicacao(a.email||'',nome), indicadoPor:(a.indicadoPor||'').toUpperCase(), ehEu:row.user_id===usuarioId};
   }).sort((x,y)=>(y.expirado?1:0)-(x.expirado?1:0));
   const nomePorCodigo = {}, codigoParaUserId = {}; lista.forEach(u=>{ nomePorCodigo[u.codigo]=u.nome; codigoParaUserId[u.codigo]=u.userId; });
   dados.premiosTratados = dados.premiosTratados || [];
-  const planos=['pessoal','vendas','business','pro','ultra'];
+  const planos=['pro','ultra','business','vendas','pessoal'];
   let html='';
   if(lista.length<=1){ html+=`<div class="vazio" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">⚠️ O painel está vendo só a sua conta. Falta ativar a <b>permissão de dona</b> no Supabase — o comando que a gente vai rodar juntas. Depois disso, todos os assinantes aparecem aqui.</div>`; }
   html+=`<div class="tiles"><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.length}</div><div class="rot">contas no Postou</div></div><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.filter(u=>u.expirado).length}</div><div class="rot">testes expirados</div></div></div>`;
@@ -1004,7 +1008,8 @@ async function carregarDono(){
     </div>`;
   }
   html+=lista.map(u=>{
-    const sel=`<select id="planoSel_${u.userId}">${planos.map(p=>`<option value="${p}" ${p===u.interesse?'selected':''}>${(PLANOS[p]&&PLANOS[p].rotulo)||p}</option>`).join('')}</select>`;
+    const planoAtualSel = (u.plano && PLANOS[u.plano] && !['trial','expirado','completo'].includes(u.plano)) ? u.plano : (u.interesse||'pessoal');
+    const sel=`<select id="planoSel_${u.userId}" title="Mudar o plano (salva na hora)" onchange="liberarUsuario('${u.userId}')">${planos.map(p=>`<option value="${p}" ${p===planoAtualSel?'selected':''}>${(PLANOS[p]&&PLANOS[p].rotulo)||p}</option>`).join('')}</select>`;
     const ddiId='ddi_'+u.userId;
     const ddiSel = u.zap ? `<select id="${ddiId}" title="País do WhatsApp" style="padding:4px;font-size:.72rem"><option value="55" ${ddiSugerido(u.zap)==='55'?'selected':''}>🇧🇷 +55</option><option value="1" ${ddiSugerido(u.zap)==='1'?'selected':''}>🇺🇸 +1</option></select>` : '';
     const btnZap = u.zap ? `${ddiSel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="avisarZap('${encodeURIComponent(u.zap)}','${encodeURIComponent(u.nome)}','${ddiId}')">📱 Avisar</button>` : '';
@@ -4320,7 +4325,31 @@ const RECADINHOS = [
   'você está construindo algo seu, com as suas mãos. Isso é lindo. Continua! 🌻',
   'feito é melhor que perfeito. Publica aquele post que está parado no rascunho. 😉',
   'cuida de você também, tá? Um café, um alongar, e voltamos pro trabalho. ☕',
-  'a sua dedicação de hoje é o sucesso que você vai colher. Bora com tudo! 🔥'
+  'a sua dedicação de hoje é o sucesso que você vai colher. Bora com tudo! 🔥',
+  'não precisa dar conta de tudo hoje. Escolha 3 coisas importantes e faça com carinho. 🌷',
+  'cada cliente que você conquista é prova de que o seu trabalho vale a pena. 💼💜',
+  'que tal postar hoje? O mundo precisa ver o que você faz tão bem. 📲✨',
+  'você é a prova de que dá pra começar do zero e ir longe. Continua firme! 🌱',
+  'organização não é perfeição — é dar um passo de cada vez. E você está dando. 👏',
+  'lembra por que você começou. Esse motivo ainda te move. Vai com ele. 💫',
+  'um dia de cada vez, uma tarefa de cada vez. Assim se constrói um negócio de verdade. 🧱',
+  'sua energia contagia. Cuida dela hoje, que ela cuida do seu sucesso. ⚡',
+  'já pensou em indicar o Postou pra uma amiga? Vocês duas ganham — e você ajuda ela a se organizar. 💌',
+  'o "depois" nunca chega. Faça hoje aquele post, aquela cobrança, aquele contato. 🚀',
+  'você merece ver o seu negócio crescer. E ele cresce com constância, não com pressa. 🌻',
+  'respira. Você está mais perto do seu objetivo do que estava ontem. 🌈',
+  'pequenos hábitos, grandes resultados. O que você faz todo dia é o que constrói o amanhã. 🔑',
+  'não compare o seu capítulo 1 com o capítulo 20 de ninguém. Seu ritmo é o certo pra você. 💛',
+  'hoje é dia de caprichar num detalhe: uma legenda, uma foto, um "obrigada" pro cliente. 🤍',
+  'sua história inspira mais gente do que você imagina. Compartilha um pedacinho dela hoje. 📖',
+  'que orgulho de você por não desistir. Isso já te coloca na frente de muita gente. 🏅',
+  'planeja 5 minutinhos agora e ganha a semana inteira depois. Vale muito a pena. 🗓️',
+  'você não precisa fazer sozinha o que dá pra organizar num app só. Conta comigo. 💜',
+  'sorria — você está fazendo acontecer, mesmo nos dias que parecem pequenos. 😊',
+  'meta do dia: uma ação que te aproxime do seu sonho. Só uma. E comemore. 🎯',
+  'o sucesso ama quem aparece todo dia. Aparece hoje, nem que seja um story. 🎬',
+  'você tem tudo pra dar certo: vontade, capricho e coragem. O resto a gente organiza. ✨',
+  'seja gentil com você hoje. Você está fazendo o seu melhor — e isso basta. 🌸'
 ];
 function normalizarTexto(t){ return t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
 function temPalavra(texto, kw){
