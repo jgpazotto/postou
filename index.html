@@ -853,6 +853,8 @@ function planoAtual(){
   const a = dados.assinatura;
   if(!a || !a.plano) return 'completo';
   if(a.plano==='trial') return diasDeTeste()>15 ? 'expirado' : 'trial';
+  // Liberação com prazo (dono definiu uma data): quando o prazo passa, volta pra expirado
+  if(a.liberadoAte && hojeISO() > a.liberadoAte) return 'expirado';
   return PLANOS[a.plano] ? a.plano : 'completo';
 }
 function aplicarPlano(){
@@ -988,9 +990,13 @@ async function carregarDono(){
     const nome=a.nome||((c.clientes&&c.clientes[0]&&c.clientes[0].nome)||'(sem nome)');
     const plano=a.plano||'completo';
     let badge='', cor='#0a8a4a', expirado=false;
+    const venceu = a.liberadoAte && hojeISO() > a.liberadoAte;
     if(plano==='trial'){ const dias=diasDesde(a.inicio); if(dias>15){ expirado=true; badge=`⛔ Teste expirado (${dias} dias)`; cor='#c0392b'; } else { badge=`🎁 Teste · faltam ${Math.max(0,15-dias)} dia(s)`; cor='#c026a8'; } }
+    else if(venceu){ expirado=true; badge='⛔ Liberação venceu ('+dataBRcompleta(a.liberadoAte)+')'; cor='#c0392b'; }
+    else if(a.liberadoAte){ badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo')+' · até '+dataBRcompleta(a.liberadoAte); }
+    else if(a.liberadoPor==='dono'){ badge='♾️ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo')+' · liberado pra sempre'; }
     else { badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo'); }
-    return {userId:row.user_id, nome, badge, cor, expirado, plano:(a.plano||''), zap:a.zap||'', email:a.email||'', interesse:a.interesse||'pessoal', codigo:codigoIndicacao(a.email||'',nome), indicadoPor:(a.indicadoPor||'').toUpperCase(), ehEu:row.user_id===usuarioId};
+    return {userId:row.user_id, nome, badge, cor, expirado, plano:(a.plano||''), liberadoAte:(a.liberadoAte||''), liberadoPor:(a.liberadoPor||''), zap:a.zap||'', email:a.email||'', interesse:a.interesse||'pessoal', codigo:codigoIndicacao(a.email||'',nome), indicadoPor:(a.indicadoPor||'').toUpperCase(), ehEu:row.user_id===usuarioId};
   }).sort((x,y)=>(y.expirado?1:0)-(x.expirado?1:0));
   const nomePorCodigo = {}, codigoParaUserId = {}; lista.forEach(u=>{ nomePorCodigo[u.codigo]=u.nome; codigoParaUserId[u.codigo]=u.userId; });
   dados.premiosTratados = dados.premiosTratados || [];
@@ -1010,11 +1016,15 @@ async function carregarDono(){
   html+=lista.map(u=>{
     const planoAtualSel = (u.plano && PLANOS[u.plano] && !['trial','expirado','completo'].includes(u.plano)) ? u.plano : (u.interesse||'pessoal');
     const sel=`<select id="planoSel_${u.userId}" title="Mudar o plano (salva na hora)" onchange="liberarUsuario('${u.userId}')">${planos.map(p=>`<option value="${p}" ${p===planoAtualSel?'selected':''}>${(PLANOS[p]&&PLANOS[p].rotulo)||p}</option>`).join('')}</select>`;
+    const prazos=[['1m','1 mês'],['3m','3 meses'],['6m','6 meses'],['1a','1 ano'],['sempre','♾️ Pra sempre']];
+    const prazoAtual = u.liberadoAte ? 'manter' : (u.liberadoPor==='dono' && u.plano ? 'sempre' : '1m');
+    const optManter = u.liberadoAte ? `<option value="manter" selected>até ${dataBRcompleta(u.liberadoAte)}</option>` : '';
+    const selPrazo=`<select id="prazoSel_${u.userId}" title="Por quanto tempo liberar" onchange="liberarUsuario('${u.userId}')">${optManter}${prazos.map(p=>`<option value="${p[0]}" ${p[0]===prazoAtual?'selected':''}>${p[1]}</option>`).join('')}</select>`;
     const ddiId='ddi_'+u.userId;
     const ddiSel = u.zap ? `<select id="${ddiId}" title="País do WhatsApp" style="padding:4px;font-size:.72rem"><option value="55" ${ddiSugerido(u.zap)==='55'?'selected':''}>🇧🇷 +55</option><option value="1" ${ddiSugerido(u.zap)==='1'?'selected':''}>🇺🇸 +1</option></select>` : '';
     const btnZap = u.zap ? `${ddiSel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="avisarZap('${encodeURIComponent(u.zap)}','${encodeURIComponent(u.nome)}','${ddiId}')">📱 Avisar</button>` : '';
     const btnEmail = u.email ? `<a class="btn-claro" style="padding:5px 10px;font-size:.78rem;text-decoration:none" href="${mailtoLiberado(u.email,u.nome)}">✉️ E-mail</a>` : '';
-    const acoes = u.ehEu ? '' : `${sel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="darSemana('${u.userId}')">🎁 +7 dias</button> ${btnZap} ${btnEmail}`;
+    const acoes = u.ehEu ? '' : `${sel} ${selPrazo} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="darSemana('${u.userId}')">🎁 +7 dias</button> ${btnZap} ${btnEmail}`;
     const linhaZap = u.zap ? `📱 ${escapar(u.zap)} <span style="opacity:.7">(confira 🇧🇷/🇺🇸)</span>` : 'sem WhatsApp';
     const linhaMail = u.email ? ` · ✉️ ${escapar(u.email)}` : '';
     const contato = `<br><span style="font-size:.75rem;color:var(--muted)">${linhaZap}${linhaMail}</span>`;
@@ -1026,16 +1036,30 @@ async function carregarDono(){
   }).join('');
   cont.innerHTML=html;
 }
+function prazoParaData(prazo){
+  const h=hojeISO();
+  if(prazo==='1m') return isoSomaDias(h,30);
+  if(prazo==='3m') return isoSomaDias(h,90);
+  if(prazo==='6m') return isoSomaDias(h,180);
+  if(prazo==='1a') return isoSomaDias(h,365);
+  return ''; // 'sempre' → sem data
+}
 async function liberarUsuario(userId){
   const selEl=document.getElementById('planoSel_'+userId);
   const plano=selEl?selEl.value:'pessoal';
+  const prazoEl=document.getElementById('prazoSel_'+userId);
+  const prazo=prazoEl?prazoEl.value:'1m';
   const cont=document.getElementById('listaDono');
   const { data } = await sb.from('organizador').select('conteudo').eq('user_id',userId).maybeSingle();
   const c=(data&&data.conteudo)||{}; c.assinatura=c.assinatura||{}; c.assinatura.plano=plano; c.assinatura.liberadoPor='dono';
+  // 'manter' = não mexe na data que já existe. 'sempre' = tira a data (pra sempre). Senão calcula a nova.
+  let ate = c.assinatura.liberadoAte||'';
+  if(prazo!=='manter'){ ate = prazoParaData(prazo); if(ate) c.assinatura.liberadoAte=ate; else delete c.assinatura.liberadoAte; }
   const { error } = await sb.from('organizador').update({ conteudo:c, atualizado:new Date().toISOString() }).eq('user_id',userId);
   if(error){ if(cont) cont.insertAdjacentHTML('afterbegin',`<div class="vazio" style="color:#c0392b">Não consegui liberar: ${escapar(error.message)}</div>`); return; }
   const nm=escapar(((c.assinatura.nome||'A pessoa').split(' ')[0]));
-  avisoDono=`✅ ${nm} foi liberado no plano ${escapar((PLANOS[plano]&&PLANOS[plano].rotulo)||plano)}! Agora clique em 📱 Avisar pra mandar o WhatsApp. 💜`;
+  const validade = ate ? ` até <b>${dataBRcompleta(ate)}</b>` : ' <b>pra sempre</b>';
+  avisoDono=`✅ ${nm} foi liberado no plano ${escapar((PLANOS[plano]&&PLANOS[plano].rotulo)||plano)}${validade}! Agora clique em 📱 Avisar pra mandar o WhatsApp. 💜`;
   carregarDono();
 }
 function isoSomaDias(iso, n){ const d=new Date(parseInt(iso.slice(0,4)),parseInt(iso.slice(5,7))-1,parseInt(iso.slice(8,10))); d.setDate(d.getDate()+n); const mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return d.getFullYear()+'-'+mm+'-'+dd; }
@@ -3255,7 +3279,13 @@ const SUGESTOES_NICHO = {
     {t:'Frase acolhedora pra famílias atípicas', d:'Uma mensagem que abraça quem está num dia difícil cuidando de alguém atípico.', h:'#maeatipica #acolhimento #neurodiversidade'},
     {t:'Diagnóstico na vida adulta', d:'Fale com carinho sobre descobrir-se neurodivergente já adulto. Um tema que gera muita identificação.', h:'#tdahadulto #autismonavidaadulta #autoconhecimento'},
     {t:'Inclusão de verdade', d:'Uma dica prática de inclusão na escola, no trabalho ou numa festa. Útil e engajável.', h:'#inclusao #acessibilidade #respeito'},
-    {t:'Como a terapia ajuda', d:'Explique como o seu trabalho apoia pessoas atípicas e suas famílias. Aproxima quem precisa de você.', h:'#terapia #neurodiversidade #psicologia'}]},
+    {t:'Como a terapia ajuda', d:'Explique como o seu trabalho apoia pessoas atípicas e suas famílias. Aproxima quem precisa de você.', h:'#terapia #neurodiversidade #psicologia'},
+    {t:'Rotina visual que funciona', d:'Ensine a montar um quadro de rotina com desenhos ou fotos pra criança atípica se organizar sozinha. Prático, salvável e que os pais amam aplicar.', h:'#rotinavisual #autismo #tea'},
+    {t:'O que fazer numa crise sensorial', d:'Passo a passo calmo pra ajudar numa crise (ambiente, tom de voz, o que evitar). Conteúdo que acalma e é muito compartilhado por famílias.', h:'#crisesensorial #autismo #acolhimento'},
+    {t:'Autismo em meninas passa batido', d:'Explique por que muitas meninas são diagnosticadas tarde e quais sinais observar. Tema pouco falado que gera muita identificação.', h:'#autismoemmeninas #tea #diagnostico'},
+    {t:'Como conversar com a escola', d:'Dicas pra família alinhar adaptações com a escola sem briga. Ajuda de verdade quem se sente sozinho nessa luta.', h:'#inclusaoescolar #tdah #autismo'},
+    {t:'Cuidar de quem cuida', d:'Uma mensagem de autocuidado pro cuidador que vive no limite. Mostra que você enxerga o esgotamento dele e cria vínculo forte.', h:'#autocuidado #maeatipica #saudemental'},
+    {t:'Estímulos: o que oferecer e o que evitar', d:'Liste estímulos que ajudam e os que sobrecarregam. Conteúdo educativo que posiciona você como referência acolhedora.', h:'#estimulos #neurodiversidade #tea'}]},
   advocacia: {nome:'⚖️ Advocacia e jurídico', kw:['advocacia','advogado','juridico','direito','contrato','processo'], ideias:[
     {t:'Seu direito em 1 minuto', d:'Explique um direito comum de forma simples. Conteúdo útil que gera autoridade.', h:'#direitos #advocacia #juridico'},
     {t:'Mito ou verdade jurídico', d:'Desminta uma crença comum sobre leis. Engaja e educa.', h:'#mitoouverdade #direito #advogado'},
@@ -3357,7 +3387,13 @@ const SUGESTOES_NICHO = {
     {t:'Mito ou verdade sobre morar fora', d:'Desminta uma ideia comum sobre a vida nos EUA. Aproxima quem sonha em vir.', h:'#mitoouverdade #morarnaeua #imigracao'},
     {t:'Indicação da comunidade', d:'Indique um lugar ou serviço brasileiro na sua cidade (restaurante, loja, grupo). Fortalece a rede e gera parcerias.', h:'#comunidadebrasileira #brasileirosnoseua'},
     {t:'Um dia na minha vida por aqui', d:'Bastidores da sua rotina nos EUA: trabalho, família, correria. Humaniza e aproxima muito.', h:'#bastidores #rotina #vidanaeua'},
-    {t:'Realizando o sonho americano', d:'Celebre uma conquista sua (a casa, o carro, o negócio). Inspira quem está começando agora.', h:'#sonhoamericano #conquista #recomeço'}]},
+    {t:'Realizando o sonho americano', d:'Celebre uma conquista sua (a casa, o carro, o negócio). Inspira quem está começando agora.', h:'#sonhoamericano #conquista #recomeço'},
+    {t:'Primeiros documentos nos EUA', d:'Explique de forma simples o que correr atrás no começo (SSN ou ITIN, conta no banco, comprovante). Guia que todo recém-chegado salva.', h:'#brasileirosnoseua #imigrante #documentos'},
+    {t:'Tirar a carteira de motorista', d:'Conte como funciona a habilitação no seu estado e dê uma dica de quem já passou. Muito procurado pela comunidade.', h:'#carteirademotorista #morarnaeua #dicas'},
+    {t:'Tax season sem susto', d:'Desmistifique o imposto americano com uma dica prática e um lembrete de prazo. Conteúdo útil que gera salvamento e compartilhamento.', h:'#taxes #impostoeua #brasileirosnoseua'},
+    {t:'Onde achar produtos brasileiros', d:'Indique loja, mercado ou site que vende aquele gostinho do Brasil na sua região. Fortalece a comunidade e rende parcerias.', h:'#produtosbrasileiros #comunidade #saudade'},
+    {t:'Seguro e saúde: como funciona', d:'Explique o básico de saúde nos EUA (seguro, urgência, clínica) sem juridiquês. Tira o medo de quem chegou agora.', h:'#saudenaeua #seguro #morarfora'},
+    {t:'Colocar os filhos na escola', d:'Conte como matricular as crianças e o que muda na escola americana. Acolhe famílias que vieram com filhos.', h:'#escolanaeua #filhos #vidanaeua'}]},
   promocoes: {nome:'🔥 Promoções e ofertas', kw:['promocao','oferta','desconto','liquidacao','sale','cupom','combo'], ideias:[
     {t:'Oferta do dia', d:'Um produto ou serviço com preço especial só hoje. Foto real, preço claro e como pedir. Simples e direto.', h:'#ofertadodia #promocao #desconto'},
     {t:'Contagem regressiva', d:'Avise que a promoção acaba em X horas. Use o senso de urgência pra acelerar a decisão.', h:'#ultimashoras #corre #oferta'},
@@ -3725,6 +3761,21 @@ const SUGESTOES_NICHO = {
     {t:'Oferta de lançamento', d:'Chamada direta com o benefício e o teste grátis. Crie urgência leve ("preço de lançamento").', h:'#promoção #lançamento #oferta'},
     {t:'Responda uma dúvida comum (FAQ)', d:'Pegue a pergunta que mais recebe e responda em vídeo. Tira objeção e vira conteúdo útil.', h:'#faq #duvidas #app'},
     {t:'Prova de resultado', d:'Mostre números, prints ou uma conquista real de quem usa. Dados constroem confiança.', h:'#resultado #provasocial #dados'}]},
+  postou: {nome:'💜 Divulgar o Postou (meu app)', kw:['postou','meu app','divulgar postou','organizar redes','assinatura postou','app da joice'], ideias:[
+    {t:'A dor da bagunça nas redes', d:'Comece mostrando o caos: post esquecido, mil apps, print no celular. Corte pro Postou resolvendo tudo num lugar só. É o formato que mais faz a pessoa se identificar e querer testar.', h:'#Postou #organizacao #redessociais'},
+    {t:'Tudo num app só (demonstração)', d:'Grave a tela em 20-30s mostrando calendário, ideias por nicho e financeiro juntos. Ver funcionando quebra a dúvida de que é complicado.', h:'#Postou #demo #produtividade'},
+    {t:'🎁 Assine e ganhe o e-book de presente', d:'Avise que quem assina qualquer plano ganha o e-book Redes Organizadas em 7 Dias de graça. Empurrãozinho perfeito pra quem está no teste decidir assinar.', h:'#Postou #ebookdepresente #brinde'},
+    {t:'📱 Seu site virou app no iPhone', d:'Ensine o passo a passo pra adicionar o Postou na tela do iPhone (Safari, Compartilhar, Adicionar à Tela de Início). IMPORTANTE dizer que é no iPhone. Reels curtinho que salva muito.', h:'#Postou #iphone #dicadeapp'},
+    {t:'Antes e depois da sua agenda', d:'Mostre a rotina antes (bagunçada, esquecendo post) e depois do Postou (tudo planejado e tranquilo). Transformação vende sozinha.', h:'#Postou #antesedepois #organizacao'},
+    {t:'Ideias prontas pra cada profissão', d:'Mostre que o app já tem sugestão de post por nicho (psicóloga, salão, imigrante, loja). A pessoa nunca mais trava sem saber o que postar.', h:'#Postou #ideiasdeconteudo #nicho'},
+    {t:'Controle o dinheiro no mesmo app', d:'Mostre o carnê, o que tem a receber e o caixa dentro do Postou. Quem vende pelas redes ama ter tudo junto.', h:'#Postou #financeiro #vendas'},
+    {t:'Depoimento de quem já usa', d:'Print ou vídeo de uma amiga elogiando o Postou. Prova social é o que mais convence quem está na dúvida.', h:'#Postou #depoimento #provasocial'},
+    {t:'15 dias grátis pra testar tudo', d:'Chamada direta: no teste você experimenta o app inteiro, sem pagar nada. Reduz o medo de assinar sem conhecer.', h:'#Postou #testegratis #experimente'},
+    {t:'Indique uma amiga e ganhe dias', d:'Explique que indicando uma amiga com o seu código, ela ganha 15 dias e você ganha dias grátis também. Todo mundo sai ganhando.', h:'#Postou #indicacao #premio'},
+    {t:'3 dicas pra bombar nas redes', d:'Entregue valor de graça (postar no horário certo, responder comentário rápido, usar Reels) e no fim diga que o Postou ajuda a organizar tudo isso. Atrai seguidor qualificado.', h:'#Postou #dicasdeinstagram #engajamento'},
+    {t:'Preço baratinho (planos)', d:'Mostre que dá pra começar por bem pouco por mês e o quanto isso economiza de tempo e cabeça. Ancorar no valor faz o preço parecer pequeno.', h:'#Postou #planos #custobeneficio'},
+    {t:'Por que eu criei o Postou', d:'Conte a sua história e a dor real que te fez criar o app. Marca com propósito conecta e fideliza de verdade.', h:'#Postou #bastidores #proposito'},
+    {t:'Recadinho pra se organizar hoje', d:'Poste uma frase motivadora sobre parar de deixar as redes pra depois e começar a planejar hoje. Leve, humano e muito salvável.', h:'#Postou #motivacao #organizese'}]},
   infantil: {nome:'🧸 Moda infantil / Kids', kw:['infantil','moda infantil','kids','crianca','criança','bebe','bebê','roupa infantil','enxoval','loja infantil','baby','fantasia'], ideias:[
     {t:'Look do dia da criançada', d:'Monte um look completo e mostre no cabideiro ou na criança (com autorização dos pais). Inspira a mãe na hora de comprar.', h:'#modainfantil #lookinfantil #roupainfantil #kidsfashion #modakids #lojainfantil'},
     {t:'Chegou novidade! 🎉', d:'Apresente as peças que acabaram de chegar. Cria urgência e faz a cliente correr pra garantir.', h:'#novidades #modainfantil #lojainfantil #roupadecrianca #modakids #acaboudechegar'},
