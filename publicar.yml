@@ -1,0 +1,27 @@
+name: Robô do Postou — publicar posts agendados
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # a cada 15 minutos
+  workflow_dispatch: {}       # botão "Run workflow" para testar na hora
+
+concurrency:
+  group: robo-postou
+  cancel-in-progress: false   # nunca roda dois ao mesmo tempo
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Publicar o que está na hora
+        run: node robo/publicar.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          META_APP_ID: ${{ secrets.META_APP_ID }}
+          META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
