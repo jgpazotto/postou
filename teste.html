@@ -4525,7 +4525,7 @@ async function conectarMeta(){
   try{
     const FB = await carregarSdkFacebook();
     const opcoes = META_CONFIG_ID ? { config_id:META_CONFIG_ID } : { scope:META_ESCOPOS, return_scopes:true };
-    FB.login(async (resp)=>{
+    FB.login((resp)=>{ (async ()=>{
       if(!resp || !resp.authResponse){ if(msg) msg.textContent='Conexão cancelada.'; return; }
       const token = resp.authResponse.accessToken;
       let paginas = [];
@@ -4538,7 +4538,7 @@ async function conectarMeta(){
       if(error){ if(msg) msg.textContent='⚠️ '+error.message; return; }
       if(msg) msg.textContent='✅ Conectado! Agora escolha a página de cada perfil abaixo.';
       await carregarConexao();
-    }, opcoes);
+    })(); }, opcoes);
   }catch(e){ if(msg) msg.textContent='⚠️ '+e.message; }
 }
 async function desconectarMeta(){
