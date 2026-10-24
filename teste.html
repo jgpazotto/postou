@@ -3054,13 +3054,13 @@ function abrirModalPost(id, dataPre){
   abrirModal(`
     <h3>${p?'Editar postagem':'Nova postagem'}</h3>
     <label>Usuário</label>
-    <select id="mCliente" onchange="trocaClientePost()">${dados.clientes.map(x=>`<option value="${x.id}" ${p&&p.clienteId===x.id?'selected':''}>${escapar(x.nome)}</option>`).join('')}</select>
+    <select id="mCliente" onchange="trocaClientePost()">${dados.clientes.filter(x=>!x.arquivado || (p&&p.clienteId===x.id)).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<option value="${x.id}" ${p&&p.clienteId===x.id?'selected':''}>${escapar(x.nome)}</option>`).join('')}</select>
     <label>Publicar em quais redes?</label>
     <div class="check-redes" id="mChkRedes" onchange="aoMudarRedes()">${checkboxesRedes(cliInicial, p?p.redes:null)}</div>
     ${(!p && dados.clientes.length>1) ? `
     <label>👥 Postar o mesmo em outros perfis? <span style="font-weight:400;color:var(--muted);font-size:.78rem">(collab — cria o post igual pra cada um marcado)</span></label>
     <div class="check-redes" id="mCollab">
-      ${dados.clientes.filter(x=>x.id!==cliInicial.id).map(x=>`<label style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left"><input type="checkbox" class="chk-collab" value="${x.id}" style="flex:none;width:16px;height:16px;margin:0"> <span class="bolinha" style="width:10px;height:10px;background:${x.cor};flex:none"></span> <span style="flex:1;text-align:left">${escapar(x.nome)}</span></label>`).join('')}
+      ${dados.clientes.filter(x=>x.id!==cliInicial.id && !x.arquivado).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<label style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left"><input type="checkbox" class="chk-collab" value="${x.id}" style="flex:none;width:16px;height:16px;margin:0"> <span class="bolinha" style="width:10px;height:10px;background:${x.cor};flex:none"></span> <span style="flex:1;text-align:left">${escapar(x.nome)}</span></label>`).join('')}
     </div>` : ''}
     <label>Título / assunto</label>
     <input id="mTitulo" value="${p?escapar(p.titulo):''}" placeholder="Ex.: Promoção de sexta">
@@ -4475,7 +4475,7 @@ let conexaoMeta = null;          // linha de conexoes_meta do usuário
 let publicacoesMapa = {};        // "postId|rede" -> {status, resultado}
 let midiasTemp = [];
 
-function ehPerfilSocial(c){ return c && c.tipo!=='cliente' && c.tipo!=='servico'; }
+function ehPerfilSocial(c){ return c && !c.arquivado && c.tipo!=='cliente' && c.tipo!=='servico'; }
 
 /* ---------- mídias do post (arte / vídeo) ---------- */
 function desenharMidias(){
@@ -4486,10 +4486,27 @@ function desenharMidias(){
       <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
     </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
 }
+// Instagram só aceita foto em JPEG: converte PNG/WebP/HEIC etc. antes de enviar
+function paraJpeg(f){
+  return new Promise((ok)=>{
+    if(!(f.type||'').startsWith('image/') || f.type==='image/jpeg') return ok(f);
+    const url=URL.createObjectURL(f); const img=new Image();
+    img.onload=()=>{
+      const max=1440; let w=img.naturalWidth, h=img.naturalHeight;
+      if(w>max){ h=Math.round(h*max/w); w=max; }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      const cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,w,h); cx.drawImage(img,0,0,w,h);
+      cv.toBlob(b=>{ URL.revokeObjectURL(url); ok(b? new File([b], (f.name||'arte').replace(/\.[^.]+$/,'')+'.jpg', {type:'image/jpeg'}) : f); }, 'image/jpeg', 0.92);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); ok(f); };
+    img.src=url;
+  });
+}
 async function enviarMidias(input){
   const arquivos = [...(input.files||[])]; if(!arquivos.length) return;
   const st = document.getElementById('mMidiaStatus');
-  for(const [i,f] of arquivos.entries()){
+  for(let [i,f] of arquivos.entries()){
+    f = await paraJpeg(f);
     if(f.size > 95*1024*1024){ if(st) st.textContent='⚠️ "'+f.name+'" é grande demais (máx. 95 MB).'; continue; }
     if(st) st.textContent = '⏳ Enviando '+(i+1)+' de '+arquivos.length+'…';
     const ext = (f.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
@@ -4553,7 +4570,7 @@ function escolherPaginaMeta(clienteId, pageId){
 function renderConexoes(){
   const el = document.getElementById('conexoesWrap'); if(!el) return;
   const pags = (conexaoMeta && conexaoMeta.paginas) || [];
-  const perfis = dados.clientes.filter(ehPerfilSocial);
+  const perfis = dados.clientes.filter(ehPerfilSocial).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt'));
   el.innerHTML = `<div class="cartao" style="margin-bottom:16px;border:1px solid #e9d5ff;background:linear-gradient(135deg,#faf5ff,#fdf2f8)">
     <h3 style="margin:0 0 4px">🤖 Publicação automática <span style="font-size:.72rem;background:#7c3aed;color:#fff;border-radius:20px;padding:2px 8px;vertical-align:middle">NOVO</span></h3>
     <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Conecte seu Facebook e o Postou publica sozinho no Instagram e no Facebook, no dia e hora do post. 💜</p>
