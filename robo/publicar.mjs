@@ -125,13 +125,16 @@ async function publicarInstagram(p, pagina) {
   const midias = midiasDoPost(p);
   if (!midias.length) throw new Error('O Instagram precisa de foto ou vídeo — suba a arte no post');
   const caption = legendaDe(p, 'instagram');
+  // collab: convida até 3 perfis (eles aceitam no Instagram deles)
+  const collab = Array.isArray(p.collabIG) ? p.collabIG.filter(Boolean).slice(0, 3) : [];
+  const comCollab = (params) => collab.length ? { ...params, collaborators: JSON.stringify(collab) } : params;
   let creation;
   if (midias.length === 1) {
     const m = midias[0];
     const params = m.tipo === 'video'
       ? { media_type: 'REELS', video_url: m.url, caption, share_to_feed: 'true', access_token: tk }
       : { image_url: m.url, caption, access_token: tk };
-    creation = (await graph('POST', ig + '/media', params)).id;
+    creation = (await graph('POST', ig + '/media', comCollab(params))).id;
     await esperarContainer(creation, tk);
   } else {
     const filhos = [];
@@ -143,7 +146,7 @@ async function publicarInstagram(p, pagina) {
       await esperarContainer(id, tk);
       filhos.push(id);
     }
-    creation = (await graph('POST', ig + '/media', { media_type: 'CAROUSEL', children: filhos.join(','), caption, access_token: tk })).id;
+    creation = (await graph('POST', ig + '/media', comCollab({ media_type: 'CAROUSEL', children: filhos.join(','), caption, access_token: tk }))).id;
     await esperarContainer(creation, tk);
   }
   const pub = await graph('POST', ig + '/media_publish', { creation_id: creation, access_token: tk });
