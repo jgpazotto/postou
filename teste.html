@@ -3058,9 +3058,9 @@ function abrirModalPost(id, dataPre){
     <label>Publicar em quais redes?</label>
     <div class="check-redes" id="mChkRedes" onchange="aoMudarRedes()">${checkboxesRedes(cliInicial, p?p.redes:null)}</div>
     ${(!p && dados.clientes.length>1) ? `
-    <label>👥 Postar o mesmo em outros perfis? <span style="font-weight:400;color:var(--muted);font-size:.78rem">(collab — cria o post igual pra cada um marcado)</span></label>
+    <label>📋 Copiar este post pra outros perfis? <span style="font-weight:400;color:var(--muted);font-size:.78rem">(cria posts SEPARADOS, um em cada perfil. Pra collab de verdade no Instagram, use o campo 🤝 Collab lá embaixo)</span></label>
     <div class="check-redes" id="mCollab">
-      ${dados.clientes.filter(x=>x.id!==cliInicial.id && !x.arquivado).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<label style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left"><input type="checkbox" class="chk-collab" value="${x.id}" style="flex:none;width:16px;height:16px;margin:0"> <span class="bolinha" style="width:10px;height:10px;background:${x.cor};flex:none"></span> <span style="flex:1;text-align:left">${escapar(x.nome)}</span></label>`).join('')}
+      ${dados.clientes.filter(x=>x.id!==cliInicial.id && ehPerfilSocial(x)).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<label style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left"><input type="checkbox" class="chk-collab" value="${x.id}" style="flex:none;width:16px;height:16px;margin:0"> <span class="bolinha" style="width:10px;height:10px;background:${x.cor};flex:none"></span> <span style="flex:1;text-align:left">${escapar(x.nome)}</span></label>`).join('')}
     </div>` : ''}
     <label>Título / assunto</label>
     <input id="mTitulo" value="${p?escapar(p.titulo):''}" placeholder="Ex.: Promoção de sexta">
@@ -3080,6 +3080,8 @@ function abrirModalPost(id, dataPre){
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:9px 11px;margin-top:8px;cursor:pointer"><input type="checkbox" id="mAuto" ${p&&p.autoPublicar?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 🤖 Publicar sozinho no horário (Instagram e Facebook)</label>
     <label style="margin-top:8px">🤝 Collab no Instagram <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô convida sozinho — até 3 @, separados por espaço)</span></label>
     <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="@jgpazotto @geraldopazotto">
+    <label>📝 Observações <span style="font-weight:400;color:var(--muted);font-size:.78rem">(só pra você — não vai na legenda)</span></label>
+    <textarea id="mObs" rows="2" placeholder="Ex.: editar no CapCut, capa pelo Meta">${p&&p.obs?escapar(p.obs):''}</textarea>
     <label>Legenda / roteiro</label>
     <textarea id="mLegenda" placeholder="Legenda pronta, hashtags, roteiro do vídeo..." oninput="atualizarContadores()">${p?escapar(p.legenda):''}</textarea>
     <div class="contadores" id="contadores"></div>
@@ -3160,6 +3162,7 @@ function salvarPost(id){
   };
   novo.midias = midiasTemp.slice();
   novo.autoPublicar = !!(document.getElementById('mAuto') && document.getElementById('mAuto').checked);
+  { const ob=document.getElementById('mObs'); novo.obs = ob && ob.value.trim() ? ob.value.trim() : undefined; }
   { const ci=document.getElementById('mCollabIG'); const lista=ci?(ci.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()).slice(0,3):[]; novo.collabIG = lista.length ? lista : undefined; }
   if(novo.autoPublicar && novo.status!=='publicado') novo.status = 'agendado';
   if(id){ Object.assign(dados.posts.find(x=>x.id===id), novo); }
@@ -4622,7 +4625,8 @@ function badgeAuto(p){
     const err = (x.resultado&&x.resultado.erro)||'erro';
     return `<span style="color:#dc2626" title="${escapar(err)}">⚠️ ${sig}</span> <button class="btn-mini" onclick="tentarDeNovo(${p.id},'${r}')" title="${escapar(err)}">tentar de novo</button>`;
   });
-  return `<div style="font-size:.78rem;margin-top:3px">🤖 ${partes.join(' · ')}</div>`;
+  const manuais = (p.redes||[]).filter(r=>r!=='instagram'&&r!=='facebook').map(r=>(REDES&&REDES[r]&&REDES[r].nome)||r);
+  return `<div style="font-size:.78rem;margin-top:3px">🤖 ${partes.join(' · ')}${manuais.length?` <span style="color:var(--muted)">· ${escapar(manuais.join(', '))}: manual</span>`:''}</div>${p.obs?`<div style="font-size:.78rem;color:var(--muted);margin-top:2px">📝 ${escapar(p.obs)}</div>`:''}`;
 }
 async function tentarDeNovo(postId, rede){
   await sb.from('publicacoes').delete().eq('user_id',usuarioId).eq('post_id',postId).eq('rede',rede);
