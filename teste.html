@@ -4559,8 +4559,9 @@ async function conectarMeta(){
       }catch(e){}
       const { error } = await sb.from('conexoes_meta').upsert({ user_id:usuarioId, user_token:token, token_longo:false, paginas, erro:null, atualizado:new Date().toISOString() });
       if(error){ if(msg) msg.textContent='⚠️ '+error.message; return; }
-      if(msg) msg.textContent='✅ Conectado! Agora escolha a página de cada perfil abaixo.';
       await carregarConexao();
+      const n = ligarAutomatico(false);
+      if(msg) msg.textContent = '✅ Conectado!' + (n ? ' Liguei sozinha '+n+' perfil(s) à página certa 💜 Confira abaixo.' : ' Agora escolha a página de cada perfil abaixo.');
     })(); }, opcoes);
   }catch(e){ if(msg) msg.textContent='⚠️ '+e.message; }
 }
@@ -4571,7 +4572,28 @@ async function desconectarMeta(){
 function escolherPaginaMeta(clienteId, pageId){
   const c = clientePorId(clienteId); if(!c) return;
   if(pageId) c.metaPageId = pageId; else delete c.metaPageId;
+  delete c.metaAuto;
   tocar();
+}
+// 🔗 Liga sozinho: o @ do Instagram do perfil bate com o Instagram da página (ou o nome bate)
+function normalizarArroba(t){ return String(t||'').toLowerCase().replace(/^https?:\/\/(www\.)?instagram\.com\//,'').replace(/[^a-z0-9]/g,''); }
+function paginaDoPerfil(c, pags){
+  const igs = (c.redes||[]).filter(r=>r.tipo==='instagram').map(r=>normalizarArroba(r.usuario||r.link)).filter(Boolean);
+  let p = pags.find(p=>p.ig_user && igs.includes(normalizarArroba(p.ig_user)));
+  if(!p){ const nome = normalizarArroba(c.nome); p = nome && pags.find(p=>normalizarArroba(p.name)===nome); }
+  return p || null;
+}
+function ligarAutomatico(avisar){
+  const pags = (conexaoMeta && conexaoMeta.paginas) || [];
+  let n = 0;
+  dados.clientes.filter(ehPerfilSocial).forEach(c=>{
+    if(c.metaPageId) return;            // não mexe no que já foi escolhido
+    const p = paginaDoPerfil(c, pags);
+    if(p){ c.metaPageId = p.id; c.metaAuto = true; n++; }
+  });
+  if(n) tocar(); renderConexoes();
+  if(avisar){ const msg=document.getElementById('conexaoMsg'); if(msg) msg.textContent = n ? '✅ Liguei '+n+' perfil(s) sozinha! Os outros não têm página com o mesmo @ — escolha à mão ou ligue o Instagram a uma Página.' : 'Nenhum perfil novo pra ligar: os que têm página com o mesmo @ já estão ligados. 💜'; }
+  return n;
 }
 function renderConexoes(){
   const el = document.getElementById('conexoesWrap'); if(!el) return;
@@ -4583,13 +4605,13 @@ function renderConexoes(){
     ${conexaoMeta ? `
       <div style="font-size:.86rem;margin-bottom:8px">✅ Facebook conectado${conexaoMeta.erro?` · <span style="color:#dc2626">${escapar(conexaoMeta.erro)}</span>`:''}</div>
       ${pags.length ? perfis.map(c=>`<div style="display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap">
-          <span class="bolinha" style="background:${c.cor}"></span><b style="min-width:140px">${escapar(c.nome)}</b>
+          <span class="bolinha" style="background:${c.cor}"></span><b style="min-width:140px">${escapar(c.nome)}${c.metaAuto?' <span title="Ligado automático pelo @ do Instagram — pode trocar" style="font-size:.7rem;background:#dcfce7;color:#166534;border-radius:20px;padding:1px 7px;font-weight:600">✅ automático</span>':''}${!c.metaPageId&&!paginaDoPerfil(c,pags)?' <span title="Nenhuma página com esse @ apareceu. O Instagram precisa ser profissional e ligado a uma Página do Facebook; depois clique em Reconectar." style="font-size:.7rem;background:#fef3c7;color:#92400e;border-radius:20px;padding:1px 7px;font-weight:600">sem página</span>':''}</b>
           <select onchange="escolherPaginaMeta(${c.id}, this.value)" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px;min-width:220px">
             <option value="">— não publicar automático —</option>
             ${pags.map(p=>`<option value="${p.id}" ${c.metaPageId===p.id?'selected':''}>${escapar(p.name)}${p.ig_user?' + @'+escapar(p.ig_user):' (sem Instagram)'}</option>`).join('')}
           </select></div>`).join('')
         : '<div style="font-size:.84rem;color:var(--muted)">Nenhuma página encontrada nessa conta do Facebook.</div>'}
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn-claro" onclick="conectarMeta()">🔄 Reconectar</button><button class="btn-mini" onclick="desconectarMeta()">Desconectar</button></div>`
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="ligarAutomatico(true)">🔗 Ligar todos</button><button class="btn-claro" onclick="conectarMeta()">🔄 Reconectar</button><button class="btn-mini" onclick="desconectarMeta()">Desconectar</button></div>`
     : `<button class="btn" onclick="conectarMeta()">🔗 Conectar Facebook e Instagram</button>`}
     <div id="conexaoMsg" style="font-size:.84rem;margin-top:8px;color:var(--muted)"></div>
   </div>`;
