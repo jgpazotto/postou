@@ -1562,7 +1562,7 @@ function renderHoje(){
     elRec.innerHTML = `<div style="background:linear-gradient(135deg,#faf5ff,#fdf2f8);border:1px solid #f0e6fb;border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(124,58,237,.06)">
       <div style="font-size:.78rem;color:#9b6ec8;font-weight:800;letter-spacing:.3px;margin-bottom:3px">💜 RECADINHO DO DIA</div>
       <div style="font-size:.95rem;color:#4b3a63;line-height:1.5">${oi}${rec}</div>
-      <div style="margin-top:10px"><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirRespostas()">💬 Respostas prontas</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
     </div>`;
   }
   const posts = dados.posts.filter(p=>(!f||p.clienteId===f));
@@ -1731,6 +1731,38 @@ async function compartilharPost(id){
   const p = dados.posts.find(x=>x.id===id);
   try{ await navigator.share({ text: p.legenda||p.titulo }); }catch(e){}
 }
+/* ---------- 💬 RESPOSTAS PRONTAS (comentários e direct) ---------- */
+const RESPOSTAS_PADRAO = [
+  {cat:'😍 Elogio ("linda", "amei", ❤️)', txts:['Obrigada, flor! 💜 Fico feliz que gostou!','Aaah, obrigada! 🥰 Você é um amor!','Que bom que gostou! 💜 Obrigada pelo carinho!','Obrigadaaa! ✨ Volta sempre!']},
+  {cat:'🙏 Obrigada por comentar', txts:['Obrigada por comentar! 💜','Amo quando vocês participam! 🥰','Obrigada pela força! 💪💜']},
+  {cat:'💰 Preço / quanto custa', txts:['Oi! 💜 Te mandei os valores no direct, dá uma olhadinha!','Oi, flor! Os valores eu passo pelo WhatsApp — o link tá na bio! 📲','Oi! Me chama no direct que te explico tudinho 💜']},
+  {cat:'📍 Onde fica / como compra', txts:['Oi! 💜 O link tá na bio, é só clicar!','Te mandei no direct! 📩','Me chama no WhatsApp (link na bio) que eu te passo! 📲']},
+  {cat:'📸 Marcou nos stories', txts:['Obrigada por me marcar! 💜 Já repostei!','Amei! 🥰 Obrigada pelo carinho!','Que lindo! 💜 Obrigada demais!']},
+  {cat:'🤝 Parceria / publi', txts:['Oi! 💜 Obrigada pelo interesse! Me manda os detalhes por e-mail ou direct que eu respondo com calma.','Oi! Adoro parcerias 💜 Me conta mais no direct!']},
+  {cat:'👋 Novo seguidor (direct)', txts:['Oi! Seja muito bem-vinda por aqui 💜 Qualquer dúvida, é só chamar!','Que bom ter você aqui! 🥰 Já viu os destaques? Tem muita coisa legal lá!']},
+];
+function respostasTodas(){ const minhas = (dados.respostas||[]); return minhas.length ? [{cat:'⭐ Minhas respostas', txts:minhas, minhas:true}, ...RESPOSTAS_PADRAO] : RESPOSTAS_PADRAO; }
+function abrirRespostas(){
+  const grupos = respostasTodas();
+  abrirModal(`<h3>💬 Respostas prontas</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Toque numa resposta pra copiar e cole no comentário ou no direct. 💜 Dica: varie as respostas pra não ficar repetitivo.</p>
+    <div style="max-height:52vh;overflow-y:auto">
+    ${grupos.map((g,gi)=>`<details ${gi===0?'open':''} style="margin-bottom:6px"><summary style="cursor:pointer;font-weight:700;padding:6px 0">${escapar(g.cat)}</summary>
+      ${g.txts.map((t,ti)=>`<div style="display:flex;gap:6px;align-items:center;margin:4px 0"><button class="btn-claro" style="flex:1;text-align:left;padding:8px 10px;font-size:.85rem;white-space:normal" onclick="copiarResposta(this, ${gi}, ${ti})">${escapar(t)}</button>${g.minhas?`<button class="btn-mini perigo" onclick="apagarResposta(${ti})">🗑</button>`:''}</div>`).join('')}
+    </details>`).join('')}
+    </div>
+    <label>➕ Criar minha resposta</label>
+    <div style="display:flex;gap:6px"><input id="novaResposta" placeholder="Ex.: Obrigada, linda! Vem que tem novidade amanhã 💜"><button class="btn" onclick="salvarResposta()">Salvar</button></div>
+    <div class="rodape"><button class="btn" onclick="fecharModal()">Fechar</button></div>`);
+}
+function copiarResposta(btn, gi, ti){
+  const t = respostasTodas()[gi].txts[ti];
+  try{ navigator.clipboard.writeText(t); }catch(e){}
+  const orig = btn.textContent; btn.textContent = '✔ Copiado! Agora é só colar 💜'; setTimeout(()=>{ btn.textContent = orig; }, 1600);
+}
+function salvarResposta(){ const el=document.getElementById('novaResposta'); const t=(el.value||'').trim(); if(!t){ alertaCampo('novaResposta'); return; } dados.respostas=dados.respostas||[]; dados.respostas.unshift(t); tocar(); abrirRespostas(); }
+function apagarResposta(i){ dados.respostas=(dados.respostas||[]); dados.respostas.splice(i,1); tocar(); abrirRespostas(); }
+
 /* ---------- ☑️ selecionar vários posts ---------- */
 var modoSelecao = false; var selecaoPosts = new Set();
 function entrarSelecao(){ modoSelecao = true; selecaoPosts.clear(); render(); }
