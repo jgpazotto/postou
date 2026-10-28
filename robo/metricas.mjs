@@ -34,7 +34,7 @@ const linhas = [];
 for (const c of r.body || []) {
   for (const p of c.paginas || []) {
     if (!p.token) { log('⏭ sem token ainda:', p.name); continue; }
-    const linha = { user_id: c.user_id, page_id: p.id, dia, ig_user: p.ig_user || null };
+    const linha = { user_id: c.user_id, page_id: p.id, dia, ig_user: p.ig_user || null, ig_seguidores: null, ig_posts: null, fb_seguidores: null };
     try {
       if (p.ig_id) {
         const ig = await graph('/' + p.ig_id, { fields: 'followers_count,media_count,username', access_token: p.token });
