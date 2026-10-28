@@ -1,0 +1,21 @@
+name: Robô do Postou — métricas de seguidores
+
+on:
+  schedule:
+    - cron: '17 11 * * *'   # 1x por dia (6h17 em Austin)
+  workflow_dispatch: {}
+
+jobs:
+  metricas:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Anotar seguidores
+        run: node robo/metricas.mjs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
