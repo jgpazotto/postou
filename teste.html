@@ -1663,6 +1663,7 @@ function renderHoje(){
         <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="marcarPago(${x.c.id})">✔ Recebido</button>
       </div>`).join('') + '</div>';
   }
+  html += blocoAtendimentosHoje(f);
   html += `<div class="hoje-grupo"><h3 class="grupo-topo">📌 Compromissos de hoje <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="abrirModalCompromisso('${hoje}')">+ Compromisso</button></h3>` +
     (compromissosHoje.length ? compromissosHoje.map(c=>`
       <div class="pag-linha">
@@ -2170,7 +2171,7 @@ function renderClientes(){
          <button class="btn-mini" onclick="moverCliente(${p.id},1)" title="Descer na lista">⬇️</button>
          ${p.tipo==='servico' ? `<button class="btn-mini" onclick="abrirAgendarServico(${p.id})">🗓 Agendar serviço</button>` : p.tipo==='cliente' ? '' : `<button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>`}
          ${(p.valor>0||p.dividaTotal>0)?`<button class="btn-mini" onclick="abrirAgendarRecebimento(${p.id})">💰 Agendar recebimento</button>`:''}
-         ${(p.tipo==='cliente'&&(p.valor>0||p.dividaTotal>0))?`<button class="btn-mini" onclick="verFicha(${p.id})">📄 Ficha</button>`:''}
+         ${p.tipo==='cliente'?`<button class="btn-mini" onclick="verFicha(${p.id})">📄 Ficha</button> <button class="btn-mini" onclick="abrirNovoAtendimento('', ${p.id})">✂️ Marcar atendimento</button>`:''}
          ${p.endereco?`<button class="btn-mini" onclick="abrirMapa(${p.id})">📍 Mapa</button>`:''}
          ${(p.zap && p.tipo!=='cliente')?`<button class="btn-mini" onclick="aCaminho(${p.id})">🚗 A caminho</button>`:''}
          ${(p.tipo==='cliente'&&p.zap)?`<button class="btn-mini" onclick="mensagemRapida(${p.id})">💬 Mensagem</button>`:''}
@@ -2256,7 +2257,7 @@ function verFicha(id){
     const status = x.pago?'✔ pago':(atras?'⚠ atrasado':'a vencer');
     return `<div class="pag-linha"><span style="width:26px;color:var(--muted);font-size:.78rem">${i+1}</span><span style="flex:1">${dataBRcompleta(x.data)} — <b>${dinheiro(x.valor)}</b> <span style="color:${cor};font-size:.78rem;font-weight:700">${status}</span></span><button class="btn-claro" style="padding:3px 7px;font-size:.72rem" onclick="editarDataParcela(${x.id},${id})" title="Mudar a data desta parcela">✏️</button>${!x.pago?`<button class="btn-claro" style="padding:3px 8px;font-size:.72rem" onclick="darBaixaRecebimento(${x.id});fecharModal();verFicha(${id})">✔ Recebi</button>`:''}</div>`;
   }).join('') : '<div class="vazio">Nenhuma parcela agendada. Use 💰 Agendar recebimento. 💜</div>';
-  abrirModal(`<h3>📄 Ficha de ${escapar(c.nome)}</h3>
+  abrirModal(`<h3>📄 Ficha de ${escapar(c.nome)}</h3>${fichaInfo(c)}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px">
       <div style="flex:1;min-width:120px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted)">Recebido</div><b style="color:#0a8a4a">${dinheiro(recebido)}</b></div>
       <div style="flex:1;min-width:120px;background:#fff8f1;border:1px solid #fde3c8;border-radius:10px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted)">Falta receber</div><b style="color:#b45309">${dinheiro(aReceber)}</b></div>
@@ -2692,9 +2693,9 @@ function chipPost(p){
   return `<button class="chip" style="background:${c?c.cor:'#999'}" onclick="event.stopPropagation();abrirModalPost(${p.id})" title="${nome}">${nome}</button>`;
 }
 function chipCompromisso(cm){
-  const ehServico = cm.tipoCompromisso==='servico';
+  const ehServico = cm.tipoCompromisso==='servico' || cm.tipoCompromisso==='atendimento';
   const ehPag = cm.tipoCompromisso==='pagamento';
-  const multi = cm.dataFim ? '📅 ' : ehPag ? (cm.pago?'✅ ':'💰 ') : (ehServico ? '🧰 ' : '🕐 ');
+  const multi = cm.dataFim ? '📅 ' : ehPag ? (cm.pago?'✅ ':'💰 ') : (ehServico ? (cm.tipoCompromisso==='atendimento'?'✂️ ':'🧰 ') : '🕐 ');
   const estilo = ((ehServico||ehPag) && cm.cor) ? `style="background:${cm.pago?'#0a8a4a':cm.cor};color:#fff;border:none${cm.pago?';opacity:.6':''}"` : '';
   const rot = ehPag ? (cm.titulo+(cm.valor?' ('+dinheiro(cm.valor)+')':'')) : cm.titulo;
   return `<button class="chip chip-compromisso" ${estilo} onclick="event.stopPropagation();abrirDia('${cm.data}')" title="${escapar(rot)}${cm.dataFim?' (até '+escapar(cm.dataFim)+')':''}">${multi}${cm.hora?escapar(cm.hora)+' ':''}${escapar(rot)}</button>`;
@@ -2798,11 +2799,12 @@ function renderCalDia(el){
   }
   html += `</div>`;
   html += `<div class="dia-sec">
-    <div class="dia-sec-topo"><h4>📌 Compromissos pessoais</h4><button class="btn-claro" onclick="abrirModalCompromisso('${iso}')">+ Compromisso</button></div>`;
+    <div class="dia-sec-topo"><h4>📌 Compromissos e atendimentos</h4><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="abrirNovoAtendimento('${iso}')">✂️ + Atendimento</button><button class="btn-claro" onclick="abrirModalCompromisso('${iso}')">+ Compromisso</button></span></div>`;
   if(!comps.length){
     html += `<div class="vazio">Nada marcado. Ex.: médico, reunião, dentista…</div>`;
   } else {
     comps.forEach(cm=>{
+      if(cm.tipoCompromisso==='atendimento'){ html += itemAtendimento(cm); return; }
       const ehPag = cm.tipoCompromisso==='pagamento';
       const extra = ehPag ? `${cm.valor?' — <b>'+dinheiro(cm.valor)+'</b>':''}${cm.pago?' · <b style="color:var(--ok)">✔ recebido</b>':''}` : (cm.obs?`<br><span style="font-size:.82rem;color:var(--muted)">${escapar(cm.obs)}</span>`:'');
       const btnEd = !ehPag ? `<button class="btn-mini" onclick="abrirModalCompromisso('${cm.data}', ${cm.id})">✏️</button> ` : '';
@@ -2835,6 +2837,167 @@ function renderCalDia(el){
   el.innerHTML = html;
 }
 
+/* ====================================================================
+   ✂️ ATENDIMENTOS — serviços com preço, agenda, Receber automático,
+   lembretes no WhatsApp e "Virar post"
+   ==================================================================== */
+function catalogo(){ dados.catalogo = dados.catalogo || []; return dados.catalogo; }
+function fmtDuracao(min){ min=parseInt(min)||0; if(!min) return ''; const h=Math.floor(min/60), m=min%60; return h ? (h+'h'+(m?String(m).padStart(2,'0'):'')) : (m+'min'); }
+function rotuloServico(s){ return [s.nome, fmtDuracao(s.min), s.valor?dinheiro(s.valor):''].filter(Boolean).join(' · '); }
+function abrirCatalogo(depois){
+  const lista = catalogo();
+  abrirModal(`<h3>✂️ Meus serviços</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Cadastre o que você faz, com tempo e preço. Aí é só escolher na hora de marcar o atendimento — e o 💰 Receber já sai pronto. 💜</p>
+    <div style="max-height:220px;overflow-y:auto;margin-bottom:10px">${lista.length ? lista.map(s=>`<div class="pag-linha"><span style="flex:1"><b>${escapar(s.nome)}</b> <span style="color:var(--muted);font-size:.82rem">${escapar([fmtDuracao(s.min), s.valor?dinheiro(s.valor):''].filter(Boolean).join(' · '))}</span></span><button class="btn-mini perigo" onclick="removerServicoCatalogo(${s.id},'${depois||''}')">🗑</button></div>`).join('') : '<div class="vazio">Nenhum serviço ainda. Ex.: Manicure · 1h30 · 55</div>'}</div>
+    <label>Nome do serviço</label><input id="ctNome" placeholder="Ex.: Manicure, Corte, Design de sobrancelha">
+    <div class="linha-flex">
+      <div style="flex:1"><label>Duração</label><select id="ctMin">${[15,30,45,60,75,90,120,150,180,240].map(m=>`<option value="${m}" ${m===60?'selected':''}>${fmtDuracao(m)}</option>`).join('')}</select></div>
+      <div style="flex:1"><label>Preço</label><input id="ctValor" inputmode="decimal" placeholder="Ex.: 55"></div>
+    </div>
+    <div class="rodape">
+      <button class="btn-claro" onclick="${depois==='atendimento'?'abrirNovoAtendimento()':'fecharModal()'}">${depois==='atendimento'?'← Voltar':'Fechar'}</button>
+      <button class="btn" onclick="addServicoCatalogo('${depois||''}')">➕ Adicionar</button>
+    </div>`);
+}
+function addServicoCatalogo(depois){
+  const nome=(document.getElementById('ctNome').value||'').trim(); if(!nome){ alertaCampo('ctNome'); return; }
+  const valor=parseFloat(String(document.getElementById('ctValor').value||'').replace(/[^\d,.]/g,'').replace(',','.'))||0;
+  const min=parseInt(document.getElementById('ctMin').value)||60;
+  catalogo().push({ id:novoId(), nome, min, valor });
+  tocar(); abrirCatalogo(depois);
+}
+function removerServicoCatalogo(id, depois){ dados.catalogo = catalogo().filter(s=>s.id!==id); tocar(); abrirCatalogo(depois); }
+function clientesDoNegocio(){ return dados.clientes.filter(c=>!c.arquivado && (c.tipo==='cliente'||c.tipo==='servico')).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')); }
+let ultimoAtend = {};
+function abrirNovoAtendimento(iso, clienteId){
+  if(iso!==undefined) ultimoAtend = { iso: iso||hojeISO(), clienteId: clienteId||'' };
+  const cls = clientesDoNegocio(), servs = catalogo();
+  abrirModal(`<h3>✂️ Novo atendimento</h3>
+    <label>Cliente</label>
+    ${cls.length ? `<select id="atCliente">${cls.map(c=>`<option value="${c.id}" ${String(c.id)===String(ultimoAtend.clienteId)?'selected':''}>${escapar(c.nome)}</option>`).join('')}</select>`
+      : `<div class="vazio" style="margin-bottom:8px">Nenhuma cliente cadastrada ainda. Cadastre em 👥 Usuários → + Novo → 👤 Cliente. 💜</div>`}
+    <label>Serviço <a href="#" onclick="abrirCatalogo('atendimento');return false" style="font-weight:400;font-size:.8rem">✏️ editar lista</a></label>
+    ${servs.length ? `<select id="atServico">${servs.map(s=>`<option value="${s.id}">${escapar(rotuloServico(s))}</option>`).join('')}</select>`
+      : `<div class="vazio" style="margin-bottom:8px">Cadastre seus serviços primeiro: <a href="#" onclick="abrirCatalogo('atendimento');return false">✂️ Meus serviços</a></div>`}
+    <div class="linha-flex">
+      <div style="flex:1"><label>Dia</label><input type="date" id="atData" value="${ultimoAtend.iso||hojeISO()}"></div>
+      <div style="flex:1"><label>Hora</label><input type="time" id="atHora" value="09:00"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer"><input type="checkbox" id="atReceber" checked style="width:18px;height:18px"> Criar o 💰 Receber no mesmo dia</label>
+    <label>Observação (opcional)</label><input id="atObs" placeholder="Ex.: prefere esmalte nude">
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      ${cls.length&&servs.length?`<button class="btn" onclick="salvarAtendimento()">Marcar</button>`:''}
+    </div>`);
+}
+function salvarAtendimento(){
+  const c = clientePorId(parseInt(document.getElementById('atCliente').value)); if(!c) return;
+  const s = catalogo().find(x=>x.id===parseInt(document.getElementById('atServico').value)); if(!s) return;
+  const data = document.getElementById('atData').value || hojeISO();
+  const hora = document.getElementById('atHora').value || '';
+  const obs = (document.getElementById('atObs').value||'').trim();
+  if(!dados.compromissos) dados.compromissos=[];
+  const id = novoId();
+  dados.compromissos.push({ id, data, dataFim:'', hora, titulo:s.nome+' · '+c.nome, obs, clienteId:c.id, tipoCompromisso:'atendimento', servicoId:s.id, servicoNome:s.nome, duracao:s.min, valor:s.valor||0, cor:c.cor||'#ec4899' });
+  if(document.getElementById('atReceber').checked && s.valor>0){
+    dados.compromissos.push({ id:novoId(), data, dataFim:'', hora:'', titulo:'Receber · '+c.nome, obs:s.nome, clienteId:c.id, tipoCompromisso:'pagamento', valor:s.valor, cor:c.cor, pago:false, atendimentoId:id });
+  }
+  fecharModal();
+  mesAtual=dataFromISO(data); calVisao='dia'; marcarBotaoVisao();
+  if(typeof trocarAba==='function' && document.querySelector('[data-aba="calendario"]')) trocarAba('calendario');
+  tocar();
+}
+function excluirAtendimento(id){
+  if(!confirm('Desmarcar este atendimento? 🗑\n(O 💰 Receber dele, se ainda não foi pago, sai junto.)')) return;
+  dados.compromissos = (dados.compromissos||[]).filter(x=> x.id!==id && !(x.atendimentoId===id && !x.pago));
+  tocar();
+}
+function itemAtendimento(cm){
+  const c = clientePorId(cm.clienteId);
+  const fim = (cm.hora && cm.duracao) ? (()=>{ const [h,m]=cm.hora.split(':').map(Number); const t=h*60+m+parseInt(cm.duracao); return String(Math.floor(t/60)%24).padStart(2,'0')+':'+String(t%60).padStart(2,'0'); })() : '';
+  return `<div class="dia-item" style="flex-wrap:wrap">
+    <span class="pt-cor" style="background:${cm.cor||'#ec4899'}"></span>
+    <div style="flex:1;min-width:180px"><b>✂️ ${cm.hora?escapar(cm.hora)+(fim?'–'+fim:'')+' · ':''}${escapar(cm.servicoNome||cm.titulo)}</b> — ${c?escapar(c.nome):''}${cm.valor?` <span style="color:var(--muted);font-size:.82rem">· ${dinheiro(cm.valor)}</span>`:''}${cm.obs?`<br><span style="font-size:.82rem;color:var(--muted)">${escapar(cm.obs)}</span>`:''}</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="zapAtendimento(${cm.id},'vespera')" title="Mensagem de confirmação">🔔 Confirmar</button>
+      <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="zapAtendimento(${cm.id},'pos')" title="Pedir pra marcar nos stories">💜 Stories</button>
+      <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="virarPost(${cm.id})" title="Criar post de antes e depois">📸 Virar post</button>
+      <button class="btn-mini perigo" onclick="excluirAtendimento(${cm.id})">🗑</button>
+    </div>
+  </div>`;
+}
+function primeiroNome(c){ return ((c&&c.nome)||'').split(' ')[0]||''; }
+function textoZapAtendimento(tipo, cm, c){
+  const pn = primeiroNome(c);
+  const serv = cm ? (cm.servicoNome||'seu horário') : '';
+  const quando = cm ? (cm.data===isoSomaDias(hojeISO(),1) ? 'amanhã' : (cm.data===hojeISO()?'hoje':'dia '+dataBRcompleta(cm.data).slice(0,5))) : '';
+  if(tipo==='vespera') return `Oi ${pn}! 💜 Passando pra lembrar: ${quando}${cm&&cm.hora?' às '+cm.hora:''} tem seu horário de ${serv}. Posso confirmar? 😊`;
+  if(tipo==='pos') return `Oi ${pn}! Amei te atender hoje 💜 Se gostou do resultado, me marca nos stories? Ajuda demais o meu trabalho! 📸✨`;
+  if(tipo==='saudade') return `Oi ${pn}! Tô com saudade 💜 Faz um tempinho que você não vem… bora marcar seu horário? Tenho horários essa semana! 😊`;
+  return `Oi ${pn}! 💜`;
+}
+function abrirZapTexto(c, texto, titulo){
+  abrirModal(`<h3>${titulo}</h3>
+    <p style="font-size:.82rem;color:var(--muted)">Pode editar antes de mandar:</p>
+    <textarea id="mZapTxt" style="min-height:110px;margin-top:8px">${escapar(texto)}</textarea>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      ${c&&c.zap?`<button class="btn" onclick="enviarZap('${ddiSugerido(c.zap)+numeroLocal(c.zap)}', document.getElementById('mZapTxt').value);fecharModal()">📱 Abrir WhatsApp</button>`
+        :`<button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('mZapTxt').value);this.textContent='✔ Copiado! (cliente sem WhatsApp no cadastro)'">📋 Copiar</button>`}
+    </div>`);
+}
+function zapAtendimento(id, tipo){
+  const cm = (dados.compromissos||[]).find(x=>x.id===id); if(!cm) return;
+  const c = clientePorId(cm.clienteId);
+  const tit = {vespera:'🔔 Confirmar horário', pos:'💜 Pedir pra marcar nos stories'}[tipo] || '💬 Mensagem';
+  abrirZapTexto(c, textoZapAtendimento(tipo, cm, c), tit);
+}
+function zapSaudade(clienteId){ const c=clientePorId(clienteId); abrirZapTexto(c, textoZapAtendimento('saudade', null, c), '💜 Cliente com saudade'); }
+function virarPost(id){
+  const cm = (dados.compromissos||[]).find(x=>x.id===id); if(!cm) return;
+  const c = clientePorId(cm.clienteId);
+  const serv = cm.servicoNome || 'Atendimento';
+  const tag = serv.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+  abrirModalPost(0, hojeISO());
+  const perfil = dados.clientes.find(x=>ehPerfilSocial(x));
+  const sel = document.getElementById('mCliente'); if(sel && perfil){ sel.value = perfil.id; if(typeof trocaClientePost==='function') trocaClientePost(); }
+  const t = document.getElementById('mTitulo'); if(t) t.value = '✨ Antes e depois · '+serv;
+  const l = document.getElementById('mLegenda');
+  if(l) l.value = `✨ Antes e depois de hoje! ${serv} feito com muito carinho 💜\n\nArrasta pro lado pra ver a diferença 👉\n\nQuer ficar assim também? Me chama no WhatsApp e garante seu horário! 📲\n\n#antesedepois${tag?' #'+tag:''} #autoestima #agendaaberta`;
+  const o = document.getElementById('mObs'); if(o) o.value = `Foto de ${c?c.nome:'cliente'} — pedir autorização antes de postar 💜`;
+  if(typeof atualizarContadores==='function') atualizarContadores();
+}
+function fichaInfo(c){
+  const at = (dados.compromissos||[]).filter(x=>x.clienteId===c.id && x.tipoCompromisso==='atendimento').sort((a,b)=>b.data.localeCompare(a.data));
+  const hj = hojeISO();
+  const passados = at.filter(x=>x.data<=hj), futuros = at.filter(x=>x.data>hj);
+  const linhas = [];
+  if(c.zap) linhas.push(`📱 ${escapar(c.zap)}`);
+  if(c.aniversario) linhas.push(`🎂 ${dataBRcompleta(c.aniversario).slice(0,5)}`);
+  if(passados.length) linhas.push(`✂️ ${passados.length} atendimento(s) · último ${dataBRcompleta(passados[0].data)}`);
+  if(futuros.length) linhas.push(`📅 próximo ${dataBRcompleta(futuros[futuros.length-1].data)}`);
+  return `<div style="font-size:.85rem;margin:4px 0 10px;line-height:1.6">${linhas.join(' &nbsp;·&nbsp; ')||''}
+    ${c.notas?`<div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:7px 10px;margin-top:6px">📝 ${escapar(c.notas)}</div>`:''}
+    ${at.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-weight:600">Histórico de atendimentos (${at.length})</summary>${at.slice(0,20).map(x=>`<div class="pag-linha" style="font-size:.82rem"><span style="flex:1">${dataBRcompleta(x.data)}${x.hora?' '+escapar(x.hora):''} — ${escapar(x.servicoNome||x.titulo)}</span>${x.valor?`<span>${dinheiro(x.valor)}</span>`:''}</div>`).join('')}</details>`:''}
+    <div style="margin-top:8px"><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="fecharModal();abrirNovoAtendimento('', ${c.id})">✂️ Marcar atendimento</button></div>
+  </div>`;
+}
+function blocoAtendimentosHoje(f){
+  const hj = hojeISO(), amanha = isoSomaDias(hj,1);
+  const at = (dados.compromissos||[]).filter(x=>x.tipoCompromisso==='atendimento' && (!f||x.clienteId===f));
+  if(!at.length) return '';
+  let html = '';
+  const deAmanha = at.filter(x=>x.data===amanha).sort((a,b)=>(a.hora||'').localeCompare(b.hora||''));
+  const deHoje = at.filter(x=>x.data===hj).sort((a,b)=>(a.hora||'').localeCompare(b.hora||''));
+  if(deHoje.length) html += `<div class="hoje-grupo"><h3>✂️ Atendimentos de hoje</h3>${deHoje.map(itemAtendimento).join('')}</div>`;
+  if(deAmanha.length) html += `<div class="hoje-grupo"><h3>🔔 Confirmar os de amanhã</h3>${deAmanha.map(x=>{ const c=clientePorId(x.clienteId); return `<div class="pag-linha"><span class="bolinha" style="background:${x.cor||'#ec4899'}"></span><span style="flex:1">${x.hora?'<b>'+escapar(x.hora)+'</b> · ':''}${escapar(x.servicoNome||x.titulo)} — ${c?escapar(c.nome):''}</span><button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="zapAtendimento(${x.id},'vespera')">🔔 Confirmar</button></div>`; }).join('')}</div>`;
+  const porCliente = {};
+  at.forEach(x=>{ (porCliente[x.clienteId]=porCliente[x.clienteId]||[]).push(x.data); });
+  const sumidas = Object.entries(porCliente).map(([id,datas])=>({ c:clientePorId(parseInt(id)), ult:datas.filter(d=>d<=hj).sort().pop(), fut:datas.some(d=>d>hj) }))
+    .filter(x=>x.c && !x.c.arquivado && x.ult && !x.fut && diasEntreISO(x.ult,hj)>=45).sort((a,b)=>a.ult.localeCompare(b.ult)).slice(0,5);
+  if(sumidas.length) html += `<div class="hoje-grupo"><h3>💜 Clientes com saudade</h3>${sumidas.map(x=>`<div class="pag-linha"><span class="bolinha" style="background:${x.c.cor}"></span><span style="flex:1"><b>${escapar(x.c.nome)}</b> <span style="color:var(--muted);font-size:.8rem">· última vez ${dataBRcompleta(x.ult)}</span></span><button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="zapSaudade(${x.c.id})">💬 Chamar</button></div>`).join('')}</div>`;
+  return html;
+}
 function abrirModalCompromisso(iso, editId){
   const cm = editId ? (dados.compromissos||[]).find(x=>x.id===editId) : null;
   abrirModal(`
