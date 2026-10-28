@@ -2632,7 +2632,7 @@ const MESES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out'
 function isoDe(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function dataFromISO(iso){ const p=String(iso).split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
 function postsDoDia(iso){ const f=filtroAtivo(); return dados.posts.filter(p=>p.data===iso && (!f||p.clienteId===f)); }
-function compromissosDoDia(iso){ return (dados.compromissos||[]).filter(c=> c.dataFim ? (iso>=c.data && iso<=c.dataFim) : c.data===iso).sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')); }
+function compromissosDoDia(iso){ const f=filtroAtivo(); return (dados.compromissos||[]).filter(c=> (c.dataFim ? (iso>=c.data && iso<=c.dataFim) : c.data===iso) && (!f || !c.clienteId || c.clienteId===f)).sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')); }
 function marcarBotaoVisao(){ document.querySelectorAll('.cal-view-btn').forEach(b=>b.classList.toggle('ativo', b.dataset.v===calVisao)); }
 function setCalVisao(v){ calVisao = v; marcarBotaoVisao(); renderCalendario(); }
 function mudarPeriodo(n){
@@ -4487,7 +4487,7 @@ function ehPerfilSocial(c){ return c && !c.arquivado && c.tipo!=='cliente' && c.
 function desenharMidias(){
   const el = document.getElementById('mMidiasPrev'); if(!el) return;
   el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:74px;height:74px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
-      ${m.tipo==='video'?`<video src="${m.url}" muted style="width:100%;height:100%;object-fit:cover"></video><span style="position:absolute;left:4px;bottom:3px;font-size:.7rem;background:#0008;color:#fff;border-radius:6px;padding:0 4px">🎬</span>`
+      ${m.tipo==='video'?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,#7c3aed,#ec4899)">🎬</div><video src="${m.url}#t=0.5" muted playsinline preload="metadata" onerror="this.remove()" style="position:relative;width:100%;height:100%;object-fit:cover"></video><span style="position:absolute;left:4px;bottom:3px;font-size:.7rem;background:#0008;color:#fff;border-radius:6px;padding:0 4px">🎬</span>`
         :`<img src="${m.url}" style="width:100%;height:100%;object-fit:cover">`}
       <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
     </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
