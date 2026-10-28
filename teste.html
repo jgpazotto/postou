@@ -1026,7 +1026,7 @@ async function carregarDono(){
     const ddiSel = u.zap ? `<select id="${ddiId}" title="País do WhatsApp" style="padding:4px;font-size:.72rem"><option value="55" ${ddiSugerido(u.zap)==='55'?'selected':''}>🇧🇷 +55</option><option value="1" ${ddiSugerido(u.zap)==='1'?'selected':''}>🇺🇸 +1</option></select>` : '';
     const btnZap = u.zap ? `${ddiSel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="avisarZap('${encodeURIComponent(u.zap)}','${encodeURIComponent(u.nome)}','${ddiId}')">📱 Avisar</button>` : '';
     const btnEmail = u.email ? `<a class="btn-claro" style="padding:5px 10px;font-size:.78rem;text-decoration:none" href="${mailtoLiberado(u.email,u.nome)}">✉️ E-mail</a>` : '';
-    const acoes = u.ehEu ? '' : `${sel} ${selPrazo} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="darSemana('${u.userId}')">🎁 +7 dias</button> ${btnZap} ${btnEmail}`;
+    const acoes = u.ehEu ? '' : `${sel} ${selPrazo} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="darSemana('${u.userId}')">🎁 +7 dias</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" title="Promoção Mês Organizado: repostou nos stories marcando @postou.br → +15 dias (30 no total)" onclick="darQuinzena('${u.userId}')">📅 +15 dias</button> ${btnZap} ${btnEmail}`;
     const linhaZap = u.zap ? `📱 ${escapar(u.zap)} <span style="opacity:.7">(confira 🇧🇷/🇺🇸)</span>` : 'sem WhatsApp';
     const linhaMail = u.email ? ` · ✉️ ${escapar(u.email)}` : '';
     const contato = `<br><span style="font-size:.75rem;color:var(--muted)">${linhaZap}${linhaMail}</span>`;
@@ -1079,6 +1079,21 @@ async function darSemana(userId){
   const { error } = await sb.from('organizador').update({ conteudo:c, atualizado:new Date().toISOString() }).eq('user_id',userId);
   if(error){ if(cont) cont.insertAdjacentHTML('afterbegin',`<div class="vazio" style="color:#c0392b">Não consegui dar os dias: ${escapar(error.message)}</div>`); return; }
   avisoDono='🎁 +7 dias grátis dados para '+escapar((a.nome||'a pessoa').split(' ')[0])+'! Agora clique em 📱 Avisar pra contar a novidade. 💜';
+  carregarDono();
+}
+async function darQuinzena(userId){
+  const cont=document.getElementById('listaDono');
+  const { data } = await sb.from('organizador').select('conteudo').eq('user_id',userId).maybeSingle();
+  const c=(data&&data.conteudo)||{}; c.assinatura=c.assinatura||{};
+  const a=c.assinatura;
+  if(a.plano && a.plano!=='trial'){ avisoDono='💜 '+((a.nome||'Essa pessoa').split(' ')[0])+' já é assinante — não precisa de dias grátis.'; carregarDono(); return; }
+  a.plano='trial';
+  const dias=diasDesde(a.inicio);
+  a.inicio = (!a.inicio || dias>=15) ? hojeISO() : isoSomaDias(a.inicio, 15);
+  a.mesOrganizado = hojeISO();
+  const { error } = await sb.from('organizador').update({ conteudo:c, atualizado:new Date().toISOString() }).eq('user_id',userId);
+  if(error){ if(cont) cont.insertAdjacentHTML('afterbegin',`<div class="vazio" style="color:#c0392b">Não consegui dar os dias: ${escapar(error.message)}</div>`); return; }
+  avisoDono='📅 Mês Organizado: +15 dias grátis para '+escapar((a.nome||'a pessoa').split(' ')[0])+'! Agora clique em 📱 Avisar. 💜';
   carregarDono();
 }
 async function marcarPremioTratado(entrouId){
@@ -1575,6 +1590,7 @@ function renderHoje(){
 
   function linhaPost(p, atrasado){
     const c = clientePorId(p.clienteId);
+    const caixa = modoSelecao ? `<input type="checkbox" ${selecaoPosts.has(p.id)?'checked':''} onclick="event.stopPropagation();alternarSelecao(${p.id},this.checked)" style="width:20px;height:20px;margin-right:8px;vertical-align:middle;cursor:pointer" title="Selecionar este post">` : '';
     const botoesPostar = (p.redes||[]).map(r=>{
       const cat = REDES[r]||REDES.outra;
       const cad = c ? (c.redes||[]).find(x=>x.tipo===r) : null;
@@ -1583,8 +1599,8 @@ function renderHoje(){
       return `<button class="btn-rede" style="background:${cat.cor}" onclick="postarAgora(${p.id},'${r}')">🚀 ${cat.nome}</button>`;
     }).join('');
     return `<div class="post-linha" style="--cor:${c?c.cor:'#999'}">
-      <div class="titulo-linha" style="cursor:pointer" onclick="abrirModalPost(${p.id})" title="Ver detalhes do post">
-        ${p.hora?`<b>${p.hora}</b> ·`:''} <b>${escapar(p.titulo)}</b>
+      <div class="titulo-linha" style="cursor:pointer" onclick="${modoSelecao?`alternarSelecao(${p.id})`:`abrirModalPost(${p.id})`}" title="${modoSelecao?'Selecionar':'Ver detalhes do post'}">
+        ${caixa}${p.hora?`<b>${p.hora}</b> ·`:''} <b>${escapar(p.titulo)}</b>
         ${badgesRedes(c, p.redes)}
         ${atrasado?`<span class="atrasado-tag">⚠ era ${dataBR(p.data)}</span>`:''}
       </div>
@@ -1608,7 +1624,16 @@ function renderHoje(){
   html += `<div class="hoje-grupo"><h3>📌 Postagens de hoje</h3>` +
     (deHoje.length ? deHoje.map(p=>linhaPost(p,false)).join('') : '<div class="vazio">Nada agendado para hoje. Que tal planejar no calendário? 📅</div>') + '</div>';
   if(atrasados.length){
-    html += `<div class="hoje-grupo"><h3>⚠️ Precisa de andamento (atrasadas)</h3>` + atrasados.map(p=>linhaPost(p,true)).join('') + '</div>';
+    const idsAtras = atrasados.map(p=>p.id);
+    const barraSel = modoSelecao
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0 10px;padding:8px 10px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px">
+          <b style="font-size:.85rem;color:#7c3aed">${selecaoPosts.size} selecionado(s)</b>
+          <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="selecionarTodos([${idsAtras.join(',')}])">☑️ Todas as atrasadas</button>
+          <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="acaoSelecao('publicado')">✅ Marcar publicadas</button>
+          <button class="btn-claro" style="padding:5px 10px;font-size:.78rem;color:#b91c1c" onclick="acaoSelecao('apagar')">🗑 Apagar</button>
+          <button class="btn-mini" onclick="sairSelecao()">✕ Fechar</button></div>`
+      : '';
+    html += `<div class="hoje-grupo"><h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠️ Precisa de andamento (atrasadas) <span style="font-size:.8rem;color:var(--muted);font-weight:600">${atrasados.length}</span>${modoSelecao?'':`<button class="btn-claro" style="padding:4px 10px;font-size:.76rem;margin-left:auto" onclick="entrarSelecao()">☑️ Selecionar vários</button>`}</h3>` + barraSel + atrasados.map(p=>linhaPost(p,true)).join('') + '</div>';
   }
   const nivers = proximosAniversarios(7).filter(x=>!f||x.c.id===f);
   if(nivers.length){
@@ -1704,6 +1729,23 @@ function postarAgora(id, rede){
 async function compartilharPost(id){
   const p = dados.posts.find(x=>x.id===id);
   try{ await navigator.share({ text: p.legenda||p.titulo }); }catch(e){}
+}
+/* ---------- ☑️ selecionar vários posts ---------- */
+var modoSelecao = false; var selecaoPosts = new Set();
+function entrarSelecao(){ modoSelecao = true; selecaoPosts.clear(); render(); }
+function sairSelecao(){ modoSelecao = false; selecaoPosts.clear(); render(); }
+function alternarSelecao(id, marcado){ if(marcado===undefined) marcado = !selecaoPosts.has(id); if(marcado) selecaoPosts.add(id); else selecaoPosts.delete(id); render(); }
+function selecionarTodos(ids){ const todos = ids.every(i=>selecaoPosts.has(i)); ids.forEach(i=> todos ? selecaoPosts.delete(i) : selecaoPosts.add(i)); render(); }
+function acaoSelecao(acao){
+  const n = selecaoPosts.size;
+  if(!n){ alert('Marque pelo menos um post. 💜'); return; }
+  if(acao==='apagar'){
+    if(!confirm('Apagar '+n+' post(s)? 🗑\nEssa ação não dá pra desfazer.')) return;
+    dados.posts = dados.posts.filter(p=>!selecaoPosts.has(p.id));
+  } else {
+    dados.posts.forEach(p=>{ if(selecaoPosts.has(p.id)) p.status='publicado'; });
+  }
+  modoSelecao = false; selecaoPosts.clear(); tocar();
 }
 function marcarPublicado(id){
   const p = dados.posts.find(x=>x.id===id);
