@@ -1604,7 +1604,7 @@ function renderHoje(){
         ${badgesRedes(c, p.redes)}
         ${atrasado?`<span class="atrasado-tag">⚠ era ${dataBR(p.data)}</span>`:''}
       </div>
-      <div class="meta">${c?escapar(c.nome):''} · ${TIPOS[p.tipo]||''} · ${STATUS_NOME[p.status]}</div>${badgeAuto(p)}
+      <div class="meta">${c?escapar(c.nome):''} · ${TIPOS[p.tipo]||''} · ${STATUS_NOME[p.status]}</div>${badgeAuto(p)}${p.resultado?`<div style="font-size:.78rem;margin-top:2px">📊 ${[p.resultado.views!=null?'👀 '+p.resultado.views.toLocaleString('pt-BR'):'', p.resultado.curtidas!=null?'❤️ '+p.resultado.curtidas.toLocaleString('pt-BR'):'', p.resultado.comentarios!=null?'💬 '+p.resultado.comentarios.toLocaleString('pt-BR'):''].filter(Boolean).join(' · ')}</div>`:''}
       <div class="acoes-post">
         ${p.legenda?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="copiarLegenda(${p.id});this.textContent='✔ Copiado! (legenda + #)'" title="Copia a legenda e as hashtags juntas, prontas pra colar">📋 Copiar tudo</button>`:''}
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="agendarNoMeta(${p.id});this.textContent='✔ Legenda copiada → cole no Meta'" title="Copia a legenda e abre o Meta Business Suite pra agendar o post">📅 Agendar no Meta</button>
@@ -3316,9 +3316,16 @@ function abrirModalPost(id, dataPre){
     <div id="mMidiasPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px"></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:9px 11px;margin-top:8px;cursor:pointer"><input type="checkbox" id="mAuto" ${p&&p.autoPublicar?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 🤖 Publicar sozinho no horário (Instagram e Facebook)</label>
     <label style="margin-top:8px">🤝 Collab no Instagram <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô convida sozinho — até 3 @, separados por espaço)</span></label>
-    <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="@jgpazotto @geraldopazotto">
+    <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="ex.: @perfil1 @perfil2 — deixe vazio se não for collab">
     <label>📝 Observações <span style="font-weight:400;color:var(--muted);font-size:.78rem">(só pra você — não vai na legenda)</span></label>
     <textarea id="mObs" rows="2" placeholder="Ex.: editar no CapCut, capa pelo Meta">${p&&p.obs?escapar(p.obs):''}</textarea>
+    <details ${p&&p.resultado?'open':''} style="margin:6px 0 4px"><summary style="cursor:pointer;font-weight:600;font-size:.88rem">📊 Resultado do post <span style="font-weight:400;color:var(--muted);font-size:.78rem">(preencha depois de publicado)</span></summary>
+      <div class="linha-flex" style="margin-top:6px">
+        <div style="flex:1"><label>👀 Views</label><input id="mResViews" inputmode="numeric" value="${p&&p.resultado&&p.resultado.views!=null?p.resultado.views:''}" placeholder="0"></div>
+        <div style="flex:1"><label>❤️ Curtidas</label><input id="mResCurt" inputmode="numeric" value="${p&&p.resultado&&p.resultado.curtidas!=null?p.resultado.curtidas:''}" placeholder="0"></div>
+        <div style="flex:1"><label>💬 Coment.</label><input id="mResCom" inputmode="numeric" value="${p&&p.resultado&&p.resultado.comentarios!=null?p.resultado.comentarios:''}" placeholder="0"></div>
+      </div>
+    </details>
     <label>Legenda / roteiro</label>
     <textarea id="mLegenda" placeholder="Legenda pronta, hashtags, roteiro do vídeo..." oninput="atualizarContadores()">${p?escapar(p.legenda):''}</textarea>
     <div class="contadores" id="contadores"></div>
@@ -3400,6 +3407,9 @@ function salvarPost(id){
   novo.midias = midiasTemp.slice();
   novo.autoPublicar = !!(document.getElementById('mAuto') && document.getElementById('mAuto').checked);
   { const ob=document.getElementById('mObs'); novo.obs = ob && ob.value.trim() ? ob.value.trim() : undefined; }
+  { const num=id=>{ const el=document.getElementById(id); if(!el) return null; const v=String(el.value||'').replace(/[^\d]/g,''); return v===''?null:parseInt(v); };
+    const r={ views:num('mResViews'), curtidas:num('mResCurt'), comentarios:num('mResCom') };
+    novo.resultado = (r.views!=null||r.curtidas!=null||r.comentarios!=null) ? r : undefined; }
   { const ci=document.getElementById('mCollabIG'); const lista=ci?(ci.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()).slice(0,3):[]; novo.collabIG = lista.length ? lista : undefined; }
   if(novo.autoPublicar && novo.status!=='publicado') novo.status = 'agendado';
   if(id){ Object.assign(dados.posts.find(x=>x.id===id), novo); }
