@@ -2921,7 +2921,7 @@ function itemAtendimento(cm){
     <div style="display:flex;gap:5px;flex-wrap:wrap">
       <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="zapAtendimento(${cm.id},'vespera')" title="Mensagem de confirmação">🔔 Confirmar</button>
       <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="zapAtendimento(${cm.id},'pos')" title="Pedir pra marcar nos stories">💜 Stories</button>
-      <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="virarPost(${cm.id})" title="Criar post de antes e depois">📸 Virar post</button>
+      <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="atendimentoVirarPost(${cm.id})" title="Criar post de antes e depois">📸 Virar post</button>
       <button class="btn-mini perigo" onclick="excluirAtendimento(${cm.id})">🗑</button>
     </div>
   </div>`;
@@ -2953,7 +2953,7 @@ function zapAtendimento(id, tipo){
   abrirZapTexto(c, textoZapAtendimento(tipo, cm, c), tit);
 }
 function zapSaudade(clienteId){ const c=clientePorId(clienteId); abrirZapTexto(c, textoZapAtendimento('saudade', null, c), '💜 Cliente com saudade'); }
-function virarPost(id){
+function atendimentoVirarPost(id){
   const cm = (dados.compromissos||[]).find(x=>x.id===id); if(!cm) return;
   const c = clientePorId(cm.clienteId);
   const serv = cm.servicoNome || 'Atendimento';
