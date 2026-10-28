@@ -781,7 +781,7 @@ async function entrarNoApp(){
   document.getElementById('app').style.display = 'block';
   await carregarDados();
   render();
-  carregarConexao(); carregarPublicacoes();
+  carregarConexao(); carregarPublicacoes(); sincronizarMetricasAuto();
   verificarExpiracao();
   if(planoAtual()!=='expirado' && !(dados.assinatura && dados.assinatura.tourVisto)){ setTimeout(iniciarTour, 550); }
 }
@@ -1026,7 +1026,7 @@ async function carregarDono(){
     const ddiSel = u.zap ? `<select id="${ddiId}" title="País do WhatsApp" style="padding:4px;font-size:.72rem"><option value="55" ${ddiSugerido(u.zap)==='55'?'selected':''}>🇧🇷 +55</option><option value="1" ${ddiSugerido(u.zap)==='1'?'selected':''}>🇺🇸 +1</option></select>` : '';
     const btnZap = u.zap ? `${ddiSel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="avisarZap('${encodeURIComponent(u.zap)}','${encodeURIComponent(u.nome)}','${ddiId}')">📱 Avisar</button>` : '';
     const btnEmail = u.email ? `<a class="btn-claro" style="padding:5px 10px;font-size:.78rem;text-decoration:none" href="${mailtoLiberado(u.email,u.nome)}">✉️ E-mail</a>` : '';
-    const acoes = u.ehEu ? '' : `${sel} ${selPrazo} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="darSemana('${u.userId}')">🎁 +7 dias</button> ${btnZap} ${btnEmail}`;
+    const acoes = u.ehEu ? '' : `${sel} ${selPrazo} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="darSemana('${u.userId}')">🎁 +7 dias</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" title="Promoção Mês Organizado: repostou nos stories marcando @postou.br → +15 dias (30 no total)" onclick="darQuinzena('${u.userId}')">📅 +15 dias</button> ${btnZap} ${btnEmail}`;
     const linhaZap = u.zap ? `📱 ${escapar(u.zap)} <span style="opacity:.7">(confira 🇧🇷/🇺🇸)</span>` : 'sem WhatsApp';
     const linhaMail = u.email ? ` · ✉️ ${escapar(u.email)}` : '';
     const contato = `<br><span style="font-size:.75rem;color:var(--muted)">${linhaZap}${linhaMail}</span>`;
@@ -1079,6 +1079,21 @@ async function darSemana(userId){
   const { error } = await sb.from('organizador').update({ conteudo:c, atualizado:new Date().toISOString() }).eq('user_id',userId);
   if(error){ if(cont) cont.insertAdjacentHTML('afterbegin',`<div class="vazio" style="color:#c0392b">Não consegui dar os dias: ${escapar(error.message)}</div>`); return; }
   avisoDono='🎁 +7 dias grátis dados para '+escapar((a.nome||'a pessoa').split(' ')[0])+'! Agora clique em 📱 Avisar pra contar a novidade. 💜';
+  carregarDono();
+}
+async function darQuinzena(userId){
+  const cont=document.getElementById('listaDono');
+  const { data } = await sb.from('organizador').select('conteudo').eq('user_id',userId).maybeSingle();
+  const c=(data&&data.conteudo)||{}; c.assinatura=c.assinatura||{};
+  const a=c.assinatura;
+  if(a.plano && a.plano!=='trial'){ avisoDono='💜 '+((a.nome||'Essa pessoa').split(' ')[0])+' já é assinante — não precisa de dias grátis.'; carregarDono(); return; }
+  a.plano='trial';
+  const dias=diasDesde(a.inicio);
+  a.inicio = (!a.inicio || dias>=15) ? hojeISO() : isoSomaDias(a.inicio, 15);
+  a.mesOrganizado = hojeISO();
+  const { error } = await sb.from('organizador').update({ conteudo:c, atualizado:new Date().toISOString() }).eq('user_id',userId);
+  if(error){ if(cont) cont.insertAdjacentHTML('afterbegin',`<div class="vazio" style="color:#c0392b">Não consegui dar os dias: ${escapar(error.message)}</div>`); return; }
+  avisoDono='📅 Mês Organizado: +15 dias grátis para '+escapar((a.nome||'a pessoa').split(' ')[0])+'! Agora clique em 📱 Avisar. 💜';
   carregarDono();
 }
 async function marcarPremioTratado(entrouId){
@@ -1547,7 +1562,7 @@ function renderHoje(){
     elRec.innerHTML = `<div style="background:linear-gradient(135deg,#faf5ff,#fdf2f8);border:1px solid #f0e6fb;border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(124,58,237,.06)">
       <div style="font-size:.78rem;color:#9b6ec8;font-weight:800;letter-spacing:.3px;margin-bottom:3px">💜 RECADINHO DO DIA</div>
       <div style="font-size:.95rem;color:#4b3a63;line-height:1.5">${oi}${rec}</div>
-      <div style="margin-top:10px"><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirRespostas()">💬 Respostas prontas</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirNaoSegue()">🔍 Quem não me segue</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
     </div>`;
   }
   const posts = dados.posts.filter(p=>(!f||p.clienteId===f));
@@ -1575,6 +1590,7 @@ function renderHoje(){
 
   function linhaPost(p, atrasado){
     const c = clientePorId(p.clienteId);
+    const caixa = modoSelecao ? `<input type="checkbox" ${selecaoPosts.has(p.id)?'checked':''} onclick="event.stopPropagation();alternarSelecao(${p.id},this.checked)" style="width:20px;height:20px;margin-right:8px;vertical-align:middle;cursor:pointer" title="Selecionar este post">` : '';
     const botoesPostar = (p.redes||[]).map(r=>{
       const cat = REDES[r]||REDES.outra;
       const cad = c ? (c.redes||[]).find(x=>x.tipo===r) : null;
@@ -1583,12 +1599,12 @@ function renderHoje(){
       return `<button class="btn-rede" style="background:${cat.cor}" onclick="postarAgora(${p.id},'${r}')">🚀 ${cat.nome}</button>`;
     }).join('');
     return `<div class="post-linha" style="--cor:${c?c.cor:'#999'}">
-      <div class="titulo-linha" style="cursor:pointer" onclick="abrirModalPost(${p.id})" title="Ver detalhes do post">
-        ${p.hora?`<b>${p.hora}</b> ·`:''} <b>${escapar(p.titulo)}</b>
+      <div class="titulo-linha" style="cursor:pointer" onclick="${modoSelecao?`alternarSelecao(${p.id})`:`abrirModalPost(${p.id})`}" title="${modoSelecao?'Selecionar':'Ver detalhes do post'}">
+        ${caixa}${p.hora?`<b>${p.hora}</b> ·`:''} <b>${escapar(p.titulo)}</b>
         ${badgesRedes(c, p.redes)}
         ${atrasado?`<span class="atrasado-tag">⚠ era ${dataBR(p.data)}</span>`:''}
       </div>
-      <div class="meta">${c?escapar(c.nome):''} · ${TIPOS[p.tipo]||''} · ${STATUS_NOME[p.status]}</div>${badgeAuto(p)}
+      <div class="meta">${c?escapar(c.nome):''} · ${TIPOS[p.tipo]||''} · ${STATUS_NOME[p.status]}</div>${badgeAuto(p)}${p.resultado?`<div style="font-size:.78rem;margin-top:2px">📊 ${[p.resultado.views!=null?'👀 '+p.resultado.views.toLocaleString('pt-BR'):'', p.resultado.curtidas!=null?'❤️ '+p.resultado.curtidas.toLocaleString('pt-BR'):'', p.resultado.comentarios!=null?'💬 '+p.resultado.comentarios.toLocaleString('pt-BR'):''].filter(Boolean).join(' · ')}</div>`:''}
       <div class="acoes-post">
         ${p.legenda?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="copiarLegenda(${p.id});this.textContent='✔ Copiado! (legenda + #)'" title="Copia a legenda e as hashtags juntas, prontas pra colar">📋 Copiar tudo</button>`:''}
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="agendarNoMeta(${p.id});this.textContent='✔ Legenda copiada → cole no Meta'" title="Copia a legenda e abre o Meta Business Suite pra agendar o post">📅 Agendar no Meta</button>
@@ -1608,7 +1624,16 @@ function renderHoje(){
   html += `<div class="hoje-grupo"><h3>📌 Postagens de hoje</h3>` +
     (deHoje.length ? deHoje.map(p=>linhaPost(p,false)).join('') : '<div class="vazio">Nada agendado para hoje. Que tal planejar no calendário? 📅</div>') + '</div>';
   if(atrasados.length){
-    html += `<div class="hoje-grupo"><h3>⚠️ Precisa de andamento (atrasadas)</h3>` + atrasados.map(p=>linhaPost(p,true)).join('') + '</div>';
+    const idsAtras = atrasados.map(p=>p.id);
+    const barraSel = modoSelecao
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:4px 0 10px;padding:8px 10px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px">
+          <b style="font-size:.85rem;color:#7c3aed">${selecaoPosts.size} selecionado(s)</b>
+          <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="selecionarTodos([${idsAtras.join(',')}])">☑️ Todas as atrasadas</button>
+          <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="acaoSelecao('publicado')">✅ Marcar publicadas</button>
+          <button class="btn-claro" style="padding:5px 10px;font-size:.78rem;color:#b91c1c" onclick="acaoSelecao('apagar')">🗑 Apagar</button>
+          <button class="btn-mini" onclick="sairSelecao()">✕ Fechar</button></div>`
+      : '';
+    html += `<div class="hoje-grupo"><h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠️ Precisa de andamento (atrasadas) <span style="font-size:.8rem;color:var(--muted);font-weight:600">${atrasados.length}</span>${modoSelecao?'':`<button class="btn-claro" style="padding:4px 10px;font-size:.76rem;margin-left:auto" onclick="entrarSelecao()">☑️ Selecionar vários</button>`}</h3>` + barraSel + atrasados.map(p=>linhaPost(p,true)).join('') + '</div>';
   }
   const nivers = proximosAniversarios(7).filter(x=>!f||x.c.id===f);
   if(nivers.length){
@@ -1638,6 +1663,7 @@ function renderHoje(){
         <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="marcarPago(${x.c.id})">✔ Recebido</button>
       </div>`).join('') + '</div>';
   }
+  html += blocoAtendimentosHoje(f);
   html += `<div class="hoje-grupo"><h3 class="grupo-topo">📌 Compromissos de hoje <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="abrirModalCompromisso('${hoje}')">+ Compromisso</button></h3>` +
     (compromissosHoje.length ? compromissosHoje.map(c=>`
       <div class="pag-linha">
@@ -1704,6 +1730,133 @@ function postarAgora(id, rede){
 async function compartilharPost(id){
   const p = dados.posts.find(x=>x.id===id);
   try{ await navigator.share({ text: p.legenda||p.titulo }); }catch(e){}
+}
+/* ---------- 💬 RESPOSTAS PRONTAS (comentários e direct) ---------- */
+const RESPOSTAS_PADRAO = [
+  {cat:'😍 Elogio ("linda", "amei", ❤️)', txts:['Obrigada, flor! 💜 Fico feliz que gostou!','Aaah, obrigada! 🥰 Você é um amor!','Que bom que gostou! 💜 Obrigada pelo carinho!','Obrigadaaa! ✨ Volta sempre!']},
+  {cat:'🙏 Obrigada por comentar', txts:['Obrigada por comentar! 💜','Amo quando vocês participam! 🥰','Obrigada pela força! 💪💜']},
+  {cat:'💰 Preço / quanto custa', txts:['Oi! 💜 Te mandei os valores no direct, dá uma olhadinha!','Oi, flor! Os valores eu passo pelo WhatsApp — o link tá na bio! 📲','Oi! Me chama no direct que te explico tudinho 💜']},
+  {cat:'📍 Onde fica / como compra', txts:['Oi! 💜 O link tá na bio, é só clicar!','Te mandei no direct! 📩','Me chama no WhatsApp (link na bio) que eu te passo! 📲']},
+  {cat:'📸 Marcou nos stories', txts:['Obrigada por me marcar! 💜 Já repostei!','Amei! 🥰 Obrigada pelo carinho!','Que lindo! 💜 Obrigada demais!']},
+  {cat:'🤝 Parceria / publi', txts:['Oi! 💜 Obrigada pelo interesse! Me manda os detalhes por e-mail ou direct que eu respondo com calma.','Oi! Adoro parcerias 💜 Me conta mais no direct!']},
+  {cat:'👋 Novo seguidor (direct)', txts:['Oi! Seja muito bem-vinda por aqui 💜 Qualquer dúvida, é só chamar!','Que bom ter você aqui! 🥰 Já viu os destaques? Tem muita coisa legal lá!']},
+];
+function respostasTodas(){ const minhas = (dados.respostas||[]); return minhas.length ? [{cat:'⭐ Minhas respostas', txts:minhas, minhas:true}, ...RESPOSTAS_PADRAO] : RESPOSTAS_PADRAO; }
+function abrirRespostas(){
+  const grupos = respostasTodas();
+  abrirModal(`<h3>💬 Respostas prontas</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Toque numa resposta pra copiar e cole no comentário ou no direct. 💜 Dica: varie as respostas pra não ficar repetitivo.</p>
+    <div style="max-height:52vh;overflow-y:auto">
+    ${grupos.map((g,gi)=>`<details ${gi===0?'open':''} style="margin-bottom:6px"><summary style="cursor:pointer;font-weight:700;padding:6px 0">${escapar(g.cat)}</summary>
+      ${g.txts.map((t,ti)=>`<div style="display:flex;gap:6px;align-items:center;margin:4px 0"><button class="btn-claro" style="flex:1;text-align:left;padding:8px 10px;font-size:.85rem;white-space:normal" onclick="copiarResposta(this, ${gi}, ${ti})">${escapar(t)}</button>${g.minhas?`<button class="btn-mini perigo" onclick="apagarResposta(${ti})">🗑</button>`:''}</div>`).join('')}
+    </details>`).join('')}
+    </div>
+    <label>➕ Criar minha resposta</label>
+    <div style="display:flex;gap:6px"><input id="novaResposta" placeholder="Ex.: Obrigada, linda! Vem que tem novidade amanhã 💜"><button class="btn" onclick="salvarResposta()">Salvar</button></div>
+    <div class="rodape"><button class="btn" onclick="fecharModal()">Fechar</button></div>`);
+}
+function copiarResposta(btn, gi, ti){
+  const t = respostasTodas()[gi].txts[ti];
+  try{ navigator.clipboard.writeText(t); }catch(e){}
+  const orig = btn.textContent; btn.textContent = '✔ Copiado! Agora é só colar 💜'; setTimeout(()=>{ btn.textContent = orig; }, 1600);
+}
+function salvarResposta(){ const el=document.getElementById('novaResposta'); const t=(el.value||'').trim(); if(!t){ alertaCampo('novaResposta'); return; } dados.respostas=dados.respostas||[]; dados.respostas.unshift(t); tocar(); abrirRespostas(); }
+function apagarResposta(i){ dados.respostas=(dados.respostas||[]); dados.respostas.splice(i,1); tocar(); abrirRespostas(); }
+
+/* ---------- 🔍 QUEM NÃO ME SEGUE DE VOLTA (arquivo oficial do Instagram) ---------- */
+let naoSegueRes = null;
+function abrirNaoSegue(){
+  abrirModal(`<h3>🔍 Quem não me segue de volta</h3>
+    <p style="font-size:.84rem;color:var(--muted)">Sem senha e sem app estranho: usamos o arquivo oficial que o próprio Instagram te manda. 💜</p>
+    <details style="margin:6px 0 10px"><summary style="cursor:pointer;font-weight:700">📲 Como pegar o arquivo (1 vez só)</summary>
+      <ol style="font-size:.84rem;padding-left:18px;line-height:1.6;margin-top:6px">
+        <li>No Instagram: <b>☰ → Central de Contas → Suas informações e permissões → Baixar suas informações</b>.</li>
+        <li>Escolha <b>Algumas das suas informações → Seguidores e seguindo</b>.</li>
+        <li><b>Baixar no dispositivo</b> · período <b>Desde o início</b> · formato <b>JSON</b>.</li>
+        <li>Quando chegar o e-mail, baixe o <b>.zip</b> e escolha ele aqui embaixo.</li>
+      </ol></details>
+    <label>Arquivo do Instagram (.zip) — ou os arquivos followers_1.json + following.json</label>
+    <input type="file" id="nsArq" accept=".zip,.json,application/zip,application/json" multiple onchange="lerNaoSegue(this)" style="font-size:.85rem">
+    <div id="nsRes" style="margin-top:10px;font-size:.88rem"></div>
+    <div class="rodape"><button class="btn" onclick="fecharModal()">Fechar</button></div>`);
+}
+function carregarJSZip(){
+  return new Promise((ok,falha)=>{ if(window.JSZip) return ok(window.JSZip);
+    const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload=()=>ok(window.JSZip); s.onerror=()=>falha(new Error('não carregou o leitor de .zip')); document.head.appendChild(s); });
+}
+function nomesDoJson(j){
+  const lista = Array.isArray(j) ? j : (j.relationships_following || j.relationships_followers || Object.values(j).find(Array.isArray) || []);
+  const nomes = [];
+  lista.forEach(it=>{
+    const sld = (it.string_list_data||[])[0] || {};
+    let n = sld.value || it.title || '';
+    if(!n && sld.href) n = sld.href.replace(/\/+$/,'').split('/').pop();
+    n = String(n).trim().replace(/^@/,'').toLowerCase();
+    if(n) nomes.push(n);
+  });
+  return nomes;
+}
+async function lerNaoSegue(input){
+  const out = document.getElementById('nsRes'); out.innerHTML = '⏳ Lendo o arquivo…';
+  try{
+    let seguidores = [], seguindo = [];
+    for(const f of [...(input.files||[])]){
+      if(/\.zip$/i.test(f.name)){
+        const JSZip = await carregarJSZip(); const zip = await JSZip.loadAsync(f);
+        for(const nome of Object.keys(zip.files)){
+          const base = nome.split('/').pop();
+          if(/^followers(_\d+)?\.json$/i.test(base)) seguidores.push(...nomesDoJson(JSON.parse(await zip.files[nome].async('string'))));
+          else if(/^following\.json$/i.test(base)) seguindo.push(...nomesDoJson(JSON.parse(await zip.files[nome].async('string'))));
+        }
+      } else {
+        const j = JSON.parse(await f.text());
+        if(/following/i.test(f.name) || j.relationships_following) seguindo.push(...nomesDoJson(j));
+        else seguidores.push(...nomesDoJson(j));
+      }
+    }
+    if(!seguidores.length || !seguindo.length){ out.innerHTML = '⚠️ Não achei os dois arquivos (followers e following). Confira se escolheu <b>Seguidores e seguindo</b> em <b>JSON</b>. 💜'; return; }
+    const setSeg = new Set(seguidores), setSeguindo = new Set(seguindo);
+    const naoSegue = [...setSeguindo].filter(n=>!setSeg.has(n)).sort();
+    const fas = [...setSeg].filter(n=>!setSeguindo.has(n)).sort();
+    naoSegueRes = { naoSegue, fas };
+    const lista = arr => arr.map(n=>`<div class="pag-linha" style="padding:6px 8px"><a href="https://instagram.com/${encodeURIComponent(n)}" target="_blank" style="flex:1;text-decoration:none">@${escapar(n)}</a></div>`).join('');
+    out.innerHTML = `<div class="tiles" style="margin-bottom:8px">
+        <div class="tile"><div class="num">${setSeg.size}</div><div class="rot">seguidores</div></div>
+        <div class="tile"><div class="num">${setSeguindo.size}</div><div class="rot">seguindo</div></div>
+        <div class="tile"><div class="num" style="color:#b91c1c">${naoSegue.length}</div><div class="rot">não te seguem de volta</div></div></div>
+      <details open><summary style="cursor:pointer;font-weight:700">💔 Você segue e não te seguem (${naoSegue.length})</summary>
+        <div style="max-height:34vh;overflow-y:auto;margin-top:6px">${lista(naoSegue)||'<div class="vazio">Ninguém! 🎉</div>'}</div></details>
+      <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">💜 Te seguem e você não segue (${fas.length})</summary>
+        <div style="max-height:30vh;overflow-y:auto;margin-top:6px">${lista(fas)||'<div class="vazio">Nenhum.</div>'}</div></details>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="copiarNaoSegue(this)">📋 Copiar lista</button>
+        <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="baixarNaoSegue()">⬇ Baixar planilha (CSV)</button></div>
+      <p style="font-size:.76rem;color:var(--muted);margin-top:8px">Dica: deixar de seguir muita gente de uma vez pode travar a conta — vá com calma (umas 20 a 30 por dia). Nada disso sai do seu aparelho. 🔒</p>`;
+  }catch(e){ out.innerHTML = '⚠️ Não consegui ler: '+escapar(e.message); }
+}
+function copiarNaoSegue(btn){ if(!naoSegueRes) return; try{ navigator.clipboard.writeText(naoSegueRes.naoSegue.map(n=>'@'+n).join('\n')); }catch(e){} btn.textContent='✔ Copiado!'; }
+function baixarNaoSegue(){
+  if(!naoSegueRes) return;
+  const linhas = ['perfil,link,situacao', ...naoSegueRes.naoSegue.map(n=>`@${n},https://instagram.com/${n},nao segue de volta`), ...naoSegueRes.fas.map(n=>`@${n},https://instagram.com/${n},te segue (voce nao segue)`)];
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+linhas.join('\n')],{type:'text/csv'})); a.download='quem-nao-me-segue.csv'; a.click();
+}
+
+/* ---------- ☑️ selecionar vários posts ---------- */
+var modoSelecao = false; var selecaoPosts = new Set();
+function entrarSelecao(){ modoSelecao = true; selecaoPosts.clear(); render(); }
+function sairSelecao(){ modoSelecao = false; selecaoPosts.clear(); render(); }
+function alternarSelecao(id, marcado){ if(marcado===undefined) marcado = !selecaoPosts.has(id); if(marcado) selecaoPosts.add(id); else selecaoPosts.delete(id); render(); }
+function selecionarTodos(ids){ const todos = ids.every(i=>selecaoPosts.has(i)); ids.forEach(i=> todos ? selecaoPosts.delete(i) : selecaoPosts.add(i)); render(); }
+function acaoSelecao(acao){
+  const n = selecaoPosts.size;
+  if(!n){ alert('Marque pelo menos um post. 💜'); return; }
+  if(acao==='apagar'){
+    if(!confirm('Apagar '+n+' post(s)? 🗑\nEssa ação não dá pra desfazer.')) return;
+    dados.posts = dados.posts.filter(p=>!selecaoPosts.has(p.id));
+  } else {
+    dados.posts.forEach(p=>{ if(selecaoPosts.has(p.id)) p.status='publicado'; });
+  }
+  modoSelecao = false; selecaoPosts.clear(); tocar();
 }
 function marcarPublicado(id){
   const p = dados.posts.find(x=>x.id===id);
@@ -1923,6 +2076,45 @@ function setTipoCadastro(t){
   if(bv) bv.setAttribute('style', base+(t==='servico'?on:off));
   if(bc) bc.setAttribute('style', base+(t==='cliente'?on:off));
 }
+/* ---------- 📈 MÉTRICAS AUTOMÁTICAS (robô anota seguidores 1x por dia) ---------- */
+let metricasAuto = [];
+async function sincronizarMetricasAuto(){
+  try{
+    const { data, error } = await sb.from('metricas_auto').select('page_id,dia,ig_seguidores,fb_seguidores').order('dia',{ascending:true}).limit(5000);
+    if(error || !data) return;
+    metricasAuto = data;
+    let mudou = false;
+    dados.clientes.forEach(c=>{
+      if(!c.metaPageId) return;
+      const linhas = data.filter(r=>r.page_id===c.metaPageId);
+      if(!linhas.length) return;
+      const porMes = {};
+      linhas.forEach(r=>{ porMes[r.dia.slice(0,7)] = r; });   // fica a última leitura de cada mês
+      c.metricas = c.metricas || [];
+      Object.entries(porMes).forEach(([mes, r])=>{
+        [['instagram', r.ig_seguidores], ['facebook', r.fb_seguidores]].forEach(([rede, v])=>{
+          if(v==null) return;
+          const ex = c.metricas.find(m=>m.mes===mes && m.rede===rede);
+          if(ex){ if(ex.seguidores!==v){ ex.seguidores=v; ex.auto=true; mudou=true; } }
+          else { c.metricas.push({ mes, rede, seguidores:v, alcance:0, auto:true }); mudou=true; }
+        });
+      });
+    });
+    if(mudou) tocar();
+  }catch(e){}
+}
+function resumoMetricaAuto(c){
+  if(!c || !c.metaPageId) return '';
+  const l = metricasAuto.filter(r=>r.page_id===c.metaPageId);
+  if(!l.length) return `<div style="font-size:.8rem;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:7px 10px;margin:6px 0">🤖 A primeira anotação automática sai amanhã cedinho. 💜</div>`;
+  const ult = l[l.length-1];
+  const ref = l.slice().reverse().find(r=>diasEntreISO(r.dia, ult.dia)>=7) || l[0];
+  const dif = (a,b)=> (a!=null&&b!=null&&a!==b) ? ` <b style="color:${a-b>0?'#0a8a4a':'#b91c1c'}">${a-b>0?'+':''}${(a-b).toLocaleString('pt-BR')}</b>` : '';
+  const partes = [];
+  if(ult.ig_seguidores!=null) partes.push(`📸 Instagram <b>${ult.ig_seguidores.toLocaleString('pt-BR')}</b>${dif(ult.ig_seguidores, ref.ig_seguidores)}`);
+  if(ult.fb_seguidores!=null) partes.push(`📘 Facebook <b>${ult.fb_seguidores.toLocaleString('pt-BR')}</b>${dif(ult.fb_seguidores, ref.fb_seguidores)}`);
+  return `<div style="font-size:.82rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:7px 10px;margin:6px 0">🤖 Hoje (${dataBRcompleta(ult.dia).slice(0,5)}): ${partes.join(' · ')}${ref!==ult?` <span style="color:var(--muted)">desde ${dataBRcompleta(ref.dia).slice(0,5)}</span>`:''}</div>`;
+}
 /* ---------- MÉTRICAS ---------- */
 function abrirMetricas(id){
   const c = clientePorId(id);
@@ -1931,7 +2123,7 @@ function abrirMetricas(id){
   const ymAtual = hojeISO().slice(0,7);
   abrirModal(`
     <h3>📈 Métricas — ${escapar(c.nome)}</h3>
-    <p style="font-size:.8rem;color:var(--muted)">Anote 1x por mês os números de cada rede e acompanhe o crescimento.</p>
+    <p style="font-size:.8rem;color:var(--muted)">${c.metaPageId?'🤖 Instagram e Facebook são anotados <b>sozinhos todo dia</b> pelo robô. As outras redes, anote 1x por mês.':'Anote 1x por mês os números de cada rede e acompanhe o crescimento.'}</p>${resumoMetricaAuto(c)}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
       <select id="metRede" style="width:auto">${tipos.map(t=>`<option value="${t}">${(REDES[t]||REDES.outra).nome}</option>`).join('')}</select>
       <input type="month" id="metMes" value="${ymAtual}" style="width:auto">
@@ -2128,7 +2320,7 @@ function renderClientes(){
          <button class="btn-mini" onclick="moverCliente(${p.id},1)" title="Descer na lista">⬇️</button>
          ${p.tipo==='servico' ? `<button class="btn-mini" onclick="abrirAgendarServico(${p.id})">🗓 Agendar serviço</button>` : p.tipo==='cliente' ? '' : `<button class="btn-mini" onclick="sugerirAgenda(${p.id})">🗓 Sugerir agenda</button>`}
          ${(p.valor>0||p.dividaTotal>0)?`<button class="btn-mini" onclick="abrirAgendarRecebimento(${p.id})">💰 Agendar recebimento</button>`:''}
-         ${(p.tipo==='cliente'&&(p.valor>0||p.dividaTotal>0))?`<button class="btn-mini" onclick="verFicha(${p.id})">📄 Ficha</button>`:''}
+         ${p.tipo==='cliente'?`<button class="btn-mini" onclick="verFicha(${p.id})">📄 Ficha</button> <button class="btn-mini" onclick="abrirNovoAtendimento('', ${p.id})">✂️ Marcar atendimento</button>`:''}
          ${p.endereco?`<button class="btn-mini" onclick="abrirMapa(${p.id})">📍 Mapa</button>`:''}
          ${(p.zap && p.tipo!=='cliente')?`<button class="btn-mini" onclick="aCaminho(${p.id})">🚗 A caminho</button>`:''}
          ${(p.tipo==='cliente'&&p.zap)?`<button class="btn-mini" onclick="mensagemRapida(${p.id})">💬 Mensagem</button>`:''}
@@ -2214,7 +2406,7 @@ function verFicha(id){
     const status = x.pago?'✔ pago':(atras?'⚠ atrasado':'a vencer');
     return `<div class="pag-linha"><span style="width:26px;color:var(--muted);font-size:.78rem">${i+1}</span><span style="flex:1">${dataBRcompleta(x.data)} — <b>${dinheiro(x.valor)}</b> <span style="color:${cor};font-size:.78rem;font-weight:700">${status}</span></span><button class="btn-claro" style="padding:3px 7px;font-size:.72rem" onclick="editarDataParcela(${x.id},${id})" title="Mudar a data desta parcela">✏️</button>${!x.pago?`<button class="btn-claro" style="padding:3px 8px;font-size:.72rem" onclick="darBaixaRecebimento(${x.id});fecharModal();verFicha(${id})">✔ Recebi</button>`:''}</div>`;
   }).join('') : '<div class="vazio">Nenhuma parcela agendada. Use 💰 Agendar recebimento. 💜</div>';
-  abrirModal(`<h3>📄 Ficha de ${escapar(c.nome)}</h3>
+  abrirModal(`<h3>📄 Ficha de ${escapar(c.nome)}</h3>${fichaInfo(c)}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 12px">
       <div style="flex:1;min-width:120px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted)">Recebido</div><b style="color:#0a8a4a">${dinheiro(recebido)}</b></div>
       <div style="flex:1;min-width:120px;background:#fff8f1;border:1px solid #fde3c8;border-radius:10px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted)">Falta receber</div><b style="color:#b45309">${dinheiro(aReceber)}</b></div>
@@ -2632,7 +2824,7 @@ const MESES_ABREV = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out'
 function isoDe(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function dataFromISO(iso){ const p=String(iso).split('-'); return new Date(+p[0], +p[1]-1, +p[2]); }
 function postsDoDia(iso){ const f=filtroAtivo(); return dados.posts.filter(p=>p.data===iso && (!f||p.clienteId===f)); }
-function compromissosDoDia(iso){ return (dados.compromissos||[]).filter(c=> c.dataFim ? (iso>=c.data && iso<=c.dataFim) : c.data===iso).sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')); }
+function compromissosDoDia(iso){ const f=filtroAtivo(); return (dados.compromissos||[]).filter(c=> (c.dataFim ? (iso>=c.data && iso<=c.dataFim) : c.data===iso) && (!f || !c.clienteId || c.clienteId===f)).sort((a,b)=>(a.hora||'').localeCompare(b.hora||'')); }
 function marcarBotaoVisao(){ document.querySelectorAll('.cal-view-btn').forEach(b=>b.classList.toggle('ativo', b.dataset.v===calVisao)); }
 function setCalVisao(v){ calVisao = v; marcarBotaoVisao(); renderCalendario(); }
 function mudarPeriodo(n){
@@ -2650,9 +2842,9 @@ function chipPost(p){
   return `<button class="chip" style="background:${c?c.cor:'#999'}" onclick="event.stopPropagation();abrirModalPost(${p.id})" title="${nome}">${nome}</button>`;
 }
 function chipCompromisso(cm){
-  const ehServico = cm.tipoCompromisso==='servico';
+  const ehServico = cm.tipoCompromisso==='servico' || cm.tipoCompromisso==='atendimento';
   const ehPag = cm.tipoCompromisso==='pagamento';
-  const multi = cm.dataFim ? '📅 ' : ehPag ? (cm.pago?'✅ ':'💰 ') : (ehServico ? '🧰 ' : '🕐 ');
+  const multi = cm.dataFim ? '📅 ' : ehPag ? (cm.pago?'✅ ':'💰 ') : (ehServico ? (cm.tipoCompromisso==='atendimento'?'✂️ ':'🧰 ') : '🕐 ');
   const estilo = ((ehServico||ehPag) && cm.cor) ? `style="background:${cm.pago?'#0a8a4a':cm.cor};color:#fff;border:none${cm.pago?';opacity:.6':''}"` : '';
   const rot = ehPag ? (cm.titulo+(cm.valor?' ('+dinheiro(cm.valor)+')':'')) : cm.titulo;
   return `<button class="chip chip-compromisso" ${estilo} onclick="event.stopPropagation();abrirDia('${cm.data}')" title="${escapar(rot)}${cm.dataFim?' (até '+escapar(cm.dataFim)+')':''}">${multi}${cm.hora?escapar(cm.hora)+' ':''}${escapar(rot)}</button>`;
@@ -2756,11 +2948,12 @@ function renderCalDia(el){
   }
   html += `</div>`;
   html += `<div class="dia-sec">
-    <div class="dia-sec-topo"><h4>📌 Compromissos pessoais</h4><button class="btn-claro" onclick="abrirModalCompromisso('${iso}')">+ Compromisso</button></div>`;
+    <div class="dia-sec-topo"><h4>📌 Compromissos e atendimentos</h4><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="abrirNovoAtendimento('${iso}')">✂️ + Atendimento</button><button class="btn-claro" onclick="abrirModalCompromisso('${iso}')">+ Compromisso</button></span></div>`;
   if(!comps.length){
     html += `<div class="vazio">Nada marcado. Ex.: médico, reunião, dentista…</div>`;
   } else {
     comps.forEach(cm=>{
+      if(cm.tipoCompromisso==='atendimento'){ html += itemAtendimento(cm); return; }
       const ehPag = cm.tipoCompromisso==='pagamento';
       const extra = ehPag ? `${cm.valor?' — <b>'+dinheiro(cm.valor)+'</b>':''}${cm.pago?' · <b style="color:var(--ok)">✔ recebido</b>':''}` : (cm.obs?`<br><span style="font-size:.82rem;color:var(--muted)">${escapar(cm.obs)}</span>`:'');
       const btnEd = !ehPag ? `<button class="btn-mini" onclick="abrirModalCompromisso('${cm.data}', ${cm.id})">✏️</button> ` : '';
@@ -2793,6 +2986,167 @@ function renderCalDia(el){
   el.innerHTML = html;
 }
 
+/* ====================================================================
+   ✂️ ATENDIMENTOS — serviços com preço, agenda, Receber automático,
+   lembretes no WhatsApp e "Virar post"
+   ==================================================================== */
+function catalogo(){ dados.catalogo = dados.catalogo || []; return dados.catalogo; }
+function fmtDuracao(min){ min=parseInt(min)||0; if(!min) return ''; const h=Math.floor(min/60), m=min%60; return h ? (h+'h'+(m?String(m).padStart(2,'0'):'')) : (m+'min'); }
+function rotuloServico(s){ return [s.nome, fmtDuracao(s.min), s.valor?dinheiro(s.valor):''].filter(Boolean).join(' · '); }
+function abrirCatalogo(depois){
+  const lista = catalogo();
+  abrirModal(`<h3>✂️ Meus serviços</h3>
+    <p style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Cadastre o que você faz, com tempo e preço. Aí é só escolher na hora de marcar o atendimento — e o 💰 Receber já sai pronto. 💜</p>
+    <div style="max-height:220px;overflow-y:auto;margin-bottom:10px">${lista.length ? lista.map(s=>`<div class="pag-linha"><span style="flex:1"><b>${escapar(s.nome)}</b> <span style="color:var(--muted);font-size:.82rem">${escapar([fmtDuracao(s.min), s.valor?dinheiro(s.valor):''].filter(Boolean).join(' · '))}</span></span><button class="btn-mini perigo" onclick="removerServicoCatalogo(${s.id},'${depois||''}')">🗑</button></div>`).join('') : '<div class="vazio">Nenhum serviço ainda. Ex.: Manicure · 1h30 · 55</div>'}</div>
+    <label>Nome do serviço</label><input id="ctNome" placeholder="Ex.: Manicure, Corte, Design de sobrancelha">
+    <div class="linha-flex">
+      <div style="flex:1"><label>Duração</label><select id="ctMin">${[15,30,45,60,75,90,120,150,180,240].map(m=>`<option value="${m}" ${m===60?'selected':''}>${fmtDuracao(m)}</option>`).join('')}</select></div>
+      <div style="flex:1"><label>Preço</label><input id="ctValor" inputmode="decimal" placeholder="Ex.: 55"></div>
+    </div>
+    <div class="rodape">
+      <button class="btn-claro" onclick="${depois==='atendimento'?'abrirNovoAtendimento()':'fecharModal()'}">${depois==='atendimento'?'← Voltar':'Fechar'}</button>
+      <button class="btn" onclick="addServicoCatalogo('${depois||''}')">➕ Adicionar</button>
+    </div>`);
+}
+function addServicoCatalogo(depois){
+  const nome=(document.getElementById('ctNome').value||'').trim(); if(!nome){ alertaCampo('ctNome'); return; }
+  const valor=parseFloat(String(document.getElementById('ctValor').value||'').replace(/[^\d,.]/g,'').replace(',','.'))||0;
+  const min=parseInt(document.getElementById('ctMin').value)||60;
+  catalogo().push({ id:novoId(), nome, min, valor });
+  tocar(); abrirCatalogo(depois);
+}
+function removerServicoCatalogo(id, depois){ dados.catalogo = catalogo().filter(s=>s.id!==id); tocar(); abrirCatalogo(depois); }
+function clientesDoNegocio(){ return dados.clientes.filter(c=>!c.arquivado && (c.tipo==='cliente'||c.tipo==='servico')).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')); }
+let ultimoAtend = {};
+function abrirNovoAtendimento(iso, clienteId){
+  if(iso!==undefined) ultimoAtend = { iso: iso||hojeISO(), clienteId: clienteId||'' };
+  const cls = clientesDoNegocio(), servs = catalogo();
+  abrirModal(`<h3>✂️ Novo atendimento</h3>
+    <label>Cliente</label>
+    ${cls.length ? `<select id="atCliente">${cls.map(c=>`<option value="${c.id}" ${String(c.id)===String(ultimoAtend.clienteId)?'selected':''}>${escapar(c.nome)}</option>`).join('')}</select>`
+      : `<div class="vazio" style="margin-bottom:8px">Nenhuma cliente cadastrada ainda. Cadastre em 👥 Usuários → + Novo → 👤 Cliente. 💜</div>`}
+    <label>Serviço <a href="#" onclick="abrirCatalogo('atendimento');return false" style="font-weight:400;font-size:.8rem">✏️ editar lista</a></label>
+    ${servs.length ? `<select id="atServico">${servs.map(s=>`<option value="${s.id}">${escapar(rotuloServico(s))}</option>`).join('')}</select>`
+      : `<div class="vazio" style="margin-bottom:8px">Cadastre seus serviços primeiro: <a href="#" onclick="abrirCatalogo('atendimento');return false">✂️ Meus serviços</a></div>`}
+    <div class="linha-flex">
+      <div style="flex:1"><label>Dia</label><input type="date" id="atData" value="${ultimoAtend.iso||hojeISO()}"></div>
+      <div style="flex:1"><label>Hora</label><input type="time" id="atHora" value="09:00"></div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:6px;cursor:pointer"><input type="checkbox" id="atReceber" checked style="width:18px;height:18px"> Criar o 💰 Receber no mesmo dia</label>
+    <label>Observação (opcional)</label><input id="atObs" placeholder="Ex.: prefere esmalte nude">
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      ${cls.length&&servs.length?`<button class="btn" onclick="salvarAtendimento()">Marcar</button>`:''}
+    </div>`);
+}
+function salvarAtendimento(){
+  const c = clientePorId(parseInt(document.getElementById('atCliente').value)); if(!c) return;
+  const s = catalogo().find(x=>x.id===parseInt(document.getElementById('atServico').value)); if(!s) return;
+  const data = document.getElementById('atData').value || hojeISO();
+  const hora = document.getElementById('atHora').value || '';
+  const obs = (document.getElementById('atObs').value||'').trim();
+  if(!dados.compromissos) dados.compromissos=[];
+  const id = novoId();
+  dados.compromissos.push({ id, data, dataFim:'', hora, titulo:s.nome+' · '+c.nome, obs, clienteId:c.id, tipoCompromisso:'atendimento', servicoId:s.id, servicoNome:s.nome, duracao:s.min, valor:s.valor||0, cor:c.cor||'#ec4899' });
+  if(document.getElementById('atReceber').checked && s.valor>0){
+    dados.compromissos.push({ id:novoId(), data, dataFim:'', hora:'', titulo:'Receber · '+c.nome, obs:s.nome, clienteId:c.id, tipoCompromisso:'pagamento', valor:s.valor, cor:c.cor, pago:false, atendimentoId:id });
+  }
+  fecharModal();
+  mesAtual=dataFromISO(data); calVisao='dia'; marcarBotaoVisao();
+  if(typeof trocarAba==='function' && document.querySelector('[data-aba="calendario"]')) trocarAba('calendario');
+  tocar();
+}
+function excluirAtendimento(id){
+  if(!confirm('Desmarcar este atendimento? 🗑\n(O 💰 Receber dele, se ainda não foi pago, sai junto.)')) return;
+  dados.compromissos = (dados.compromissos||[]).filter(x=> x.id!==id && !(x.atendimentoId===id && !x.pago));
+  tocar();
+}
+function itemAtendimento(cm){
+  const c = clientePorId(cm.clienteId);
+  const fim = (cm.hora && cm.duracao) ? (()=>{ const [h,m]=cm.hora.split(':').map(Number); const t=h*60+m+parseInt(cm.duracao); return String(Math.floor(t/60)%24).padStart(2,'0')+':'+String(t%60).padStart(2,'0'); })() : '';
+  return `<div class="dia-item" style="flex-wrap:wrap">
+    <span class="pt-cor" style="background:${cm.cor||'#ec4899'}"></span>
+    <div style="flex:1;min-width:180px"><b>✂️ ${cm.hora?escapar(cm.hora)+(fim?'–'+fim:'')+' · ':''}${escapar(cm.servicoNome||cm.titulo)}</b> — ${c?escapar(c.nome):''}${cm.valor?` <span style="color:var(--muted);font-size:.82rem">· ${dinheiro(cm.valor)}</span>`:''}${cm.obs?`<br><span style="font-size:.82rem;color:var(--muted)">${escapar(cm.obs)}</span>`:''}</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="zapAtendimento(${cm.id},'vespera')" title="Mensagem de confirmação">🔔 Confirmar</button>
+      <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="zapAtendimento(${cm.id},'pos')" title="Pedir pra marcar nos stories">💜 Stories</button>
+      <button class="btn-claro" style="padding:4px 9px;font-size:.76rem" onclick="atendimentoVirarPost(${cm.id})" title="Criar post de antes e depois">📸 Virar post</button>
+      <button class="btn-mini perigo" onclick="excluirAtendimento(${cm.id})">🗑</button>
+    </div>
+  </div>`;
+}
+function primeiroNome(c){ return ((c&&c.nome)||'').split(' ')[0]||''; }
+function textoZapAtendimento(tipo, cm, c){
+  const pn = primeiroNome(c);
+  const serv = cm ? (cm.servicoNome||'seu horário') : '';
+  const quando = cm ? (cm.data===isoSomaDias(hojeISO(),1) ? 'amanhã' : (cm.data===hojeISO()?'hoje':'dia '+dataBRcompleta(cm.data).slice(0,5))) : '';
+  if(tipo==='vespera') return `Oi ${pn}! 💜 Passando pra lembrar: ${quando}${cm&&cm.hora?' às '+cm.hora:''} tem seu horário de ${serv}. Posso confirmar? 😊`;
+  if(tipo==='pos') return `Oi ${pn}! Amei te atender hoje 💜 Se gostou do resultado, me marca nos stories? Ajuda demais o meu trabalho! 📸✨`;
+  if(tipo==='saudade') return `Oi ${pn}! Tô com saudade 💜 Faz um tempinho que você não vem… bora marcar seu horário? Tenho horários essa semana! 😊`;
+  return `Oi ${pn}! 💜`;
+}
+function abrirZapTexto(c, texto, titulo){
+  abrirModal(`<h3>${titulo}</h3>
+    <p style="font-size:.82rem;color:var(--muted)">Pode editar antes de mandar:</p>
+    <textarea id="mZapTxt" style="min-height:110px;margin-top:8px">${escapar(texto)}</textarea>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
+      ${c&&c.zap?`<button class="btn" onclick="enviarZap('${ddiSugerido(c.zap)+numeroLocal(c.zap)}', document.getElementById('mZapTxt').value);fecharModal()">📱 Abrir WhatsApp</button>`
+        :`<button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.getElementById('mZapTxt').value);this.textContent='✔ Copiado! (cliente sem WhatsApp no cadastro)'">📋 Copiar</button>`}
+    </div>`);
+}
+function zapAtendimento(id, tipo){
+  const cm = (dados.compromissos||[]).find(x=>x.id===id); if(!cm) return;
+  const c = clientePorId(cm.clienteId);
+  const tit = {vespera:'🔔 Confirmar horário', pos:'💜 Pedir pra marcar nos stories'}[tipo] || '💬 Mensagem';
+  abrirZapTexto(c, textoZapAtendimento(tipo, cm, c), tit);
+}
+function zapSaudade(clienteId){ const c=clientePorId(clienteId); abrirZapTexto(c, textoZapAtendimento('saudade', null, c), '💜 Cliente com saudade'); }
+function atendimentoVirarPost(id){
+  const cm = (dados.compromissos||[]).find(x=>x.id===id); if(!cm) return;
+  const c = clientePorId(cm.clienteId);
+  const serv = cm.servicoNome || 'Atendimento';
+  const tag = serv.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
+  abrirModalPost(0, hojeISO());
+  const perfil = dados.clientes.find(x=>ehPerfilSocial(x));
+  const sel = document.getElementById('mCliente'); if(sel && perfil){ sel.value = perfil.id; if(typeof trocaClientePost==='function') trocaClientePost(); }
+  const t = document.getElementById('mTitulo'); if(t) t.value = '✨ Antes e depois · '+serv;
+  const l = document.getElementById('mLegenda');
+  if(l) l.value = `✨ Antes e depois de hoje! ${serv} feito com muito carinho 💜\n\nArrasta pro lado pra ver a diferença 👉\n\nQuer ficar assim também? Me chama no WhatsApp e garante seu horário! 📲\n\n#antesedepois${tag?' #'+tag:''} #autoestima #agendaaberta`;
+  const o = document.getElementById('mObs'); if(o) o.value = `Foto de ${c?c.nome:'cliente'} — pedir autorização antes de postar 💜`;
+  if(typeof atualizarContadores==='function') atualizarContadores();
+}
+function fichaInfo(c){
+  const at = (dados.compromissos||[]).filter(x=>x.clienteId===c.id && x.tipoCompromisso==='atendimento').sort((a,b)=>b.data.localeCompare(a.data));
+  const hj = hojeISO();
+  const passados = at.filter(x=>x.data<=hj), futuros = at.filter(x=>x.data>hj);
+  const linhas = [];
+  if(c.zap) linhas.push(`📱 ${escapar(c.zap)}`);
+  if(c.aniversario) linhas.push(`🎂 ${dataBRcompleta(c.aniversario).slice(0,5)}`);
+  if(passados.length) linhas.push(`✂️ ${passados.length} atendimento(s) · último ${dataBRcompleta(passados[0].data)}`);
+  if(futuros.length) linhas.push(`📅 próximo ${dataBRcompleta(futuros[futuros.length-1].data)}`);
+  return `<div style="font-size:.85rem;margin:4px 0 10px;line-height:1.6">${linhas.join(' &nbsp;·&nbsp; ')||''}
+    ${c.notas?`<div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:7px 10px;margin-top:6px">📝 ${escapar(c.notas)}</div>`:''}
+    ${at.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-weight:600">Histórico de atendimentos (${at.length})</summary>${at.slice(0,20).map(x=>`<div class="pag-linha" style="font-size:.82rem"><span style="flex:1">${dataBRcompleta(x.data)}${x.hora?' '+escapar(x.hora):''} — ${escapar(x.servicoNome||x.titulo)}</span>${x.valor?`<span>${dinheiro(x.valor)}</span>`:''}</div>`).join('')}</details>`:''}
+    <div style="margin-top:8px"><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="fecharModal();abrirNovoAtendimento('', ${c.id})">✂️ Marcar atendimento</button></div>
+  </div>`;
+}
+function blocoAtendimentosHoje(f){
+  const hj = hojeISO(), amanha = isoSomaDias(hj,1);
+  const at = (dados.compromissos||[]).filter(x=>x.tipoCompromisso==='atendimento' && (!f||x.clienteId===f));
+  if(!at.length) return '';
+  let html = '';
+  const deAmanha = at.filter(x=>x.data===amanha).sort((a,b)=>(a.hora||'').localeCompare(b.hora||''));
+  const deHoje = at.filter(x=>x.data===hj).sort((a,b)=>(a.hora||'').localeCompare(b.hora||''));
+  if(deHoje.length) html += `<div class="hoje-grupo"><h3>✂️ Atendimentos de hoje</h3>${deHoje.map(itemAtendimento).join('')}</div>`;
+  if(deAmanha.length) html += `<div class="hoje-grupo"><h3>🔔 Confirmar os de amanhã</h3>${deAmanha.map(x=>{ const c=clientePorId(x.clienteId); return `<div class="pag-linha"><span class="bolinha" style="background:${x.cor||'#ec4899'}"></span><span style="flex:1">${x.hora?'<b>'+escapar(x.hora)+'</b> · ':''}${escapar(x.servicoNome||x.titulo)} — ${c?escapar(c.nome):''}</span><button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="zapAtendimento(${x.id},'vespera')">🔔 Confirmar</button></div>`; }).join('')}</div>`;
+  const porCliente = {};
+  at.forEach(x=>{ (porCliente[x.clienteId]=porCliente[x.clienteId]||[]).push(x.data); });
+  const sumidas = Object.entries(porCliente).map(([id,datas])=>({ c:clientePorId(parseInt(id)), ult:datas.filter(d=>d<=hj).sort().pop(), fut:datas.some(d=>d>hj) }))
+    .filter(x=>x.c && !x.c.arquivado && x.ult && !x.fut && diasEntreISO(x.ult,hj)>=45).sort((a,b)=>a.ult.localeCompare(b.ult)).slice(0,5);
+  if(sumidas.length) html += `<div class="hoje-grupo"><h3>💜 Clientes com saudade</h3>${sumidas.map(x=>`<div class="pag-linha"><span class="bolinha" style="background:${x.c.cor}"></span><span style="flex:1"><b>${escapar(x.c.nome)}</b> <span style="color:var(--muted);font-size:.8rem">· última vez ${dataBRcompleta(x.ult)}</span></span><button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="zapSaudade(${x.c.id})">💬 Chamar</button></div>`).join('')}</div>`;
+  return html;
+}
 function abrirModalCompromisso(iso, editId){
   const cm = editId ? (dados.compromissos||[]).find(x=>x.id===editId) : null;
   abrirModal(`
@@ -3079,9 +3433,16 @@ function abrirModalPost(id, dataPre){
     <div id="mMidiasPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px"></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:9px 11px;margin-top:8px;cursor:pointer"><input type="checkbox" id="mAuto" ${p&&p.autoPublicar?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 🤖 Publicar sozinho no horário (Instagram e Facebook)</label>
     <label style="margin-top:8px">🤝 Collab no Instagram <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô convida sozinho — até 3 @, separados por espaço)</span></label>
-    <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="@jgpazotto @geraldopazotto">
+    <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="ex.: @perfil1 @perfil2 — deixe vazio se não for collab">
     <label>📝 Observações <span style="font-weight:400;color:var(--muted);font-size:.78rem">(só pra você — não vai na legenda)</span></label>
     <textarea id="mObs" rows="2" placeholder="Ex.: editar no CapCut, capa pelo Meta">${p&&p.obs?escapar(p.obs):''}</textarea>
+    <details ${p&&p.resultado?'open':''} style="margin:6px 0 4px"><summary style="cursor:pointer;font-weight:600;font-size:.88rem">📊 Resultado do post <span style="font-weight:400;color:var(--muted);font-size:.78rem">(preencha depois de publicado)</span></summary>
+      <div class="linha-flex" style="margin-top:6px">
+        <div style="flex:1"><label>👀 Views</label><input id="mResViews" inputmode="numeric" value="${p&&p.resultado&&p.resultado.views!=null?p.resultado.views:''}" placeholder="0"></div>
+        <div style="flex:1"><label>❤️ Curtidas</label><input id="mResCurt" inputmode="numeric" value="${p&&p.resultado&&p.resultado.curtidas!=null?p.resultado.curtidas:''}" placeholder="0"></div>
+        <div style="flex:1"><label>💬 Coment.</label><input id="mResCom" inputmode="numeric" value="${p&&p.resultado&&p.resultado.comentarios!=null?p.resultado.comentarios:''}" placeholder="0"></div>
+      </div>
+    </details>
     <label>Legenda / roteiro</label>
     <textarea id="mLegenda" placeholder="Legenda pronta, hashtags, roteiro do vídeo..." oninput="atualizarContadores()">${p?escapar(p.legenda):''}</textarea>
     <div class="contadores" id="contadores"></div>
@@ -3163,6 +3524,9 @@ function salvarPost(id){
   novo.midias = midiasTemp.slice();
   novo.autoPublicar = !!(document.getElementById('mAuto') && document.getElementById('mAuto').checked);
   { const ob=document.getElementById('mObs'); novo.obs = ob && ob.value.trim() ? ob.value.trim() : undefined; }
+  { const num=id=>{ const el=document.getElementById(id); if(!el) return null; const v=String(el.value||'').replace(/[^\d]/g,''); return v===''?null:parseInt(v); };
+    const r={ views:num('mResViews'), curtidas:num('mResCurt'), comentarios:num('mResCom') };
+    novo.resultado = (r.views!=null||r.curtidas!=null||r.comentarios!=null) ? r : undefined; }
   { const ci=document.getElementById('mCollabIG'); const lista=ci?(ci.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()).slice(0,3):[]; novo.collabIG = lista.length ? lista : undefined; }
   if(novo.autoPublicar && novo.status!=='publicado') novo.status = 'agendado';
   if(id){ Object.assign(dados.posts.find(x=>x.id===id), novo); }
@@ -4487,7 +4851,7 @@ function ehPerfilSocial(c){ return c && !c.arquivado && c.tipo!=='cliente' && c.
 function desenharMidias(){
   const el = document.getElementById('mMidiasPrev'); if(!el) return;
   el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:74px;height:74px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
-      ${m.tipo==='video'?`<video src="${m.url}" muted style="width:100%;height:100%;object-fit:cover"></video><span style="position:absolute;left:4px;bottom:3px;font-size:.7rem;background:#0008;color:#fff;border-radius:6px;padding:0 4px">🎬</span>`
+      ${m.tipo==='video'?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,#7c3aed,#ec4899)">🎬</div><video src="${m.url}#t=0.5" muted playsinline preload="metadata" onerror="this.remove()" style="position:relative;width:100%;height:100%;object-fit:cover"></video><span style="position:absolute;left:4px;bottom:3px;font-size:.7rem;background:#0008;color:#fff;border-radius:6px;padding:0 4px">🎬</span>`
         :`<img src="${m.url}" style="width:100%;height:100%;object-fit:cover">`}
       <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
     </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
@@ -4569,6 +4933,7 @@ async function desconectarMeta(){
   await sb.from('conexoes_meta').delete().eq('user_id',usuarioId);
   conexaoMeta = null; renderConexoes();
 }
+function ligarAutoResposta(clienteId, sim){ const c=clientePorId(clienteId); if(!c) return; if(sim) c.autoResponder=true; else delete c.autoResponder; tocar(); }
 function escolherPaginaMeta(clienteId, pageId){
   const c = clientePorId(clienteId); if(!c) return;
   if(pageId) c.metaPageId = pageId; else delete c.metaPageId;
@@ -4609,7 +4974,7 @@ function renderConexoes(){
           <select onchange="escolherPaginaMeta(${c.id}, this.value)" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px;min-width:220px">
             <option value="">— não publicar automático —</option>
             ${pags.map(p=>`<option value="${p.id}" ${c.metaPageId===p.id?'selected':''}>${escapar(p.name)}${p.ig_user?' + @'+escapar(p.ig_user):' (sem Instagram)'}</option>`).join('')}
-          </select></div>`).join('')
+          </select>${c.metaPageId?`<label style="display:flex;align-items:center;gap:5px;font-size:.78rem;margin:0;cursor:pointer" title="Responde sozinho comentário simples (linda, arrasou, só emoji) com obrigada + 💜. Pergunta nunca."><input type="checkbox" ${c.autoResponder?'checked':''} onchange="ligarAutoResposta(${c.id}, this.checked)" style="width:16px;height:16px;margin:0"> 💬 Responder sozinho</label>`:''}</div>`).join('')
         : '<div style="font-size:.84rem;color:var(--muted)">Nenhuma página encontrada nessa conta do Facebook.</div>'}
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="ligarAutomatico(true)">🔗 Ligar todos</button><button class="btn-claro" onclick="conectarMeta()">🔄 Reconectar</button><button class="btn-mini" onclick="desconectarMeta()">Desconectar</button></div>`
     : `<button class="btn" onclick="conectarMeta()">🔗 Conectar Facebook e Instagram</button>`}
