@@ -781,7 +781,7 @@ async function entrarNoApp(){
   document.getElementById('app').style.display = 'block';
   await carregarDados();
   render();
-  carregarConexao(); carregarPublicacoes();
+  carregarConexao(); carregarPublicacoes(); sincronizarMetricasAuto();
   verificarExpiracao();
   if(planoAtual()!=='expirado' && !(dados.assinatura && dados.assinatura.tourVisto)){ setTimeout(iniciarTour, 550); }
 }
@@ -2076,6 +2076,45 @@ function setTipoCadastro(t){
   if(bv) bv.setAttribute('style', base+(t==='servico'?on:off));
   if(bc) bc.setAttribute('style', base+(t==='cliente'?on:off));
 }
+/* ---------- 📈 MÉTRICAS AUTOMÁTICAS (robô anota seguidores 1x por dia) ---------- */
+let metricasAuto = [];
+async function sincronizarMetricasAuto(){
+  try{
+    const { data, error } = await sb.from('metricas_auto').select('page_id,dia,ig_seguidores,fb_seguidores').order('dia',{ascending:true}).limit(5000);
+    if(error || !data) return;
+    metricasAuto = data;
+    let mudou = false;
+    dados.clientes.forEach(c=>{
+      if(!c.metaPageId) return;
+      const linhas = data.filter(r=>r.page_id===c.metaPageId);
+      if(!linhas.length) return;
+      const porMes = {};
+      linhas.forEach(r=>{ porMes[r.dia.slice(0,7)] = r; });   // fica a última leitura de cada mês
+      c.metricas = c.metricas || [];
+      Object.entries(porMes).forEach(([mes, r])=>{
+        [['instagram', r.ig_seguidores], ['facebook', r.fb_seguidores]].forEach(([rede, v])=>{
+          if(v==null) return;
+          const ex = c.metricas.find(m=>m.mes===mes && m.rede===rede);
+          if(ex){ if(ex.seguidores!==v){ ex.seguidores=v; ex.auto=true; mudou=true; } }
+          else { c.metricas.push({ mes, rede, seguidores:v, alcance:0, auto:true }); mudou=true; }
+        });
+      });
+    });
+    if(mudou) tocar();
+  }catch(e){}
+}
+function resumoMetricaAuto(c){
+  if(!c || !c.metaPageId) return '';
+  const l = metricasAuto.filter(r=>r.page_id===c.metaPageId);
+  if(!l.length) return `<div style="font-size:.8rem;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:7px 10px;margin:6px 0">🤖 A primeira anotação automática sai amanhã cedinho. 💜</div>`;
+  const ult = l[l.length-1];
+  const ref = l.slice().reverse().find(r=>diasEntreISO(r.dia, ult.dia)>=7) || l[0];
+  const dif = (a,b)=> (a!=null&&b!=null&&a!==b) ? ` <b style="color:${a-b>0?'#0a8a4a':'#b91c1c'}">${a-b>0?'+':''}${(a-b).toLocaleString('pt-BR')}</b>` : '';
+  const partes = [];
+  if(ult.ig_seguidores!=null) partes.push(`📸 Instagram <b>${ult.ig_seguidores.toLocaleString('pt-BR')}</b>${dif(ult.ig_seguidores, ref.ig_seguidores)}`);
+  if(ult.fb_seguidores!=null) partes.push(`📘 Facebook <b>${ult.fb_seguidores.toLocaleString('pt-BR')}</b>${dif(ult.fb_seguidores, ref.fb_seguidores)}`);
+  return `<div style="font-size:.82rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:7px 10px;margin:6px 0">🤖 Hoje (${dataBRcompleta(ult.dia).slice(0,5)}): ${partes.join(' · ')}${ref!==ult?` <span style="color:var(--muted)">desde ${dataBRcompleta(ref.dia).slice(0,5)}</span>`:''}</div>`;
+}
 /* ---------- MÉTRICAS ---------- */
 function abrirMetricas(id){
   const c = clientePorId(id);
@@ -2084,7 +2123,7 @@ function abrirMetricas(id){
   const ymAtual = hojeISO().slice(0,7);
   abrirModal(`
     <h3>📈 Métricas — ${escapar(c.nome)}</h3>
-    <p style="font-size:.8rem;color:var(--muted)">Anote 1x por mês os números de cada rede e acompanhe o crescimento.</p>
+    <p style="font-size:.8rem;color:var(--muted)">${c.metaPageId?'🤖 Instagram e Facebook são anotados <b>sozinhos todo dia</b> pelo robô. As outras redes, anote 1x por mês.':'Anote 1x por mês os números de cada rede e acompanhe o crescimento.'}</p>${resumoMetricaAuto(c)}
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
       <select id="metRede" style="width:auto">${tipos.map(t=>`<option value="${t}">${(REDES[t]||REDES.outra).nome}</option>`).join('')}</select>
       <input type="month" id="metMes" value="${ymAtual}" style="width:auto">
