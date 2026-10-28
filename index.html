@@ -427,6 +427,7 @@
     <div id="listaHoje"></div>
   </section>
   <section id="aba-clientes" style="display:none">
+    <div id="conexoesWrap"></div>
     <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="btnNovoUsuario" onclick="abrirModalCliente()">+ Novo usuário 📱</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button><button class="btn" id="btnNovoCliente" onclick="abrirModalCliente(null,'cliente')" style="display:none">+ Novo cliente 👤</button></div></div>
     <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
     <div id="filtroEmpresaWrap" style="display:none;margin:0 0 12px"></div>
@@ -780,6 +781,7 @@ async function entrarNoApp(){
   document.getElementById('app').style.display = 'block';
   await carregarDados();
   render();
+  carregarConexao(); carregarPublicacoes();
   verificarExpiracao();
   if(planoAtual()!=='expirado' && !(dados.assinatura && dados.assinatura.tourVisto)){ setTimeout(iniciarTour, 550); }
 }
@@ -1271,6 +1273,7 @@ function agendarSalvar(){
 }
 async function salvarAgora(){
   salvando = true;
+  try{ dados.fuso = Intl.DateTimeFormat().resolvedOptions().timeZone || dados.fuso; }catch(e){}
   const agora = new Date().toISOString();
   const { error } = await sb.from('organizador').upsert({ user_id: usuarioId, conteudo:dados, atualizado:agora });
   salvando = false;
@@ -1299,6 +1302,7 @@ function trocarAba(aba){
   });
   render();
   if(aba==='dono') carregarDono();
+  if(aba==='clientes') renderConexoes();
   if(aba==='equipe') carregarEquipe();
   if(aba==='contatos') carregarContatos();
 }
@@ -1584,7 +1588,7 @@ function renderHoje(){
         ${badgesRedes(c, p.redes)}
         ${atrasado?`<span class="atrasado-tag">⚠ era ${dataBR(p.data)}</span>`:''}
       </div>
-      <div class="meta">${c?escapar(c.nome):''} · ${TIPOS[p.tipo]||''} · ${STATUS_NOME[p.status]}</div>
+      <div class="meta">${c?escapar(c.nome):''} · ${TIPOS[p.tipo]||''} · ${STATUS_NOME[p.status]}</div>${badgeAuto(p)}
       <div class="acoes-post">
         ${p.legenda?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="copiarLegenda(${p.id});this.textContent='✔ Copiado! (legenda + #)'" title="Copia a legenda e as hashtags juntas, prontas pra colar">📋 Copiar tudo</button>`:''}
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="agendarNoMeta(${p.id});this.textContent='✔ Legenda copiada → cole no Meta'" title="Copia a legenda e abre o Meta Business Suite pra agendar o post">📅 Agendar no Meta</button>
@@ -3050,13 +3054,13 @@ function abrirModalPost(id, dataPre){
   abrirModal(`
     <h3>${p?'Editar postagem':'Nova postagem'}</h3>
     <label>Usuário</label>
-    <select id="mCliente" onchange="trocaClientePost()">${dados.clientes.map(x=>`<option value="${x.id}" ${p&&p.clienteId===x.id?'selected':''}>${escapar(x.nome)}</option>`).join('')}</select>
+    <select id="mCliente" onchange="trocaClientePost()">${dados.clientes.filter(x=>!x.arquivado || (p&&p.clienteId===x.id)).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<option value="${x.id}" ${p&&p.clienteId===x.id?'selected':''}>${escapar(x.nome)}</option>`).join('')}</select>
     <label>Publicar em quais redes?</label>
     <div class="check-redes" id="mChkRedes" onchange="aoMudarRedes()">${checkboxesRedes(cliInicial, p?p.redes:null)}</div>
     ${(!p && dados.clientes.length>1) ? `
-    <label>👥 Postar o mesmo em outros perfis? <span style="font-weight:400;color:var(--muted);font-size:.78rem">(collab — cria o post igual pra cada um marcado)</span></label>
+    <label>📋 Copiar este post pra outros perfis? <span style="font-weight:400;color:var(--muted);font-size:.78rem">(cria posts SEPARADOS, um em cada perfil. Pra collab de verdade no Instagram, use o campo 🤝 Collab lá embaixo)</span></label>
     <div class="check-redes" id="mCollab">
-      ${dados.clientes.filter(x=>x.id!==cliInicial.id).map(x=>`<label style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left"><input type="checkbox" class="chk-collab" value="${x.id}" style="flex:none;width:16px;height:16px;margin:0"> <span class="bolinha" style="width:10px;height:10px;background:${x.cor};flex:none"></span> <span style="flex:1;text-align:left">${escapar(x.nome)}</span></label>`).join('')}
+      ${dados.clientes.filter(x=>x.id!==cliInicial.id && ehPerfilSocial(x)).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<label style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left"><input type="checkbox" class="chk-collab" value="${x.id}" style="flex:none;width:16px;height:16px;margin:0"> <span class="bolinha" style="width:10px;height:10px;background:${x.cor};flex:none"></span> <span style="flex:1;text-align:left">${escapar(x.nome)}</span></label>`).join('')}
     </div>` : ''}
     <label>Título / assunto</label>
     <input id="mTitulo" value="${p?escapar(p.titulo):''}" placeholder="Ex.: Promoção de sexta">
@@ -3069,6 +3073,15 @@ function abrirModalPost(id, dataPre){
     <select id="mTipo">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${p&&p.tipo===k?'selected':''}>${v}</option>`).join('')}</select>
     <label>Status</label>
     <select id="mStatus">${STATUS.map(s=>`<option value="${s}" ${p&&p.status===s?'selected':''}>${STATUS_NOME[s]}</option>`).join('')}</select>
+    <label>🖼 Arte ou vídeo do post <span style="font-weight:400;color:var(--muted);font-size:.78rem">(até 10 — vira carrossel)</span></label>
+    <input type="file" id="mMidia" accept="image/*,video/*" multiple onchange="enviarMidias(this)" style="font-size:.85rem">
+    <div id="mMidiaStatus" style="font-size:.78rem;color:var(--muted);margin-top:4px"></div>
+    <div id="mMidiasPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px"></div>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:9px 11px;margin-top:8px;cursor:pointer"><input type="checkbox" id="mAuto" ${p&&p.autoPublicar?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 🤖 Publicar sozinho no horário (Instagram e Facebook)</label>
+    <label style="margin-top:8px">🤝 Collab no Instagram <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô convida sozinho — até 3 @, separados por espaço)</span></label>
+    <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="@jgpazotto @geraldopazotto">
+    <label>📝 Observações <span style="font-weight:400;color:var(--muted);font-size:.78rem">(só pra você — não vai na legenda)</span></label>
+    <textarea id="mObs" rows="2" placeholder="Ex.: editar no CapCut, capa pelo Meta">${p&&p.obs?escapar(p.obs):''}</textarea>
     <label>Legenda / roteiro</label>
     <textarea id="mLegenda" placeholder="Legenda pronta, hashtags, roteiro do vídeo..." oninput="atualizarContadores()">${p?escapar(p.legenda):''}</textarea>
     <div class="contadores" id="contadores"></div>
@@ -3080,6 +3093,8 @@ function abrirModalPost(id, dataPre){
       <button class="btn" onclick="salvarPost(${p?p.id:0})">Salvar</button>
     </div>`);
   legendasTemp = p && p.legendas ? JSON.parse(JSON.stringify(p.legendas)) : {};
+  midiasTemp = p && Array.isArray(p.midias) ? JSON.parse(JSON.stringify(p.midias)) : (p && p.midiaUrl ? [{url:p.midiaUrl,tipo:p.midiaTipo||'imagem'}] : []);
+  desenharMidias();
   atualizarContadores();
 }
 let legendasTemp = {};
@@ -3145,6 +3160,11 @@ function salvarPost(id){
     legenda: document.getElementById('mLegenda').value,
     legendas
   };
+  novo.midias = midiasTemp.slice();
+  novo.autoPublicar = !!(document.getElementById('mAuto') && document.getElementById('mAuto').checked);
+  { const ob=document.getElementById('mObs'); novo.obs = ob && ob.value.trim() ? ob.value.trim() : undefined; }
+  { const ci=document.getElementById('mCollabIG'); const lista=ci?(ci.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()).slice(0,3):[]; novo.collabIG = lista.length ? lista : undefined; }
+  if(novo.autoPublicar && novo.status!=='publicado') novo.status = 'agendado';
   if(id){ Object.assign(dados.posts.find(x=>x.id===id), novo); }
   else {
     const collab = [...document.querySelectorAll('.chk-collab:checked')].map(c=>parseInt(c.value));
@@ -4448,6 +4468,193 @@ function enviarChat(){
   inp.value = '';
   perguntar(q);
 }
+
+
+/* ======================================================================
+   🤖 PUBLICAÇÃO AUTOMÁTICA (Instagram + Facebook) — conexões, mídias, status
+   ====================================================================== */
+const META_APP_ID = '1741842040494859';
+const META_CONFIG_ID = '1858495235602197';   // se o app usar "Login do Facebook para Empresas", colocar o ID da configuração aqui
+const META_VERSAO = 'v23.0';
+const META_ESCOPOS = 'pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,business_management';
+let conexaoMeta = null;          // linha de conexoes_meta do usuário
+let publicacoesMapa = {};        // "postId|rede" -> {status, resultado}
+let midiasTemp = [];
+
+function ehPerfilSocial(c){ return c && !c.arquivado && c.tipo!=='cliente' && c.tipo!=='servico'; }
+
+/* ---------- mídias do post (arte / vídeo) ---------- */
+function desenharMidias(){
+  const el = document.getElementById('mMidiasPrev'); if(!el) return;
+  el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:74px;height:74px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
+      ${m.tipo==='video'?`<video src="${m.url}" muted style="width:100%;height:100%;object-fit:cover"></video><span style="position:absolute;left:4px;bottom:3px;font-size:.7rem;background:#0008;color:#fff;border-radius:6px;padding:0 4px">🎬</span>`
+        :`<img src="${m.url}" style="width:100%;height:100%;object-fit:cover">`}
+      <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
+    </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
+}
+// Instagram só aceita foto em JPEG: converte PNG/WebP/HEIC etc. antes de enviar
+function paraJpeg(f){
+  return new Promise((ok)=>{
+    if(!(f.type||'').startsWith('image/') || f.type==='image/jpeg') return ok(f);
+    const url=URL.createObjectURL(f); const img=new Image();
+    img.onload=()=>{
+      const max=1440; let w=img.naturalWidth, h=img.naturalHeight;
+      if(w>max){ h=Math.round(h*max/w); w=max; }
+      const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+      const cx=cv.getContext('2d'); cx.fillStyle='#fff'; cx.fillRect(0,0,w,h); cx.drawImage(img,0,0,w,h);
+      cv.toBlob(b=>{ URL.revokeObjectURL(url); ok(b? new File([b], (f.name||'arte').replace(/\.[^.]+$/,'')+'.jpg', {type:'image/jpeg'}) : f); }, 'image/jpeg', 0.92);
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); ok(f); };
+    img.src=url;
+  });
+}
+async function enviarMidias(input){
+  const arquivos = [...(input.files||[])]; if(!arquivos.length) return;
+  const st = document.getElementById('mMidiaStatus');
+  for(let [i,f] of arquivos.entries()){
+    f = await paraJpeg(f);
+    if(f.size > 95*1024*1024){ if(st) st.textContent='⚠️ "'+f.name+'" é grande demais (máx. 95 MB).'; continue; }
+    if(st) st.textContent = '⏳ Enviando '+(i+1)+' de '+arquivos.length+'…';
+    const ext = (f.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
+    const caminho = usuarioId+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.'+ext;
+    const { error } = await sb.storage.from('midias').upload(caminho, f, { contentType: f.type, upsert:false });
+    if(error){ if(st) st.textContent='⚠️ Não consegui enviar: '+error.message; continue; }
+    const { data } = sb.storage.from('midias').getPublicUrl(caminho);
+    midiasTemp.push({ url:data.publicUrl, tipo: (f.type||'').startsWith('video')?'video':'imagem', nome:f.name });
+    desenharMidias();
+  }
+  if(st) st.textContent = '✅ Pronto!';
+  input.value = '';
+}
+
+/* ---------- conexão com Facebook / Instagram ---------- */
+async function carregarConexao(){
+  try{
+    const { data } = await sb.from('conexoes_meta').select('paginas,token_longo,expira_em,erro,atualizado').eq('user_id',usuarioId).maybeSingle();
+    conexaoMeta = data || null;
+  }catch(e){ conexaoMeta = null; }
+  renderConexoes();
+}
+function carregarSdkFacebook(){
+  return new Promise((ok,falha)=>{
+    if(window.FB) return ok(window.FB);
+    window.fbAsyncInit = function(){ FB.init({ appId:META_APP_ID, cookie:false, xfbml:false, version:META_VERSAO }); ok(window.FB); };
+    const s=document.createElement('script'); s.src='https://connect.facebook.net/pt_BR/sdk.js'; s.async=true; s.onerror=()=>falha(new Error('não carregou o Facebook'));
+    document.head.appendChild(s);
+  });
+}
+async function conectarMeta(){
+  const msg = document.getElementById('conexaoMsg'); if(msg) msg.textContent='⏳ Abrindo o Facebook…';
+  try{
+    const FB = await carregarSdkFacebook();
+    const opcoes = META_CONFIG_ID ? { config_id:META_CONFIG_ID } : { scope:META_ESCOPOS, return_scopes:true };
+    FB.login((resp)=>{ (async ()=>{
+      if(!resp || !resp.authResponse){ if(msg) msg.textContent='Conexão cancelada.'; return; }
+      const token = resp.authResponse.accessToken;
+      let paginas = [];
+      try{
+        const r = await fetch(`https://graph.facebook.com/${META_VERSAO}/me/accounts?fields=id,name,instagram_business_account{id,username}&limit=100&access_token=${encodeURIComponent(token)}`);
+        const j = await r.json();
+        paginas = (j.data||[]).map(p=>({ id:p.id, name:p.name, ig_id:p.instagram_business_account&&p.instagram_business_account.id, ig_user:p.instagram_business_account&&p.instagram_business_account.username }));
+      }catch(e){}
+      const { error } = await sb.from('conexoes_meta').upsert({ user_id:usuarioId, user_token:token, token_longo:false, paginas, erro:null, atualizado:new Date().toISOString() });
+      if(error){ if(msg) msg.textContent='⚠️ '+error.message; return; }
+      await carregarConexao();
+      const n = ligarAutomatico(false);
+      if(msg) msg.textContent = '✅ Conectado!' + (n ? ' Liguei sozinha '+n+' perfil(s) à página certa 💜 Confira abaixo.' : ' Agora escolha a página de cada perfil abaixo.');
+    })(); }, opcoes);
+  }catch(e){ if(msg) msg.textContent='⚠️ '+e.message; }
+}
+async function desconectarMeta(){
+  await sb.from('conexoes_meta').delete().eq('user_id',usuarioId);
+  conexaoMeta = null; renderConexoes();
+}
+function escolherPaginaMeta(clienteId, pageId){
+  const c = clientePorId(clienteId); if(!c) return;
+  if(pageId) c.metaPageId = pageId; else delete c.metaPageId;
+  delete c.metaAuto;
+  tocar();
+}
+// 🔗 Liga sozinho: o @ do Instagram do perfil bate com o Instagram da página (ou o nome bate)
+function normalizarArroba(t){ return String(t||'').toLowerCase().replace(/^https?:\/\/(www\.)?instagram\.com\//,'').replace(/[^a-z0-9]/g,''); }
+function paginaDoPerfil(c, pags){
+  const igs = (c.redes||[]).filter(r=>r.tipo==='instagram').map(r=>normalizarArroba(r.usuario||r.link)).filter(Boolean);
+  let p = pags.find(p=>p.ig_user && igs.includes(normalizarArroba(p.ig_user)));
+  if(!p){ const nome = normalizarArroba(c.nome); p = nome && pags.find(p=>normalizarArroba(p.name)===nome); }
+  return p || null;
+}
+function ligarAutomatico(avisar){
+  const pags = (conexaoMeta && conexaoMeta.paginas) || [];
+  let n = 0;
+  dados.clientes.filter(ehPerfilSocial).forEach(c=>{
+    if(c.metaPageId) return;            // não mexe no que já foi escolhido
+    const p = paginaDoPerfil(c, pags);
+    if(p){ c.metaPageId = p.id; c.metaAuto = true; n++; }
+  });
+  if(n) tocar(); renderConexoes();
+  if(avisar){ const msg=document.getElementById('conexaoMsg'); if(msg) msg.textContent = n ? '✅ Liguei '+n+' perfil(s) sozinha! Os outros não têm página com o mesmo @ — escolha à mão ou ligue o Instagram a uma Página.' : 'Nenhum perfil novo pra ligar: os que têm página com o mesmo @ já estão ligados. 💜'; }
+  return n;
+}
+function renderConexoes(){
+  const el = document.getElementById('conexoesWrap'); if(!el) return;
+  const pags = (conexaoMeta && conexaoMeta.paginas) || [];
+  const perfis = dados.clientes.filter(ehPerfilSocial).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt'));
+  el.innerHTML = `<div class="cartao" style="margin-bottom:16px;border:1px solid #e9d5ff;background:linear-gradient(135deg,#faf5ff,#fdf2f8)">
+    <h3 style="margin:0 0 4px">🤖 Publicação automática <span style="font-size:.72rem;background:#7c3aed;color:#fff;border-radius:20px;padding:2px 8px;vertical-align:middle">NOVO</span></h3>
+    <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Conecte seu Facebook e o Postou publica sozinho no Instagram e no Facebook, no dia e hora do post. 💜</p>
+    ${conexaoMeta ? `
+      <div style="font-size:.86rem;margin-bottom:8px">✅ Facebook conectado${conexaoMeta.erro?` · <span style="color:#dc2626">${escapar(conexaoMeta.erro)}</span>`:''}</div>
+      ${pags.length ? perfis.map(c=>`<div style="display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap">
+          <span class="bolinha" style="background:${c.cor}"></span><b style="min-width:140px">${escapar(c.nome)}${c.metaAuto?' <span title="Ligado automático pelo @ do Instagram — pode trocar" style="font-size:.7rem;background:#dcfce7;color:#166534;border-radius:20px;padding:1px 7px;font-weight:600">✅ automático</span>':''}${!c.metaPageId&&!paginaDoPerfil(c,pags)?' <span title="Nenhuma página com esse @ apareceu. O Instagram precisa ser profissional e ligado a uma Página do Facebook; depois clique em Reconectar." style="font-size:.7rem;background:#fef3c7;color:#92400e;border-radius:20px;padding:1px 7px;font-weight:600">sem página</span>':''}</b>
+          <select onchange="escolherPaginaMeta(${c.id}, this.value)" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px;min-width:220px">
+            <option value="">— não publicar automático —</option>
+            ${pags.map(p=>`<option value="${p.id}" ${c.metaPageId===p.id?'selected':''}>${escapar(p.name)}${p.ig_user?' + @'+escapar(p.ig_user):' (sem Instagram)'}</option>`).join('')}
+          </select></div>`).join('')
+        : '<div style="font-size:.84rem;color:var(--muted)">Nenhuma página encontrada nessa conta do Facebook.</div>'}
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="ligarAutomatico(true)">🔗 Ligar todos</button><button class="btn-claro" onclick="conectarMeta()">🔄 Reconectar</button><button class="btn-mini" onclick="desconectarMeta()">Desconectar</button></div>`
+    : `<button class="btn" onclick="conectarMeta()">🔗 Conectar Facebook e Instagram</button>`}
+    <div id="conexaoMsg" style="font-size:.84rem;margin-top:8px;color:var(--muted)"></div>
+  </div>`;
+}
+
+/* ---------- resultado do robô ---------- */
+async function carregarPublicacoes(){
+  if(!usuarioId) return;
+  try{
+    const { data, error } = await sb.from('publicacoes').select('post_id,rede,status,resultado').eq('user_id',usuarioId);
+    if(error) return;
+    const novo = {};
+    (data||[]).forEach(r=>{ novo[r.post_id+'|'+r.rede] = r; });
+    const igual = JSON.stringify(novo)===JSON.stringify(publicacoesMapa);
+    publicacoesMapa = novo;
+    let mudou = false;
+    (dados.posts||[]).forEach(p=>{
+      if(!p.autoPublicar || p.status==='publicado') return;
+      const auto = (p.redes||[]).filter(r=>r==='instagram'||r==='facebook');
+      if(auto.length && auto.every(r=>publicacoesMapa[p.id+'|'+r] && publicacoesMapa[p.id+'|'+r].status==='ok')){ p.status='publicado'; mudou=true; }
+    });
+    if(mudou) tocar(); else if(!igual) render();
+  }catch(e){}
+}
+function badgeAuto(p){
+  if(!p || !p.autoPublicar) return '';
+  const auto = (p.redes||[]).filter(r=>r==='instagram'||r==='facebook');
+  const partes = auto.map(r=>{
+    const x = publicacoesMapa[p.id+'|'+r]; const sig = r==='instagram'?'IG':'FB';
+    if(!x) return `<span title="Vai publicar sozinho no horário">⏰ ${sig}</span>`;
+    if(x.status==='ok') return `<span title="Publicado pelo robô">✅ ${sig}</span>`;
+    if(x.status==='publicando') return `<span>⏳ ${sig}</span>`;
+    const err = (x.resultado&&x.resultado.erro)||'erro';
+    return `<span style="color:#dc2626" title="${escapar(err)}">⚠️ ${sig}</span> <button class="btn-mini" onclick="tentarDeNovo(${p.id},'${r}')" title="${escapar(err)}">tentar de novo</button>`;
+  });
+  const manuais = (p.redes||[]).filter(r=>r!=='instagram'&&r!=='facebook').map(r=>(REDES&&REDES[r]&&REDES[r].nome)||r);
+  return `<div style="font-size:.78rem;margin-top:3px">🤖 ${partes.join(' · ')}${manuais.length?` <span style="color:var(--muted)">· ${escapar(manuais.join(', '))}: manual</span>`:''}</div>${p.obs?`<div style="font-size:.78rem;color:var(--muted);margin-top:2px">📝 ${escapar(p.obs)}</div>`:''}`;
+}
+async function tentarDeNovo(postId, rede){
+  await sb.from('publicacoes').delete().eq('user_id',usuarioId).eq('post_id',postId).eq('rede',rede);
+  await carregarPublicacoes();
+}
+setInterval(()=>{ if(usuarioId) carregarPublicacoes(); }, 60000);
 
 iniciar();
 </script>
