@@ -1562,7 +1562,7 @@ function renderHoje(){
     elRec.innerHTML = `<div style="background:linear-gradient(135deg,#faf5ff,#fdf2f8);border:1px solid #f0e6fb;border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(124,58,237,.06)">
       <div style="font-size:.78rem;color:#9b6ec8;font-weight:800;letter-spacing:.3px;margin-bottom:3px">💜 RECADINHO DO DIA</div>
       <div style="font-size:.95rem;color:#4b3a63;line-height:1.5">${oi}${rec}</div>
-      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirRespostas()">💬 Respostas prontas</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirRespostas()">💬 Respostas prontas</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirNaoSegue()">🔍 Quem não me segue</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
     </div>`;
   }
   const posts = dados.posts.filter(p=>(!f||p.clienteId===f));
@@ -1762,6 +1762,84 @@ function copiarResposta(btn, gi, ti){
 }
 function salvarResposta(){ const el=document.getElementById('novaResposta'); const t=(el.value||'').trim(); if(!t){ alertaCampo('novaResposta'); return; } dados.respostas=dados.respostas||[]; dados.respostas.unshift(t); tocar(); abrirRespostas(); }
 function apagarResposta(i){ dados.respostas=(dados.respostas||[]); dados.respostas.splice(i,1); tocar(); abrirRespostas(); }
+
+/* ---------- 🔍 QUEM NÃO ME SEGUE DE VOLTA (arquivo oficial do Instagram) ---------- */
+let naoSegueRes = null;
+function abrirNaoSegue(){
+  abrirModal(`<h3>🔍 Quem não me segue de volta</h3>
+    <p style="font-size:.84rem;color:var(--muted)">Sem senha e sem app estranho: usamos o arquivo oficial que o próprio Instagram te manda. 💜</p>
+    <details style="margin:6px 0 10px"><summary style="cursor:pointer;font-weight:700">📲 Como pegar o arquivo (1 vez só)</summary>
+      <ol style="font-size:.84rem;padding-left:18px;line-height:1.6;margin-top:6px">
+        <li>No Instagram: <b>☰ → Central de Contas → Suas informações e permissões → Baixar suas informações</b>.</li>
+        <li>Escolha <b>Algumas das suas informações → Seguidores e seguindo</b>.</li>
+        <li><b>Baixar no dispositivo</b> · período <b>Desde o início</b> · formato <b>JSON</b>.</li>
+        <li>Quando chegar o e-mail, baixe o <b>.zip</b> e escolha ele aqui embaixo.</li>
+      </ol></details>
+    <label>Arquivo do Instagram (.zip) — ou os arquivos followers_1.json + following.json</label>
+    <input type="file" id="nsArq" accept=".zip,.json,application/zip,application/json" multiple onchange="lerNaoSegue(this)" style="font-size:.85rem">
+    <div id="nsRes" style="margin-top:10px;font-size:.88rem"></div>
+    <div class="rodape"><button class="btn" onclick="fecharModal()">Fechar</button></div>`);
+}
+function carregarJSZip(){
+  return new Promise((ok,falha)=>{ if(window.JSZip) return ok(window.JSZip);
+    const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'; s.onload=()=>ok(window.JSZip); s.onerror=()=>falha(new Error('não carregou o leitor de .zip')); document.head.appendChild(s); });
+}
+function nomesDoJson(j){
+  const lista = Array.isArray(j) ? j : (j.relationships_following || j.relationships_followers || Object.values(j).find(Array.isArray) || []);
+  const nomes = [];
+  lista.forEach(it=>{
+    const sld = (it.string_list_data||[])[0] || {};
+    let n = sld.value || it.title || '';
+    if(!n && sld.href) n = sld.href.replace(/\/+$/,'').split('/').pop();
+    n = String(n).trim().replace(/^@/,'').toLowerCase();
+    if(n) nomes.push(n);
+  });
+  return nomes;
+}
+async function lerNaoSegue(input){
+  const out = document.getElementById('nsRes'); out.innerHTML = '⏳ Lendo o arquivo…';
+  try{
+    let seguidores = [], seguindo = [];
+    for(const f of [...(input.files||[])]){
+      if(/\.zip$/i.test(f.name)){
+        const JSZip = await carregarJSZip(); const zip = await JSZip.loadAsync(f);
+        for(const nome of Object.keys(zip.files)){
+          const base = nome.split('/').pop();
+          if(/^followers(_\d+)?\.json$/i.test(base)) seguidores.push(...nomesDoJson(JSON.parse(await zip.files[nome].async('string'))));
+          else if(/^following\.json$/i.test(base)) seguindo.push(...nomesDoJson(JSON.parse(await zip.files[nome].async('string'))));
+        }
+      } else {
+        const j = JSON.parse(await f.text());
+        if(/following/i.test(f.name) || j.relationships_following) seguindo.push(...nomesDoJson(j));
+        else seguidores.push(...nomesDoJson(j));
+      }
+    }
+    if(!seguidores.length || !seguindo.length){ out.innerHTML = '⚠️ Não achei os dois arquivos (followers e following). Confira se escolheu <b>Seguidores e seguindo</b> em <b>JSON</b>. 💜'; return; }
+    const setSeg = new Set(seguidores), setSeguindo = new Set(seguindo);
+    const naoSegue = [...setSeguindo].filter(n=>!setSeg.has(n)).sort();
+    const fas = [...setSeg].filter(n=>!setSeguindo.has(n)).sort();
+    naoSegueRes = { naoSegue, fas };
+    const lista = arr => arr.map(n=>`<div class="pag-linha" style="padding:6px 8px"><a href="https://instagram.com/${encodeURIComponent(n)}" target="_blank" style="flex:1;text-decoration:none">@${escapar(n)}</a></div>`).join('');
+    out.innerHTML = `<div class="tiles" style="margin-bottom:8px">
+        <div class="tile"><div class="num">${setSeg.size}</div><div class="rot">seguidores</div></div>
+        <div class="tile"><div class="num">${setSeguindo.size}</div><div class="rot">seguindo</div></div>
+        <div class="tile"><div class="num" style="color:#b91c1c">${naoSegue.length}</div><div class="rot">não te seguem de volta</div></div></div>
+      <details open><summary style="cursor:pointer;font-weight:700">💔 Você segue e não te seguem (${naoSegue.length})</summary>
+        <div style="max-height:34vh;overflow-y:auto;margin-top:6px">${lista(naoSegue)||'<div class="vazio">Ninguém! 🎉</div>'}</div></details>
+      <details style="margin-top:6px"><summary style="cursor:pointer;font-weight:700">💜 Te seguem e você não segue (${fas.length})</summary>
+        <div style="max-height:30vh;overflow-y:auto;margin-top:6px">${lista(fas)||'<div class="vazio">Nenhum.</div>'}</div></details>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="copiarNaoSegue(this)">📋 Copiar lista</button>
+        <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="baixarNaoSegue()">⬇ Baixar planilha (CSV)</button></div>
+      <p style="font-size:.76rem;color:var(--muted);margin-top:8px">Dica: deixar de seguir muita gente de uma vez pode travar a conta — vá com calma (umas 20 a 30 por dia). Nada disso sai do seu aparelho. 🔒</p>`;
+  }catch(e){ out.innerHTML = '⚠️ Não consegui ler: '+escapar(e.message); }
+}
+function copiarNaoSegue(btn){ if(!naoSegueRes) return; try{ navigator.clipboard.writeText(naoSegueRes.naoSegue.map(n=>'@'+n).join('\n')); }catch(e){} btn.textContent='✔ Copiado!'; }
+function baixarNaoSegue(){
+  if(!naoSegueRes) return;
+  const linhas = ['perfil,link,situacao', ...naoSegueRes.naoSegue.map(n=>`@${n},https://instagram.com/${n},nao segue de volta`), ...naoSegueRes.fas.map(n=>`@${n},https://instagram.com/${n},te segue (voce nao segue)`)];
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+linhas.join('\n')],{type:'text/csv'})); a.download='quem-nao-me-segue.csv'; a.click();
+}
 
 /* ---------- ☑️ selecionar vários posts ---------- */
 var modoSelecao = false; var selecaoPosts = new Set();
