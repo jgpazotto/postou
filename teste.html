@@ -431,6 +431,7 @@
     <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="btnNovoUsuario" onclick="abrirModalCliente()">+ Novo usuário 📱</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button><button class="btn" id="btnNovoCliente" onclick="abrirModalCliente(null,'cliente')" style="display:none">+ Novo cliente 👤</button></div></div>
     <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
     <div id="filtroEmpresaWrap" style="display:none;margin:0 0 12px"></div>
+    <input id="buscaUsuarios" type="search" placeholder="🔍 Procurar perfil, cliente ou @…" oninput="renderClientes()" style="width:100%;max-width:420px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;margin:0 0 12px;font-size:.95rem">
     <div class="grade-clientes" id="listaClientes"></div>
   </section>
   <section id="aba-calendario" style="display:none">
@@ -1610,6 +1611,7 @@ function renderHoje(){
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="agendarNoMeta(${p.id});this.textContent='✔ Legenda copiada → cole no Meta'" title="Copia a legenda e abre o Meta Business Suite pra agendar o post">📅 Agendar no Meta</button>
         ${botoesPostar}
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="marcarPublicado(${p.id})">✅ Publicado!</button>
+        ${!temMidia(p)?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="subirMidiaPost(${p.id})" title="Subir o vídeo ou a arte desse post">🎬 Subir vídeo/arte</button>`:''}
         <button class="btn-mini" onclick="abrirModalPost(${p.id})">✏️</button>
         <button class="btn-mini" style="color:#b91c1c" title="Excluir este post" onclick="event.stopPropagation();if(confirm('Excluir este post? 🗑\\nEssa ação não dá pra desfazer.')){excluirPost(${p.id});}">🗑</button>
       </div>
@@ -1634,6 +1636,12 @@ function renderHoje(){
           <button class="btn-mini" onclick="sairSelecao()">✕ Fechar</button></div>`
       : '';
     html += `<div class="hoje-grupo"><h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠️ Precisa de andamento (atrasadas) <span style="font-size:.8rem;color:var(--muted);font-weight:600">${atrasados.length}</span>${modoSelecao?'':`<button class="btn-claro" style="padding:4px 10px;font-size:.76rem;margin-left:auto" onclick="entrarSelecao()">☑️ Selecionar vários</button>`}</h3>` + barraSel + atrasados.map(p=>linhaPost(p,true)).join('') + '</div>';
+  }
+  { const ate = isoSomaDias(hoje, 7);
+    const pEditar = posts.filter(p=>p.status!=='publicado' && p.data>=hoje && p.data<=ate && !temMidia(p)).sort((a,b)=>(a.data+(a.hora||'')).localeCompare(b.data+(b.hora||'')));
+    if(pEditar.length){
+      html += `<div class="hoje-grupo"><h3>🎬 Pra editar · falta subir vídeo/arte <span style="font-size:.8rem;color:var(--muted);font-weight:600">próximos 7 dias</span></h3>` + pEditar.map(p=>{ const c=clientePorId(p.clienteId); return `<div class="pag-linha"><span class="bolinha" style="background:${c?c.cor:'#999'}"></span><span style="flex:1;cursor:pointer" onclick="abrirModalPost(${p.id})"><b>${dataBRcompleta(p.data).slice(0,5)}${p.hora?' '+escapar(p.hora):''}</b> · ${escapar(p.titulo)} <span style="color:var(--muted);font-size:.8rem">· ${c?escapar(c.nome):''}</span></span><button class="btn" style="padding:5px 10px;font-size:.78rem" onclick="subirMidiaPost(${p.id})">🎬 Subir</button></div>`; }).join('') + '</div>';
+    }
   }
   const nivers = proximosAniversarios(7).filter(x=>!f||x.c.id===f);
   if(nivers.length){
@@ -1897,6 +1905,14 @@ function baixarAlarmes(){
   const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Postou//postou.app.br//PT','CALSCALE:GREGORIAN','X-WR-CALNAME:Postou',...ev,'END:VCALENDAR'].join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics],{type:'text/calendar'})); a.download = 'postou-alarmes.ics'; document.body.appendChild(a); a.click(); a.remove();
   fecharModal();
+}
+
+/* ---------- 🎬 subir vídeo/arte direto ---------- */
+function temMidia(p){ return !!((Array.isArray(p.midias) && p.midias.length) || p.midiaUrl); }
+function subirMidiaPost(id){
+  abrirModalPost(id);
+  const i = document.getElementById('mMidia');
+  if(i){ i.scrollIntoView({block:'center'}); const st=document.getElementById('mMidiaStatus'); if(st) st.innerHTML='👉 Escolha o vídeo ou a arte. Depois toque em <b>Salvar</b>.'; try{ i.click(); }catch(e){} }
 }
 
 /* ---------- ☑️ selecionar vários posts ---------- */
@@ -2356,7 +2372,10 @@ function renderClientes(){
   }
   const passaFunc = p => !filtroFunc || (filtroFunc==='__eu__' ? !p.responsavel : p.responsavel===filtroFunc);
   const passaEmpresa = p => !filtroEmpresa || p.empresa===filtroEmpresa;
-  const todos = dados.clientes.filter(p=>(!f||p.id===f) && passaFunc(p) && passaEmpresa(p));
+  const buscaEl = document.getElementById('buscaUsuarios');
+  const busca = normalizarArroba(buscaEl ? buscaEl.value : '');
+  const passaBusca = p => !busca || normalizarArroba([p.nome, p.empresa, p.servico, p.zap, ...(p.redes||[]).map(r=>r.usuario||'')].join(' ')).includes(busca);
+  const todos = dados.clientes.filter(p=>(!f||p.id===f) && passaFunc(p) && passaEmpresa(p) && passaBusca(p));
   const ativos = todos.filter(p=>!p.arquivado);
   const arquivados = todos.filter(p=>p.arquivado);
   const el = document.getElementById('listaClientes');
@@ -4945,7 +4964,7 @@ async function enviarMidias(input){
     midiasTemp.push({ url:data.publicUrl, tipo: (f.type||'').startsWith('video')?'video':'imagem', nome:f.name });
     desenharMidias();
   }
-  if(st) st.textContent = '✅ Pronto!';
+  if(st) st.innerHTML = '✅ Pronto! Agora toque em <b>Salvar</b> lá embaixo 💜';
   input.value = '';
 }
 
