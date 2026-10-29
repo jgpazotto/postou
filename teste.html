@@ -1920,7 +1920,7 @@ function subirMidiaPost(id){
 /* ---------- 💰 cobranças do dia (Receber agendados) ---------- */
 function blocoCobrancasHoje(f){
   const hj = hojeISO(), amanha = isoSomaDias(hj,1), desde = isoSomaDias(hj,-30);
-  const lista = (dados.compromissos||[]).filter(x=>x.tipoCompromisso==='pagamento' && !x.pago && x.data>=desde && x.data<=amanha && (!f||x.clienteId===f))
+  const lista = (dados.compromissos||[]).filter(x=>x.tipoCompromisso==='pagamento' && !x.pago && x.data>=desde && x.data<=amanha && (!f||x.clienteId===f) && !(clientePorId(x.clienteId)||{}).arquivado)
     .sort((a,b)=>a.data.localeCompare(b.data));
   if(!lista.length) return '';
   return `<div class="hoje-grupo"><h3>💰 Cobranças: vence hoje, amanhã ou atrasado</h3>` + lista.map(x=>{
