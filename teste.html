@@ -1668,9 +1668,11 @@ function renderHoje(){
         <span class="bolinha" style="background:${x.c.cor}"></span>
         <span style="flex:1"><b>${escapar(x.c.nome)}</b> — ${dinheiro(x.c.valor)}</span>
         <span class="venc ${x.dias<0?'atrasado':''}">${x.dias<0?'venceu dia '+x.c.diaPagamento+' ⚠️':x.dias===0?'vence HOJE':'vence em '+x.dias+' dia'+(x.dias>1?'s':'')}</span>
+        ${x.c.zap?`<button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="cobrarCliente(${x.c.id})">📱 Lembrar</button>`:''}
         <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="marcarPago(${x.c.id})">✔ Recebido</button>
       </div>`).join('') + '</div>';
   }
+  html += blocoCobrancasHoje(f);
   html += blocoAtendimentosHoje(f);
   html += `<div class="hoje-grupo"><h3 class="grupo-topo">📌 Compromissos de hoje <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="abrirModalCompromisso('${hoje}')">+ Compromisso</button></h3>` +
     (compromissosHoje.length ? compromissosHoje.map(c=>`
@@ -1778,9 +1780,9 @@ function abrirNaoSegue(){
     <p style="font-size:.84rem;color:var(--muted)">Sem senha e sem app estranho: usamos o arquivo oficial que o próprio Instagram te manda. 💜</p>
     <details style="margin:6px 0 10px"><summary style="cursor:pointer;font-weight:700">📲 Como pegar o arquivo (1 vez só)</summary>
       <ol style="font-size:.84rem;padding-left:18px;line-height:1.6;margin-top:6px">
-        <li>No Instagram: <b>☰ → Central de Contas → Suas informações e permissões → Baixar suas informações</b>.</li>
-        <li>Escolha <b>Algumas das suas informações → Seguidores e seguindo</b>.</li>
-        <li><b>Baixar no dispositivo</b> · período <b>Desde o início</b> · formato <b>JSON</b>.</li>
+        <li>No Instagram: seu perfil → <b>☰</b> → <b>Central de Contas</b> → <b>Suas informações e permissões</b> → <b>Exportar suas informações</b>.</li>
+        <li><b>Criar exportação</b> → escolha o perfil → <b>Exportar para o dispositivo</b>.</li>
+        <li>Em <b>Personalizar informações</b>, deixe marcado só <b>Seguidores e seguindo</b> · Período: <b>Desde o início</b> · Formato: <b>JSON</b> → <b>Iniciar exportação</b>.</li>
         <li>Quando chegar o e-mail, baixe o <b>.zip</b> e escolha ele aqui embaixo.</li>
       </ol></details>
     <label>Arquivo do Instagram (.zip) — ou os arquivos followers_1.json + following.json</label>
@@ -1913,6 +1915,33 @@ function subirMidiaPost(id){
   abrirModalPost(id);
   const i = document.getElementById('mMidia');
   if(i){ i.scrollIntoView({block:'center'}); const st=document.getElementById('mMidiaStatus'); if(st) st.innerHTML='👉 Escolha o vídeo ou a arte. Depois toque em <b>Salvar</b>.'; try{ i.click(); }catch(e){} }
+}
+
+/* ---------- 💰 cobranças do dia (Receber agendados) ---------- */
+function blocoCobrancasHoje(f){
+  const hj = hojeISO(), amanha = isoSomaDias(hj,1), desde = isoSomaDias(hj,-30);
+  const lista = (dados.compromissos||[]).filter(x=>x.tipoCompromisso==='pagamento' && !x.pago && x.data>=desde && x.data<=amanha && (!f||x.clienteId===f))
+    .sort((a,b)=>a.data.localeCompare(b.data));
+  if(!lista.length) return '';
+  return `<div class="hoje-grupo"><h3>💰 Cobranças: vence hoje, amanhã ou atrasado</h3>` + lista.map(x=>{
+    const c = clientePorId(x.clienteId);
+    const quando = x.data===amanha ? 'vence amanhã' : x.data===hj ? 'vence HOJE' : '⚠️ venceu '+dataBRcompleta(x.data).slice(0,5);
+    return `<div class="pag-linha"><span class="bolinha" style="background:${(c&&c.cor)||x.cor||'#999'}"></span>
+      <span style="flex:1"><b>${c?escapar(c.nome):escapar(x.titulo)}</b>${x.valor?' — '+dinheiro(x.valor):''}</span>
+      <span class="venc ${x.data<hj?'atrasado':''}">${quando}</span>
+      <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="lembrarParcela(${x.id})">📱 Lembrar</button>
+      <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="darBaixaRecebimento(${x.id})">✔ Recebi</button></div>`;
+  }).join('') + '</div>';
+}
+function lembrarParcela(id){
+  const x = (dados.compromissos||[]).find(y=>y.id===id); if(!x) return;
+  const c = clientePorId(x.clienteId); const pn = primeiroNome(c);
+  const hj = hojeISO(); const amanha = isoSomaDias(hj,1);
+  const valor = x.valor ? ' de '+dinheiro(x.valor) : '';
+  const txt = x.data===amanha ? `Oi ${pn}! 💜 Passando pra lembrar que amanhã vence sua parcela${valor}. Qualquer coisa me avisa! Obrigada 🙏`
+    : x.data===hj ? `Oi ${pn}! 💜 Lembrete: hoje vence sua parcela${valor}. Quando fizer o pagamento, me manda o comprovante? Obrigada 🙏`
+    : `Oi ${pn}! 💜 Tudo bem? Vi aqui que a parcela${valor} do dia ${dataBRcompleta(x.data).slice(0,5)} ficou em aberto. Consegue acertar hoje? Se já pagou, pode desconsiderar. Obrigada 🙏`;
+  abrirZapTexto(c, txt, '📱 Lembrar pagamento');
 }
 
 /* ---------- ☑️ selecionar vários posts ---------- */
