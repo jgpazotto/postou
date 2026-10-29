@@ -422,6 +422,7 @@
 </header>
 <main>
   <section id="aba-hoje">
+    <div id="bannerEmpresa"></div>
     <div id="recadoHoje"></div>
     <div class="tiles" id="tilesHoje"></div>
     <div id="listaHoje"></div>
@@ -773,6 +774,33 @@ async function recuperarSenha(){
   msg.style.color='#0a8a4a'; msg.innerHTML='✅ <b>Link enviado!</b> Abra o e-mail de <b>'+escapar(email)+'</b> (olhe também o SPAM) e crie uma senha nova. Depois volte e entre. 💜';
 }
 let usuarioMeta = {};
+/* ---------- 👥 ACESSO DA EQUIPE: funcionário abre a agenda da empresa ---------- */
+let contaEmpresaId = null; let empresasMembro = [];
+function idDados(){ return contaEmpresaId || usuarioId; }
+async function procurarEmpresas(){
+  try{
+    const meu = ((usuarioMeta && usuarioMeta.email) || '').trim().toLowerCase(); if(!meu) return;
+    const { data } = await sb.from('organizador').select('user_id,conteudo').neq('user_id', usuarioId).limit(200);
+    empresasMembro = (data||[]).filter(r=>{ const c=r.conteudo||{}; const ms=(c.equipeGerida&&c.equipeGerida.membros)||[]; return ms.some(m=>(m.email||'').trim().toLowerCase()===meu); })
+      .map(r=>({ id:r.user_id, nome: ((r.conteudo.assinatura||{}).nome) || ((r.conteudo.assinatura||{}).email) || 'empresa' }));
+    if(empresasMembro.length || contaEmpresaId) render();
+  }catch(e){}
+}
+function bannerEmpresa(){
+  if(contaEmpresaId){
+    const e = empresasMembro.find(x=>x.id===contaEmpresaId);
+    return `<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:10px 14px;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1">👥 Você está na agenda da equipe de <b>${escapar(e?e.nome:'empresa')}</b>. Tudo que mudar aqui aparece pra ela também. 💜</span><button class="btn-claro" style="padding:5px 10px;font-size:.8rem" onclick="trocarConta(null)">↩ Voltar pra minha conta</button></div>`;
+  }
+  if(!empresasMembro.length) return '';
+  return empresasMembro.map(e=>`<div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:14px;padding:10px 14px;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1">👥 Você faz parte da equipe de <b>${escapar(e.nome)}</b>.</span><button class="btn" style="padding:6px 12px;font-size:.82rem" onclick="trocarConta('${e.id}')">Abrir agenda da equipe</button></div>`).join('');
+}
+async function trocarConta(id){
+  if(typeof salvando!=='undefined' && salvando){ setTimeout(()=>trocarConta(id), 800); return; }
+  if(typeof timerSalvar!=='undefined' && timerSalvar){ clearTimeout(timerSalvar); timerSalvar=null; await salvarAgora(); }
+  contaEmpresaId = id || null;
+  try{ if(id) localStorage.setItem('postou_contaEmpresa_'+usuarioId, id); else localStorage.removeItem('postou_contaEmpresa_'+usuarioId); }catch(e){}
+  await carregarDados(); trocarAba('hoje'); render();
+}
 async function entrarNoApp(){
   const { data:{ user } } = await sb.auth.getUser();
   usuarioId = user ? user.id : null;
@@ -780,8 +808,11 @@ async function entrarNoApp(){
   if(user && user.email && !usuarioMeta.email) usuarioMeta.email = user.email;
   document.getElementById('telaLogin').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  try{ contaEmpresaId = localStorage.getItem('postou_contaEmpresa_'+usuarioId) || null; }catch(e){ contaEmpresaId = null; }
   await carregarDados();
+  if(contaEmpresaId && !dados){ contaEmpresaId = null; await carregarDados(); }
   render();
+  procurarEmpresas();
   carregarConexao(); carregarPublicacoes(); sincronizarMetricasAuto();
   verificarExpiracao();
   if(planoAtual()!=='expirado' && !(dados.assinatura && dados.assinatura.tourVisto)){ setTimeout(iniciarTour, 550); }
@@ -1259,8 +1290,9 @@ function setSync(estado){
 }
 async function carregarDados(){
   setSync('carregando');
-  const { data, error } = await sb.from('organizador').select('conteudo,atualizado').eq('user_id', usuarioId).maybeSingle();
+  const { data, error } = await sb.from('organizador').select('conteudo,atualizado').eq('user_id', idDados()).maybeSingle();
   if(error){ setSync('erro'); return; }
+  if(contaEmpresaId && !(data && data.conteudo)){ contaEmpresaId = null; try{ localStorage.removeItem('postou_contaEmpresa_'+usuarioId); }catch(e){} return carregarDados(); }
   if(data && data.conteudo){
     const migrado = migrar(data.conteudo);
     const precisaSalvar = data.conteudo.versao!==2;
@@ -1271,7 +1303,7 @@ async function carregarDados(){
     if(!dados.recebimentos) dados.recebimentos = [];
     if(!dados.assinatura) dados.assinatura = {};
     let mudou = precisaSalvar;
-    if(usuarioMeta.email && dados.assinatura.email!==usuarioMeta.email){ dados.assinatura.email=usuarioMeta.email; mudou=true; }
+    if(!contaEmpresaId && usuarioMeta.email && dados.assinatura.email!==usuarioMeta.email){ dados.assinatura.email=usuarioMeta.email; mudou=true; }
     if(usuarioMeta.indicadoPor && !dados.assinatura.indicadoPor){ dados.assinatura.indicadoPor=usuarioMeta.indicadoPor; mudou=true; }
     ultimaAtualizacao = data.atualizado;
     setSync('salvo');
@@ -1291,7 +1323,9 @@ async function salvarAgora(){
   salvando = true;
   try{ dados.fuso = Intl.DateTimeFormat().resolvedOptions().timeZone || dados.fuso; }catch(e){}
   const agora = new Date().toISOString();
-  const { error } = await sb.from('organizador').upsert({ user_id: usuarioId, conteudo:dados, atualizado:agora });
+  const { error } = contaEmpresaId
+    ? await sb.from('organizador').update({ conteudo:dados, atualizado:agora }).eq('user_id', contaEmpresaId)
+    : await sb.from('organizador').upsert({ user_id: usuarioId, conteudo:dados, atualizado:agora });
   salvando = false;
   if(error){ setSync('erro'); setTimeout(salvarAgora, 5000); return; }
   ultimaAtualizacao = agora;
@@ -1299,7 +1333,7 @@ async function salvarAgora(){
 }
 async function verificarRemoto(){
   if(salvando) return;
-  const { data, error } = await sb.from('organizador').select('atualizado').eq('user_id', usuarioId).maybeSingle();
+  const { data, error } = await sb.from('organizador').select('atualizado').eq('user_id', idDados()).maybeSingle();
   if(!error && data && ultimaAtualizacao && data.atualizado > ultimaAtualizacao){
     await carregarDados();
     render();
@@ -1555,6 +1589,8 @@ function renderHoje(){
   const f = filtroAtivo();
   const hoje = hojeISO();
   const elRec = document.getElementById('recadoHoje');
+  const elEmp = document.getElementById('bannerEmpresa');
+  if(elEmp) elEmp.innerHTML = bannerEmpresa();
   if(elRec){
     const primeiroNome = ((typeof usuarioMeta!=='undefined' && usuarioMeta.nome) || (dados.assinatura&&dados.assinatura.nome) || '').split(' ')[0];
     const oi = primeiroNome ? ('Oi, '+escapar(primeiroNome)+'! ') : 'Oi! ';
