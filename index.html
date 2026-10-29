@@ -446,7 +446,7 @@
         <b id="tituloMes"></b>
         <button class="btn-claro" onclick="mudarPeriodo(1)">▶</button>
       </div>
-      <button class="btn" onclick="abrirModalPost()">+ Nova postagem</button>
+      <span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" onclick="abrirAlarmes()" title="Leva seus posts e compromissos pro calendário do celular, com alarme">🔔 Alarmes no celular</button><button class="btn" onclick="abrirModalPost()">+ Nova postagem</button></span>
     </div>
     <div id="gradeCal"></div>
   </section>
@@ -1839,6 +1839,64 @@ function baixarNaoSegue(){
   if(!naoSegueRes) return;
   const linhas = ['perfil,link,situacao', ...naoSegueRes.naoSegue.map(n=>`@${n},https://instagram.com/${n},nao segue de volta`), ...naoSegueRes.fas.map(n=>`@${n},https://instagram.com/${n},te segue (voce nao segue)`)];
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+linhas.join('\n')],{type:'text/csv'})); a.download='quem-nao-me-segue.csv'; a.click();
+}
+
+/* ---------- 🔔 ALARMES NO CELULAR (.ics pro Calendário do iPhone / Google) ---------- */
+function abrirAlarmes(){
+  const f = filtroAtivo();
+  abrirModal(`<h3>🔔 Alarmes no celular</h3>
+    <p style="font-size:.85rem;color:var(--muted)">O Postou cria um arquivo com seus próximos posts e compromissos. Ao abrir no celular, eles entram no seu <b>Calendário</b> com <b>alarme</b> — o celular apita na hora. 💜</p>
+    <label>O que levar</label>
+    <label style="display:flex;gap:8px;align-items:center;margin:4px 0;cursor:pointer"><input type="checkbox" id="alPosts" checked style="width:18px;height:18px"> 📣 Posts (que ainda não foram publicados)</label>
+    <label style="display:flex;gap:8px;align-items:center;margin:4px 0;cursor:pointer"><input type="checkbox" id="alComp" checked style="width:18px;height:18px"> 📌 Compromissos e ✂️ atendimentos</label>
+    <label style="display:flex;gap:8px;align-items:center;margin:4px 0;cursor:pointer"><input type="checkbox" id="alPag" style="width:18px;height:18px"> 💰 Receber</label>
+    <div class="linha-flex">
+      <div style="flex:1"><label>Próximos</label><select id="alDias"><option value="7">7 dias</option><option value="14">14 dias</option><option value="30" selected>30 dias</option><option value="60">60 dias</option></select></div>
+      <div style="flex:1"><label>Avisar antes</label><select id="alAntes"><option value="0">Na hora</option><option value="15">15 min antes</option><option value="30" selected>30 min antes</option><option value="60">1 hora antes</option></select></div>
+    </div>
+    ${f?`<p style="font-size:.8rem;color:var(--muted)">Só do perfil filtrado lá em cima: <b>${escapar((clientePorId(f)||{}).nome||'')}</b>.</p>`:''}
+    <details style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">📲 Como colocar no celular</summary>
+      <ol style="font-size:.84rem;padding-left:18px;line-height:1.6;margin-top:6px">
+        <li><b>iPhone/iPad:</b> abra o Postou no <b>Safari</b>, toque em <b>Baixar arquivo</b> → abra o arquivo → <b>Adicionar todos</b>.</li>
+        <li><b>Android/Google:</b> baixe o arquivo e abra com o <b>Google Agenda</b> (ou em calendar.google.com → Configurações → Importar).</li>
+        <li>Fez posts novos? É só baixar de novo — os que já estavam são atualizados.</li>
+      </ol></details>
+    <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="baixarAlarmes()">⬇ Baixar arquivo</button></div>`);
+}
+function icsTexto(t){ return String(t||'').replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;'); }
+function icsDobra(linha){ const out=[]; let s=linha; while(s.length>73){ out.push(s.slice(0,73)); s=' '+s.slice(73); } out.push(s); return out.join('\r\n'); }
+function icsData(iso, hora){ return iso.replace(/-/g,'') + 'T' + (hora||'09:00').replace(':','') + '00'; }
+function icsEvento(uid, iso, hora, titulo, desc, antes, duracaoMin){
+  const ini = icsData(iso, hora);
+  const [h,m] = (hora||'09:00').split(':').map(Number); const tf = h*60+m+(duracaoMin||30);
+  const fimIso = tf>=1440 ? isoSomaDias(iso,1) : iso; const tf2 = tf%1440;
+  const fim = icsData(fimIso, String(Math.floor(tf2/60)).padStart(2,'0')+':'+String(tf2%60).padStart(2,'0'));
+  const agora = new Date().toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';
+  return ['BEGIN:VEVENT','UID:'+uid+'@postou.app.br','DTSTAMP:'+agora,'DTSTART:'+ini,'DTEND:'+fim,
+    icsDobra('SUMMARY:'+icsTexto(titulo)), icsDobra('DESCRIPTION:'+icsTexto(desc)),
+    'BEGIN:VALARM','ACTION:DISPLAY',icsDobra('DESCRIPTION:'+icsTexto(titulo)),'TRIGGER:-PT'+(parseInt(antes)||0)+'M','END:VALARM','END:VEVENT'].join('\r\n');
+}
+function baixarAlarmes(){
+  const f = filtroAtivo(); const hj = hojeISO(); const ate = isoSomaDias(hj, parseInt(document.getElementById('alDias').value)||30);
+  const antes = document.getElementById('alAntes').value;
+  const ev = [];
+  if(document.getElementById('alPosts').checked){
+    dados.posts.filter(p=>p.status!=='publicado' && p.data>=hj && p.data<=ate && (!f||p.clienteId===f)).forEach(p=>{
+      const c = clientePorId(p.clienteId); const redes=(p.redes||[]).map(r=>(REDES[r]||REDES.outra).nome).join(', ');
+      ev.push(icsEvento('post-'+p.id, p.data, p.hora, '📣 Postar: '+(p.titulo||'post')+(c?' · '+c.nome:''), [c?'Perfil: '+c.nome:'', redes?'Redes: '+redes:'', p.autoPublicar?'🤖 O robô publica IG/FB sozinho':'', p.legenda?'\nLegenda:\n'+p.legenda:''].filter(Boolean).join('\n')+'\n\npostou.app.br', antes, 15));
+    });
+  }
+  (dados.compromissos||[]).filter(x=>x.data>=hj && x.data<=ate && (!f||!x.clienteId||x.clienteId===f)).forEach(x=>{
+    const pag = x.tipoCompromisso==='pagamento';
+    if(pag ? !document.getElementById('alPag').checked : !document.getElementById('alComp').checked) return;
+    if(pag && x.pago) return;
+    const ico = pag?'💰 ':(x.tipoCompromisso==='atendimento'?'✂️ ':'📌 ');
+    ev.push(icsEvento('comp-'+x.id, x.data, x.hora, ico+x.titulo+(pag&&x.valor?' ('+dinheiro(x.valor)+')':''), (x.obs||'')+'\n\npostou.app.br', antes, x.duracao||60));
+  });
+  if(!ev.length){ alert('Nada marcado nesse período. 💜'); return; }
+  const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Postou//postou.app.br//PT','CALSCALE:GREGORIAN','X-WR-CALNAME:Postou',...ev,'END:VCALENDAR'].join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics],{type:'text/calendar'})); a.download = 'postou-alarmes.ics'; document.body.appendChild(a); a.click(); a.remove();
+  fecharModal();
 }
 
 /* ---------- ☑️ selecionar vários posts ---------- */
