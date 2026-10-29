@@ -2651,6 +2651,8 @@ function abrirModalCliente(id, tipoInicial){
     </div>
     <label>WhatsApp do usuário (com código do país — EUA +1, Brasil +55)</label>
     <input id="mZap" value="${p?escapar(p.zap||''):''}" placeholder="Ex.: +15085551234 (EUA) ou +5511999998888">
+    <details id="maisOpcoesCad" ${(p&&p.tipo&&p.tipo!=='social')||(tipoInicial&&tipoInicial!=='social')?'open':''} style="margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#faf8fc">
+    <summary style="cursor:pointer;font-weight:700;font-size:.9rem;color:var(--g1)">⚙️ Mais opções <span style="font-weight:400;color:var(--muted);font-size:.8rem">(e-mail, endereço, aniversário, metas, valor e cobrança…)</span></summary>
     <label>E-mail do usuário (opcional)</label>
     <input id="mEmailCli" value="${p?escapar(p.email||''):''}" placeholder="cliente@email.com">
     <label>Endereço (opcional — ótimo para serviços 🧽🛠)</label>
@@ -2689,6 +2691,7 @@ function abrirModalCliente(id, tipoInicial){
       <div style="flex:1"><label>Dia do pagamento</label><input type="number" id="mDiaPag" min="1" max="31" value="${p&&p.diaPagamento?p.diaPagamento:''}" placeholder="Ex.: 5"></div>
       <div style="flex:1"><label>Forma de recebimento 💰</label>${selRecebimento(p)}</div>
     </div>`}
+    </details>
     <div id="blocoRedes">
     <label>Redes sociais (o usuário sem o @ — ou cole o link completo da página, ex. Facebook)</label>
     <div id="mRedes"></div>
@@ -2696,6 +2699,8 @@ function abrirModalCliente(id, tipoInicial){
     </div>
     <label>Anotações</label>
     <textarea id="mNotas" placeholder="Combinados, frequência de posts, senha do mídia kit...">${p?escapar(p.notas):''}</textarea>
+    <details style="margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#faf8fc">
+    <summary style="cursor:pointer;font-weight:700;font-size:.9rem;color:var(--g1)">🎨 Foto e cor <span style="font-weight:400;color:var(--muted);font-size:.8rem">(opcional)</span></summary>
     <label>Foto / logo (opcional — sem isso, usamos a foto da página do Facebook 💛)</label>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
       <div id="mFotoPreview"></div>
@@ -2706,6 +2711,7 @@ function abrirModalCliente(id, tipoInicial){
     </div>
     <label>Cor de identificação</label>
     <div class="cores">${CORES.map(c=>`<div class="cor-opcao ${c===cor?'escolhida':''}" style="background:${c}" data-cor="${c}" onclick="escolherCor(this)"></div>`).join('')}</div>
+    </details>
     <div class="rodape">
       <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
       <button class="btn" onclick="salvarCliente(${p?p.id:0})">Salvar</button>
