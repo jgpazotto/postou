@@ -289,9 +289,9 @@
   </nav>
 
   <header class="lp-hero">
-    <div class="lp-badge">✨ Agora com cadastro de clientes e serviços — redes, agenda e dinheiro num app só</div>
-    <h1>Organize sua <span>vida</span>, não só suas redes</h1>
-    <p class="lp-lead">Cadastre seus <b>clientes</b> e <b>serviços</b>, planeje posts com ideias prontas pro seu nicho, controle quem te deve e organize a sua rotina — tudo num lugar só. Pra social media, prestador de serviço, vendedor e quem cuida de vários negócios. 💜</p>
+    <div class="lp-badge">✨ Um facilitador de vida: agenda, clientes e redes num app só</div>
+    <h1>Sua <span>agenda</span>, seus <span>clientes</span> e suas redes num lugar só 💜</h1>
+    <p class="lp-lead">Marque <b>atendimentos</b> com lembrete no WhatsApp em 1 toque, saiba <b>quem falta pagar</b>, e deixe o <b>robô publicar sozinho</b> no Instagram e no Facebook — com ideias prontas pro seu nicho. Pra manicure, cabeleireira, confeiteira, personal, social media e todo mundo que vive de agenda. 🇧🇷🇺🇸</p>
     <div class="lp-cta">
       <a href="#" class="lp-btn-grande" onclick="irCadastro();return false">🎁 Testar 15 dias grátis</a>
       <a href="#lp-recursos" class="lp-btn-claro">Ver o que faz</a>
@@ -422,6 +422,7 @@
 </header>
 <main>
   <section id="aba-hoje">
+    <div id="bannerEmpresa"></div>
     <div id="recadoHoje"></div>
     <div class="tiles" id="tilesHoje"></div>
     <div id="listaHoje"></div>
@@ -431,6 +432,7 @@
     <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="btnNovoUsuario" onclick="abrirModalCliente()">+ Novo usuário 📱</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button><button class="btn" id="btnNovoCliente" onclick="abrirModalCliente(null,'cliente')" style="display:none">+ Novo cliente 👤</button></div></div>
     <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
     <div id="filtroEmpresaWrap" style="display:none;margin:0 0 12px"></div>
+    <input id="buscaUsuarios" type="search" placeholder="🔍 Procurar perfil, cliente ou @…" oninput="renderClientes()" style="width:100%;max-width:420px;padding:11px 14px;border:1px solid var(--line);border-radius:12px;margin:0 0 12px;font-size:.95rem">
     <div class="grade-clientes" id="listaClientes"></div>
   </section>
   <section id="aba-calendario" style="display:none">
@@ -772,6 +774,33 @@ async function recuperarSenha(){
   msg.style.color='#0a8a4a'; msg.innerHTML='✅ <b>Link enviado!</b> Abra o e-mail de <b>'+escapar(email)+'</b> (olhe também o SPAM) e crie uma senha nova. Depois volte e entre. 💜';
 }
 let usuarioMeta = {};
+/* ---------- 👥 ACESSO DA EQUIPE: funcionário abre a agenda da empresa ---------- */
+let contaEmpresaId = null; let empresasMembro = [];
+function idDados(){ return contaEmpresaId || usuarioId; }
+async function procurarEmpresas(){
+  try{
+    const meu = ((usuarioMeta && usuarioMeta.email) || '').trim().toLowerCase(); if(!meu) return;
+    const { data } = await sb.from('organizador').select('user_id,conteudo').neq('user_id', usuarioId).limit(200);
+    empresasMembro = (data||[]).filter(r=>{ const c=r.conteudo||{}; const ms=(c.equipeGerida&&c.equipeGerida.membros)||[]; return ms.some(m=>(m.email||'').trim().toLowerCase()===meu); })
+      .map(r=>({ id:r.user_id, nome: ((r.conteudo.assinatura||{}).nome) || ((r.conteudo.assinatura||{}).email) || 'empresa' }));
+    if(empresasMembro.length || contaEmpresaId) render();
+  }catch(e){}
+}
+function bannerEmpresa(){
+  if(contaEmpresaId){
+    const e = empresasMembro.find(x=>x.id===contaEmpresaId);
+    return `<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:14px;padding:10px 14px;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1">👥 Você está na agenda da equipe de <b>${escapar(e?e.nome:'empresa')}</b>. Tudo que mudar aqui aparece pra ela também. 💜</span><button class="btn-claro" style="padding:5px 10px;font-size:.8rem" onclick="trocarConta(null)">↩ Voltar pra minha conta</button></div>`;
+  }
+  if(!empresasMembro.length) return '';
+  return empresasMembro.map(e=>`<div style="background:#faf5ff;border:1px solid #e9d5ff;border-radius:14px;padding:10px 14px;margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span style="flex:1">👥 Você faz parte da equipe de <b>${escapar(e.nome)}</b>.</span><button class="btn" style="padding:6px 12px;font-size:.82rem" onclick="trocarConta('${e.id}')">Abrir agenda da equipe</button></div>`).join('');
+}
+async function trocarConta(id){
+  if(typeof salvando!=='undefined' && salvando){ setTimeout(()=>trocarConta(id), 800); return; }
+  if(typeof timerSalvar!=='undefined' && timerSalvar){ clearTimeout(timerSalvar); timerSalvar=null; await salvarAgora(); }
+  contaEmpresaId = id || null;
+  try{ if(id) localStorage.setItem('postou_contaEmpresa_'+usuarioId, id); else localStorage.removeItem('postou_contaEmpresa_'+usuarioId); }catch(e){}
+  await carregarDados(); trocarAba('hoje'); render();
+}
 async function entrarNoApp(){
   const { data:{ user } } = await sb.auth.getUser();
   usuarioId = user ? user.id : null;
@@ -779,8 +808,11 @@ async function entrarNoApp(){
   if(user && user.email && !usuarioMeta.email) usuarioMeta.email = user.email;
   document.getElementById('telaLogin').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  try{ contaEmpresaId = localStorage.getItem('postou_contaEmpresa_'+usuarioId) || null; }catch(e){ contaEmpresaId = null; }
   await carregarDados();
+  if(contaEmpresaId && !dados){ contaEmpresaId = null; await carregarDados(); }
   render();
+  procurarEmpresas();
   carregarConexao(); carregarPublicacoes(); sincronizarMetricasAuto();
   verificarExpiracao();
   if(planoAtual()!=='expirado' && !(dados.assinatura && dados.assinatura.tourVisto)){ setTimeout(iniciarTour, 550); }
@@ -1258,8 +1290,9 @@ function setSync(estado){
 }
 async function carregarDados(){
   setSync('carregando');
-  const { data, error } = await sb.from('organizador').select('conteudo,atualizado').eq('user_id', usuarioId).maybeSingle();
+  const { data, error } = await sb.from('organizador').select('conteudo,atualizado').eq('user_id', idDados()).maybeSingle();
   if(error){ setSync('erro'); return; }
+  if(contaEmpresaId && !(data && data.conteudo)){ contaEmpresaId = null; try{ localStorage.removeItem('postou_contaEmpresa_'+usuarioId); }catch(e){} return carregarDados(); }
   if(data && data.conteudo){
     const migrado = migrar(data.conteudo);
     const precisaSalvar = data.conteudo.versao!==2;
@@ -1270,7 +1303,7 @@ async function carregarDados(){
     if(!dados.recebimentos) dados.recebimentos = [];
     if(!dados.assinatura) dados.assinatura = {};
     let mudou = precisaSalvar;
-    if(usuarioMeta.email && dados.assinatura.email!==usuarioMeta.email){ dados.assinatura.email=usuarioMeta.email; mudou=true; }
+    if(!contaEmpresaId && usuarioMeta.email && dados.assinatura.email!==usuarioMeta.email){ dados.assinatura.email=usuarioMeta.email; mudou=true; }
     if(usuarioMeta.indicadoPor && !dados.assinatura.indicadoPor){ dados.assinatura.indicadoPor=usuarioMeta.indicadoPor; mudou=true; }
     ultimaAtualizacao = data.atualizado;
     setSync('salvo');
@@ -1290,7 +1323,9 @@ async function salvarAgora(){
   salvando = true;
   try{ dados.fuso = Intl.DateTimeFormat().resolvedOptions().timeZone || dados.fuso; }catch(e){}
   const agora = new Date().toISOString();
-  const { error } = await sb.from('organizador').upsert({ user_id: usuarioId, conteudo:dados, atualizado:agora });
+  const { error } = contaEmpresaId
+    ? await sb.from('organizador').update({ conteudo:dados, atualizado:agora }).eq('user_id', contaEmpresaId)
+    : await sb.from('organizador').upsert({ user_id: usuarioId, conteudo:dados, atualizado:agora });
   salvando = false;
   if(error){ setSync('erro'); setTimeout(salvarAgora, 5000); return; }
   ultimaAtualizacao = agora;
@@ -1298,7 +1333,7 @@ async function salvarAgora(){
 }
 async function verificarRemoto(){
   if(salvando) return;
-  const { data, error } = await sb.from('organizador').select('atualizado').eq('user_id', usuarioId).maybeSingle();
+  const { data, error } = await sb.from('organizador').select('atualizado').eq('user_id', idDados()).maybeSingle();
   if(!error && data && ultimaAtualizacao && data.atualizado > ultimaAtualizacao){
     await carregarDados();
     render();
@@ -1554,6 +1589,8 @@ function renderHoje(){
   const f = filtroAtivo();
   const hoje = hojeISO();
   const elRec = document.getElementById('recadoHoje');
+  const elEmp = document.getElementById('bannerEmpresa');
+  if(elEmp) elEmp.innerHTML = bannerEmpresa();
   if(elRec){
     const primeiroNome = ((typeof usuarioMeta!=='undefined' && usuarioMeta.nome) || (dados.assinatura&&dados.assinatura.nome) || '').split(' ')[0];
     const oi = primeiroNome ? ('Oi, '+escapar(primeiroNome)+'! ') : 'Oi! ';
@@ -1610,6 +1647,7 @@ function renderHoje(){
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="agendarNoMeta(${p.id});this.textContent='✔ Legenda copiada → cole no Meta'" title="Copia a legenda e abre o Meta Business Suite pra agendar o post">📅 Agendar no Meta</button>
         ${botoesPostar}
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="marcarPublicado(${p.id})">✅ Publicado!</button>
+        ${!temMidia(p)?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="subirMidiaPost(${p.id})" title="Subir o vídeo ou a arte desse post">🎬 Subir vídeo/arte</button>`:''}
         <button class="btn-mini" onclick="abrirModalPost(${p.id})">✏️</button>
         <button class="btn-mini" style="color:#b91c1c" title="Excluir este post" onclick="event.stopPropagation();if(confirm('Excluir este post? 🗑\\nEssa ação não dá pra desfazer.')){excluirPost(${p.id});}">🗑</button>
       </div>
@@ -1634,6 +1672,12 @@ function renderHoje(){
           <button class="btn-mini" onclick="sairSelecao()">✕ Fechar</button></div>`
       : '';
     html += `<div class="hoje-grupo"><h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠️ Precisa de andamento (atrasadas) <span style="font-size:.8rem;color:var(--muted);font-weight:600">${atrasados.length}</span>${modoSelecao?'':`<button class="btn-claro" style="padding:4px 10px;font-size:.76rem;margin-left:auto" onclick="entrarSelecao()">☑️ Selecionar vários</button>`}</h3>` + barraSel + atrasados.map(p=>linhaPost(p,true)).join('') + '</div>';
+  }
+  { const ate = isoSomaDias(hoje, 7);
+    const pEditar = posts.filter(p=>p.status!=='publicado' && p.data>=hoje && p.data<=ate && !temMidia(p)).sort((a,b)=>(a.data+(a.hora||'')).localeCompare(b.data+(b.hora||'')));
+    if(pEditar.length){
+      html += `<div class="hoje-grupo"><h3>🎬 Pra editar · falta subir vídeo/arte <span style="font-size:.8rem;color:var(--muted);font-weight:600">próximos 7 dias</span></h3>` + pEditar.map(p=>{ const c=clientePorId(p.clienteId); return `<div class="pag-linha"><span class="bolinha" style="background:${c?c.cor:'#999'}"></span><span style="flex:1;cursor:pointer" onclick="abrirModalPost(${p.id})"><b>${dataBRcompleta(p.data).slice(0,5)}${p.hora?' '+escapar(p.hora):''}</b> · ${escapar(p.titulo)} <span style="color:var(--muted);font-size:.8rem">· ${c?escapar(c.nome):''}</span></span><button class="btn" style="padding:5px 10px;font-size:.78rem" onclick="subirMidiaPost(${p.id})">🎬 Subir</button></div>`; }).join('') + '</div>';
+    }
   }
   const nivers = proximosAniversarios(7).filter(x=>!f||x.c.id===f);
   if(nivers.length){
@@ -1660,9 +1704,11 @@ function renderHoje(){
         <span class="bolinha" style="background:${x.c.cor}"></span>
         <span style="flex:1"><b>${escapar(x.c.nome)}</b> — ${dinheiro(x.c.valor)}</span>
         <span class="venc ${x.dias<0?'atrasado':''}">${x.dias<0?'venceu dia '+x.c.diaPagamento+' ⚠️':x.dias===0?'vence HOJE':'vence em '+x.dias+' dia'+(x.dias>1?'s':'')}</span>
+        ${x.c.zap?`<button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="cobrarCliente(${x.c.id})">📱 Lembrar</button>`:''}
         <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="marcarPago(${x.c.id})">✔ Recebido</button>
       </div>`).join('') + '</div>';
   }
+  html += blocoCobrancasHoje(f);
   html += blocoAtendimentosHoje(f);
   html += `<div class="hoje-grupo"><h3 class="grupo-topo">📌 Compromissos de hoje <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="abrirModalCompromisso('${hoje}')">+ Compromisso</button></h3>` +
     (compromissosHoje.length ? compromissosHoje.map(c=>`
@@ -1770,9 +1816,9 @@ function abrirNaoSegue(){
     <p style="font-size:.84rem;color:var(--muted)">Sem senha e sem app estranho: usamos o arquivo oficial que o próprio Instagram te manda. 💜</p>
     <details style="margin:6px 0 10px"><summary style="cursor:pointer;font-weight:700">📲 Como pegar o arquivo (1 vez só)</summary>
       <ol style="font-size:.84rem;padding-left:18px;line-height:1.6;margin-top:6px">
-        <li>No Instagram: <b>☰ → Central de Contas → Suas informações e permissões → Baixar suas informações</b>.</li>
-        <li>Escolha <b>Algumas das suas informações → Seguidores e seguindo</b>.</li>
-        <li><b>Baixar no dispositivo</b> · período <b>Desde o início</b> · formato <b>JSON</b>.</li>
+        <li>No Instagram: seu perfil → <b>☰</b> → <b>Central de Contas</b> → <b>Suas informações e permissões</b> → <b>Exportar suas informações</b>.</li>
+        <li><b>Criar exportação</b> → escolha o perfil → <b>Exportar para o dispositivo</b>.</li>
+        <li>Em <b>Personalizar informações</b>, deixe marcado só <b>Seguidores e seguindo</b> · Período: <b>Desde o início</b> · Formato: <b>JSON</b> → <b>Iniciar exportação</b>.</li>
         <li>Quando chegar o e-mail, baixe o <b>.zip</b> e escolha ele aqui embaixo.</li>
       </ol></details>
     <label>Arquivo do Instagram (.zip) — ou os arquivos followers_1.json + following.json</label>
@@ -1897,6 +1943,41 @@ function baixarAlarmes(){
   const ics = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Postou//postou.app.br//PT','CALSCALE:GREGORIAN','X-WR-CALNAME:Postou',...ev,'END:VCALENDAR'].join('\r\n');
   const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([ics],{type:'text/calendar'})); a.download = 'postou-alarmes.ics'; document.body.appendChild(a); a.click(); a.remove();
   fecharModal();
+}
+
+/* ---------- 🎬 subir vídeo/arte direto ---------- */
+function temMidia(p){ return !!((Array.isArray(p.midias) && p.midias.length) || p.midiaUrl); }
+function subirMidiaPost(id){
+  abrirModalPost(id);
+  const i = document.getElementById('mMidia');
+  if(i){ i.scrollIntoView({block:'center'}); const st=document.getElementById('mMidiaStatus'); if(st) st.innerHTML='👉 Escolha o vídeo ou a arte. Depois toque em <b>Salvar</b>.'; try{ i.click(); }catch(e){} }
+}
+
+/* ---------- 💰 cobranças do dia (Receber agendados) ---------- */
+function blocoCobrancasHoje(f){
+  const hj = hojeISO(), amanha = isoSomaDias(hj,1), desde = isoSomaDias(hj,-30);
+  const lista = (dados.compromissos||[]).filter(x=>x.tipoCompromisso==='pagamento' && !x.pago && x.data>=desde && x.data<=amanha && (!f||x.clienteId===f) && !(clientePorId(x.clienteId)||{}).arquivado)
+    .sort((a,b)=>a.data.localeCompare(b.data));
+  if(!lista.length) return '';
+  return `<div class="hoje-grupo"><h3>💰 Cobranças: vence hoje, amanhã ou atrasado</h3>` + lista.map(x=>{
+    const c = clientePorId(x.clienteId);
+    const quando = x.data===amanha ? 'vence amanhã' : x.data===hj ? 'vence HOJE' : '⚠️ venceu '+dataBRcompleta(x.data).slice(0,5);
+    return `<div class="pag-linha"><span class="bolinha" style="background:${(c&&c.cor)||x.cor||'#999'}"></span>
+      <span style="flex:1"><b>${c?escapar(c.nome):escapar(x.titulo)}</b>${x.valor?' — '+dinheiro(x.valor):''}</span>
+      <span class="venc ${x.data<hj?'atrasado':''}">${quando}</span>
+      <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="lembrarParcela(${x.id})">📱 Lembrar</button>
+      <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="darBaixaRecebimento(${x.id})">✔ Recebi</button></div>`;
+  }).join('') + '</div>';
+}
+function lembrarParcela(id){
+  const x = (dados.compromissos||[]).find(y=>y.id===id); if(!x) return;
+  const c = clientePorId(x.clienteId); const pn = primeiroNome(c);
+  const hj = hojeISO(); const amanha = isoSomaDias(hj,1);
+  const valor = x.valor ? ' de '+dinheiro(x.valor) : '';
+  const txt = x.data===amanha ? `Oi ${pn}! 💜 Passando pra lembrar que amanhã vence sua parcela${valor}. Qualquer coisa me avisa! Obrigada 🙏`
+    : x.data===hj ? `Oi ${pn}! 💜 Lembrete: hoje vence sua parcela${valor}. Quando fizer o pagamento, me manda o comprovante? Obrigada 🙏`
+    : `Oi ${pn}! 💜 Tudo bem? Vi aqui que a parcela${valor} do dia ${dataBRcompleta(x.data).slice(0,5)} ficou em aberto. Consegue acertar hoje? Se já pagou, pode desconsiderar. Obrigada 🙏`;
+  abrirZapTexto(c, txt, '📱 Lembrar pagamento');
 }
 
 /* ---------- ☑️ selecionar vários posts ---------- */
@@ -2356,7 +2437,10 @@ function renderClientes(){
   }
   const passaFunc = p => !filtroFunc || (filtroFunc==='__eu__' ? !p.responsavel : p.responsavel===filtroFunc);
   const passaEmpresa = p => !filtroEmpresa || p.empresa===filtroEmpresa;
-  const todos = dados.clientes.filter(p=>(!f||p.id===f) && passaFunc(p) && passaEmpresa(p));
+  const buscaEl = document.getElementById('buscaUsuarios');
+  const busca = normalizarArroba(buscaEl ? buscaEl.value : '');
+  const passaBusca = p => !busca || normalizarArroba([p.nome, p.empresa, p.servico, p.zap, ...(p.redes||[]).map(r=>r.usuario||'')].join(' ')).includes(busca);
+  const todos = dados.clientes.filter(p=>(!f||p.id===f) && passaFunc(p) && passaEmpresa(p) && passaBusca(p));
   const ativos = todos.filter(p=>!p.arquivado);
   const arquivados = todos.filter(p=>p.arquivado);
   const el = document.getElementById('listaClientes');
@@ -2632,6 +2716,8 @@ function abrirModalCliente(id, tipoInicial){
     </div>
     <label>WhatsApp do usuário (com código do país — EUA +1, Brasil +55)</label>
     <input id="mZap" value="${p?escapar(p.zap||''):''}" placeholder="Ex.: +15085551234 (EUA) ou +5511999998888">
+    <details id="maisOpcoesCad" ${(p&&p.tipo&&p.tipo!=='social')||(tipoInicial&&tipoInicial!=='social')?'open':''} style="margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#faf8fc">
+    <summary style="cursor:pointer;font-weight:700;font-size:.9rem;color:var(--g1)">⚙️ Mais opções <span style="font-weight:400;color:var(--muted);font-size:.8rem">(e-mail, endereço, aniversário, metas, valor e cobrança…)</span></summary>
     <label>E-mail do usuário (opcional)</label>
     <input id="mEmailCli" value="${p?escapar(p.email||''):''}" placeholder="cliente@email.com">
     <label>Endereço (opcional — ótimo para serviços 🧽🛠)</label>
@@ -2670,6 +2756,7 @@ function abrirModalCliente(id, tipoInicial){
       <div style="flex:1"><label>Dia do pagamento</label><input type="number" id="mDiaPag" min="1" max="31" value="${p&&p.diaPagamento?p.diaPagamento:''}" placeholder="Ex.: 5"></div>
       <div style="flex:1"><label>Forma de recebimento 💰</label>${selRecebimento(p)}</div>
     </div>`}
+    </details>
     <div id="blocoRedes">
     <label>Redes sociais (o usuário sem o @ — ou cole o link completo da página, ex. Facebook)</label>
     <div id="mRedes"></div>
@@ -2677,6 +2764,8 @@ function abrirModalCliente(id, tipoInicial){
     </div>
     <label>Anotações</label>
     <textarea id="mNotas" placeholder="Combinados, frequência de posts, senha do mídia kit...">${p?escapar(p.notas):''}</textarea>
+    <details style="margin:10px 0;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#faf8fc">
+    <summary style="cursor:pointer;font-weight:700;font-size:.9rem;color:var(--g1)">🎨 Foto e cor <span style="font-weight:400;color:var(--muted);font-size:.8rem">(opcional)</span></summary>
     <label>Foto / logo (opcional — sem isso, usamos a foto da página do Facebook 💛)</label>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
       <div id="mFotoPreview"></div>
@@ -2687,6 +2776,7 @@ function abrirModalCliente(id, tipoInicial){
     </div>
     <label>Cor de identificação</label>
     <div class="cores">${CORES.map(c=>`<div class="cor-opcao ${c===cor?'escolhida':''}" style="background:${c}" data-cor="${c}" onclick="escolherCor(this)"></div>`).join('')}</div>
+    </details>
     <div class="rodape">
       <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
       <button class="btn" onclick="salvarCliente(${p?p.id:0})">Salvar</button>
@@ -4945,7 +5035,7 @@ async function enviarMidias(input){
     midiasTemp.push({ url:data.publicUrl, tipo: (f.type||'').startsWith('video')?'video':'imagem', nome:f.name });
     desenharMidias();
   }
-  if(st) st.textContent = '✅ Pronto!';
+  if(st) st.innerHTML = '✅ Pronto! Agora toque em <b>Salvar</b> lá embaixo 💜';
   input.value = '';
 }
 
