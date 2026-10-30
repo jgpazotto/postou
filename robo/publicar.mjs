@@ -15,6 +15,8 @@ const SB_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const APP_ID = process.env.META_APP_ID || '';
 const APP_SECRET = process.env.META_APP_SECRET || '';
+const IG_APP_ID = process.env.IG_APP_ID || '1039348538855189';
+const IG_APP_SECRET = process.env.IG_APP_SECRET || '';  // "Chave secreta do app do Instagram" (Meta → Instagram → Login da empresa)
 const JANELA_HORAS = 12;           // publica posts cujo horário passou há no máximo 12h (o GitHub às vezes atrasa o agendamento)
 const FUSO_PADRAO = 'America/Sao_Paulo';
 const REDES_AUTO = ['instagram', 'facebook'];
@@ -142,7 +144,14 @@ async function conexoesInstagram() {
     if (!c.code || SECO) continue;
     try {
       log('📸 trocando o código do Instagram de', c.user_id);
-      const t = await graph('GET', '/oauth/access_token', { client_id: APP_ID, client_secret: APP_SECRET, redirect_uri: REDIRECT_IG, code: c.code });
+      let t;
+      if (IG_APP_SECRET) {
+        // Login do Instagram (instagram.com/oauth/authorize): troca no api.instagram.com e pega a chave de 60 dias
+        const curto = await graph('POST', 'https://api.instagram.com/oauth/access_token', { client_id: IG_APP_ID, client_secret: IG_APP_SECRET, grant_type: 'authorization_code', redirect_uri: REDIRECT_IG, code: c.code });
+        t = await graph('GET', GRAPH_IG.replace(/\/v[\d.]+$/, '') + '/access_token', { grant_type: 'ig_exchange_token', client_secret: IG_APP_SECRET, access_token: curto.access_token });
+      } else {
+        t = await graph('GET', '/oauth/access_token', { client_id: APP_ID, client_secret: APP_SECRET, redirect_uri: REDIRECT_IG, code: c.code });
+      }
       const contas = await descobrirContasIG(t.access_token);
       const expira = t.expires_in ? new Date(Date.now() + t.expires_in * 1000).toISOString() : null;
       for (const [i, a] of contas.entries()) {
@@ -201,6 +210,19 @@ async function publicarInstagram(p, pagina) {
   const tk = pagina.token, B = pagina.base || '', ig = B + '/' + pagina.ig_id;
   const midias = midiasDoPost(p);
   if (!midias.length) throw new Error('O Instagram precisa de foto ou vídeo — suba a arte no post');
+  // 📱 Story: cada foto/vídeo vira um story (a API não põe enquete, música, link nem figurinha)
+  if (p.tipo === 'story') {
+    let ultimo = null;
+    for (const m of midias.slice(0, 10)) {
+      const params = m.tipo === 'video'
+        ? { media_type: 'STORIES', video_url: m.url, access_token: tk }
+        : { media_type: 'STORIES', image_url: m.url, access_token: tk };
+      const id = (await graph('POST', ig + '/media', params)).id;
+      await esperarContainer(id, tk, 300, B);
+      ultimo = (await graph('POST', ig + '/media_publish', { creation_id: id, access_token: tk })).id;
+    }
+    return { id: ultimo, story: true };
+  }
   const caption = legendaDe(p, 'instagram');
   // collab: convida até 3 perfis (eles aceitam no Instagram deles)
   const collab = Array.isArray(p.collabIG) ? p.collabIG.filter(Boolean).slice(0, 3) : [];
@@ -234,6 +256,17 @@ async function publicarFacebook(p, pagina) {
   const tk = pagina.token, pg = '/' + pagina.id;
   const midias = midiasDoPost(p);
   const message = legendaDe(p, 'facebook');
+  // 📱 Story na Página: só foto (story em vídeo no Facebook fica manual por enquanto)
+  if (p.tipo === 'story') {
+    if (!midias.length) throw new Error('Story precisa de foto ou vídeo');
+    let ultimo = null;
+    for (const m of midias.slice(0, 10)) {
+      if (m.tipo === 'video') throw new Error('Story em vídeo no Facebook ainda é manual — no Instagram foi');
+      const foto = await graph('POST', pg + '/photos', { url: m.url, published: 'false', access_token: tk });
+      ultimo = (await graph('POST', pg + '/photo_stories', { photo_id: foto.id, access_token: tk })).post_id || foto.id;
+    }
+    return { id: ultimo, story: true };
+  }
   if (!midias.length) return { id: (await graph('POST', pg + '/feed', { message, access_token: tk })).id };
   if (midias.length === 1 && midias[0].tipo === 'video')
     return { id: (await graph('POST', pg + '/videos', { file_url: midias[0].url, description: message, access_token: tk })).id };
