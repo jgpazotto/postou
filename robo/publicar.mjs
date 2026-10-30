@@ -9,6 +9,8 @@
 // =====================================================================
 
 const GRAPH = 'https://graph.facebook.com/' + (process.env.META_GRAPH_VERSION || 'v23.0');
+const GRAPH_IG = 'https://graph.instagram.com/' + (process.env.META_GRAPH_VERSION || 'v23.0');
+const REDIRECT_IG = 'https://postou.app.br/';
 const SB_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SB_KEY = process.env.SUPABASE_SERVICE_KEY || '';
 const APP_ID = process.env.META_APP_ID || '';
@@ -36,7 +38,7 @@ async function sb(path, opts = {}) {
 
 // ---------------------------------------------------------------- Graph API
 async function graph(method, path, params = {}) {
-  const url = new URL(GRAPH + path);
+  const url = new URL(path.startsWith('http') ? path : GRAPH + path);
   let init = { method };
   if (method === 'GET') {
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
@@ -101,6 +103,81 @@ async function renovarConexoes() {
   return mapa;
 }
 
+// ---------------------------------------------------------------- 📸 Login do Instagram (sem Página)
+async function descobrirContasIG(token) {
+  const contas = [];
+  // 1) token do Instagram (graph.instagram.com)
+  try {
+    const me = await graph('GET', GRAPH_IG + '/me', { fields: 'user_id,username', access_token: token });
+    if (me.user_id || me.id) contas.push({ ig_id: String(me.user_id || me.id), username: me.username || null, api: 'ig' });
+  } catch (e) { log('   (graph.instagram.com/me não aceitou:', e.message + ')'); }
+  if (contas.length) return contas;
+  // 2) token do Facebook para Empresas: as contas liberadas aparecem no debug_token
+  const dbg = await graph('GET', '/debug_token', { input_token: token, access_token: APP_ID + '|' + APP_SECRET });
+  const ids = new Set();
+  for (const g of (dbg.data && dbg.data.granular_scopes) || [])
+    if (/instagram/.test(g.scope)) (g.target_ids || []).forEach(id => ids.add(String(id)));
+  for (const id of ids) {
+    try {
+      const j = await graph('GET', '/' + id, { fields: 'id,username', access_token: token });
+      if (j.username) contas.push({ ig_id: id, username: j.username, api: 'fb' });
+    } catch (e) { log('   conta', id, 'não abriu:', e.message); }
+  }
+  // 3) último recurso: Instagram ligado a páginas
+  if (!contas.length) {
+    try {
+      const pg = await graph('GET', '/me/accounts', { access_token: token, fields: 'instagram_business_account{id,username}', limit: '100' });
+      for (const p of pg.data || []) if (p.instagram_business_account)
+        contas.push({ ig_id: p.instagram_business_account.id, username: p.instagram_business_account.username, api: 'fb' });
+    } catch (e) {}
+  }
+  if (!contas.length) throw new Error('Não encontrei nenhuma conta do Instagram liberada nesse login. Conecte de novo e marque a conta.');
+  return contas;
+}
+async function conexoesInstagram() {
+  const r = await sb('conexoes_ig?select=*');
+  if (!r.ok) { log('⚠️ não consegui ler conexoes_ig', r.status, r.body); return new Map(); }
+  const agora = new Date().toISOString();
+  for (const c of r.body || []) {
+    if (!c.code || SECO) continue;
+    try {
+      log('📸 trocando o código do Instagram de', c.user_id);
+      const t = await graph('GET', '/oauth/access_token', { client_id: APP_ID, client_secret: APP_SECRET, redirect_uri: REDIRECT_IG, code: c.code });
+      const contas = await descobrirContasIG(t.access_token);
+      const expira = t.expires_in ? new Date(Date.now() + t.expires_in * 1000).toISOString() : null;
+      for (const [i, a] of contas.entries()) {
+        // tira conexão antiga da mesma conta
+        await sb(`conexoes_ig?user_id=eq.${c.user_id}&ig_id=eq.${a.ig_id}&id=neq.${c.id}`, { method: 'DELETE' });
+        const linha = { token: t.access_token, ig_id: a.ig_id, username: a.username, api: a.api, expira_em: expira, code: null, erro: null, atualizado: agora };
+        if (i === 0) { await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify(linha) }); Object.assign(c, linha); }
+        else { await sb('conexoes_ig', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify({ ...linha, user_id: c.user_id }) }); r.body.push({ ...linha, user_id: c.user_id }); }
+        log('   ✅ ligado @' + a.username + ' (' + a.api + ')');
+      }
+    } catch (e) {
+      log('   ❌', e.message);
+      await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify({ code: null, erro: 'Conecte de novo: ' + e.message, atualizado: agora }) });
+      c.code = null; c.erro = e.message;
+    }
+  }
+  const mapa = new Map();
+  for (const c of r.body || []) {
+    if (!c.token || !c.ig_id) continue;
+    // token do Instagram dura 60 dias: renova quando faltar menos de 10
+    if (!SECO && c.api === 'ig' && c.expira_em && (new Date(c.expira_em) - Date.now()) < 10 * 864e5) {
+      try {
+        const t = await graph('GET', GRAPH_IG.replace(/\/v[\d.]+$/, '') + '/refresh_access_token', { grant_type: 'ig_refresh_token', access_token: c.token });
+        c.token = t.access_token;
+        const upd = { token: t.access_token, expira_em: t.expires_in ? new Date(Date.now() + t.expires_in * 1000).toISOString() : null, atualizado: agora };
+        await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify(upd) });
+        log('🔑 Instagram renovado @' + c.username);
+      } catch (e) { log('⚠️ não renovei @' + c.username, e.message); }
+    }
+    if (!mapa.has(c.user_id)) mapa.set(c.user_id, []);
+    mapa.get(c.user_id).push(c);
+  }
+  return mapa;
+}
+
 // ---------------------------------------------------------------- Publicar
 function midiasDoPost(p) {
   const lista = Array.isArray(p.midias) && p.midias.length ? p.midias
@@ -109,9 +186,9 @@ function midiasDoPost(p) {
 }
 function legendaDe(p, rede) { return (p.legendas && p.legendas[rede]) || p.legenda || ''; }
 
-async function esperarContainer(id, token, maxSeg = 300) {
+async function esperarContainer(id, token, maxSeg = 300, base = '') {
   for (let s = 0; s < maxSeg; s += 5) {
-    const j = await graph('GET', '/' + id, { fields: 'status_code,status', access_token: token });
+    const j = await graph('GET', base + '/' + id, { fields: 'status_code,status', access_token: token });
     if (j.status_code === 'FINISHED') return;
     if (j.status_code === 'ERROR' || j.status_code === 'EXPIRED') throw new Error('Instagram recusou a mídia: ' + (j.status || j.status_code));
     await sleep(5000);
@@ -121,7 +198,7 @@ async function esperarContainer(id, token, maxSeg = 300) {
 
 async function publicarInstagram(p, pagina) {
   if (!pagina.ig_id) throw new Error('Essa página não tem Instagram profissional ligado');
-  const tk = pagina.token, ig = '/' + pagina.ig_id;
+  const tk = pagina.token, B = pagina.base || '', ig = B + '/' + pagina.ig_id;
   const midias = midiasDoPost(p);
   if (!midias.length) throw new Error('O Instagram precisa de foto ou vídeo — suba a arte no post');
   const caption = legendaDe(p, 'instagram');
@@ -135,7 +212,7 @@ async function publicarInstagram(p, pagina) {
       ? { media_type: 'REELS', video_url: m.url, caption, share_to_feed: 'true', access_token: tk }
       : { image_url: m.url, caption, access_token: tk };
     creation = (await graph('POST', ig + '/media', comCollab(params))).id;
-    await esperarContainer(creation, tk);
+    await esperarContainer(creation, tk, 300, B);
   } else {
     const filhos = [];
     for (const m of midias.slice(0, 10)) {
@@ -143,11 +220,11 @@ async function publicarInstagram(p, pagina) {
         ? { media_type: 'VIDEO', video_url: m.url, is_carousel_item: 'true', access_token: tk }
         : { image_url: m.url, is_carousel_item: 'true', access_token: tk };
       const id = (await graph('POST', ig + '/media', params)).id;
-      await esperarContainer(id, tk);
+      await esperarContainer(id, tk, 300, B);
       filhos.push(id);
     }
     creation = (await graph('POST', ig + '/media', comCollab({ media_type: 'CAROUSEL', children: filhos.join(','), caption, access_token: tk }))).id;
-    await esperarContainer(creation, tk);
+    await esperarContainer(creation, tk, 300, B);
   }
   const pub = await graph('POST', ig + '/media_publish', { creation_id: creation, access_token: tk });
   return { id: pub.id };
@@ -177,9 +254,10 @@ async function main() {
   }
   log(SECO ? '🧪 modo seco (não publica)' : '🤖 robô do Postou acordou');
   const conexoes = await renovarConexoes();
-  if (!conexoes.size) { log('Ninguém conectou o Facebook ainda.'); return; }
+  const contasIG = await conexoesInstagram();
+  if (!conexoes.size && !contasIG.size) { log('Ninguém conectou o Facebook/Instagram ainda.'); return; }
 
-  const ids = [...conexoes.keys()].map(id => '"' + id + '"').join(',');
+  const ids = [...new Set([...conexoes.keys(), ...contasIG.keys()])].map(id => '"' + id + '"').join(',');
   const r = await sb(`organizador?select=user_id,conteudo&user_id=in.(${ids})`);
   if (!r.ok) throw new Error('não consegui ler organizador: ' + r.status);
 
@@ -190,7 +268,8 @@ async function main() {
   let total = 0;
   for (const row of r.body || []) {
     const dados = row.conteudo || {};
-    const con = conexoes.get(row.user_id);
+    const con = conexoes.get(row.user_id) || { paginas: [] };
+    const igsDoUsuario = contasIG.get(row.user_id) || [];
     const fuso = dados.fuso || FUSO_PADRAO;
     for (const p of dados.posts || []) {
       if (!p.autoPublicar || p.status === 'publicado') continue;
@@ -201,6 +280,8 @@ async function main() {
         const chave = `${row.user_id}|${p.id}|${rede}`;
         if (feito.has(chave)) continue;
         const pagina = (con.paginas || []).find(pg => pg.id === cli.metaPageId) || null;
+        const contaIG = !pagina && cli.igConta ? igsDoUsuario.find(a => a.ig_id === cli.igConta) : null;
+        if (!pagina && contaIG && rede === 'facebook') { log(`   ⏭ ${cli.nome}: só Instagram (sem Página) — Facebook fica manual`); continue; }
         log(`➡️ ${rede} · "${p.titulo}" (${p.data} ${p.hora || ''}) · ${cli.nome || '?'}`);
         if (SECO) { total++; continue; }
         // trava: registra "publicando" antes (unique impede duplicado)
@@ -209,8 +290,11 @@ async function main() {
         if (!trava.ok) { log('   já estava sendo publicado, pulando'); continue; }
         let status = 'ok', resultado;
         try {
-          if (!pagina) throw new Error('Escolha a página do Facebook para "' + (cli.nome || 'este perfil') + '" em 🔗 Conexões');
-          resultado = rede === 'instagram' ? await publicarInstagram(p, pagina) : await publicarFacebook(p, pagina);
+          if (contaIG) resultado = await publicarInstagram(p, { ig_id: contaIG.ig_id, token: contaIG.token, base: contaIG.api === 'ig' ? GRAPH_IG : '' });
+          else {
+            if (!pagina) throw new Error('Escolha a página do Facebook para "' + (cli.nome || 'este perfil') + '" em 🔗 Conexões');
+            resultado = rede === 'instagram' ? await publicarInstagram(p, pagina) : await publicarFacebook(p, pagina);
+          }
           log('   ✅ publicado', resultado.id);
         } catch (e) {
           status = 'erro'; resultado = { erro: e.message };
