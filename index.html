@@ -4995,6 +4995,7 @@ const META_APP_ID = '1741842040494859';
 const META_CONFIG_ID = '1858495235602197';   // se o app usar "Login do Facebook para Empresas", colocar o ID da configuração aqui
 const META_VERSAO = 'v23.0';
 const META_IG_CONFIG_ID = '1659179415560237';  // Login do Instagram (sem Página)
+const META_IG_APP_ID = '1039348538855189';   // App do Instagram (Login do Instagram)
 let igContas = [];               // contas do Instagram conectadas sem Página (conexoes_ig)
 const META_ESCOPOS = 'pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,business_management';
 let conexaoMeta = null;          // linha de conexoes_meta do usuário
@@ -5069,8 +5070,10 @@ async function carregarConexao(){
 /* ---------- 📸 Login do Instagram (sem Página do Facebook) ---------- */
 function conectarSoInstagram(){
   const estado = 'postouig' + Math.random().toString(36).slice(2,10);
-  location.href = 'https://www.facebook.com/dialog/oauth?client_id='+META_APP_ID+'&config_id='+META_IG_CONFIG_ID
-    + '&override_default_response_type=true&response_type=code&redirect_uri='+encodeURIComponent('https://postou.app.br/')+'&state='+estado;
+  // Login do Instagram de verdade (instagram.com): aparece o @ que estiver logado, sem Página e sem portfólio
+  location.href = 'https://www.instagram.com/oauth/authorize?force_reauth=true&client_id='+META_IG_APP_ID
+    + '&redirect_uri='+encodeURIComponent('https://postou.app.br/')+'&response_type=code'
+    + '&scope='+encodeURIComponent('instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments')+'&state='+estado;
 }
 async function receberCodigoIG(){
   let code=null, erro=null;
@@ -5161,10 +5164,12 @@ function renderConexoes(){
   const perfis = dados.clientes.filter(ehPerfilSocial).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt'));
   el.innerHTML = `<div class="cartao" style="margin-bottom:16px;border:1px solid #e9d5ff;background:linear-gradient(135deg,#faf5ff,#fdf2f8)">
     <h3 style="margin:0 0 4px">🤖 Publicação automática <span style="font-size:.72rem;background:#7c3aed;color:#fff;border-radius:20px;padding:2px 8px;vertical-align:middle">NOVO</span></h3>
-    <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Conecte seu Facebook e o Postou publica sozinho no Instagram e no Facebook, no dia e hora do post. 💜 Instagram sem Página do Facebook? Use <b>📸 Conectar só o Instagram</b>.</p>
+    <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Conecte seu Facebook e o Postou publica sozinho no Instagram e no Facebook, no dia e hora do post. 💜 Instagram sem Página do Facebook? Use o botão 📸 aqui embaixo.</p>
+    <div style="margin:0 0 12px"><button class="btn" onclick="conectarSoInstagram()">📸 Conectar só o Instagram</button></div>
     ${igContas.length ? `<div style="font-size:.86rem;margin-bottom:8px">${igContas.map(a=>`<div style="margin:3px 0">📸 ${a.ig_id?'<b>@'+escapar(a.username||a.ig_id)+'</b> conectado (só Instagram)':'⏳ ligando o Instagram… (até 5 min)'}${a.erro?` · <span style="color:#dc2626">${escapar(a.erro)}</span>`:''} <button class="btn-mini" onclick="desconectarIG('${a.id}')">Desconectar</button></div>`).join('')}</div>` : ''}
     ${(conexaoMeta || igContas.some(a=>a.ig_id)) ? `
       ${conexaoMeta?`<div style="font-size:.86rem;margin-bottom:8px">✅ Facebook conectado${conexaoMeta.erro?` · <span style="color:#dc2626">${escapar(conexaoMeta.erro)}</span>`:''}</div>`:''}
+      <details style="margin:6px 0"><summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:6px 0">⚙️ Perfis ligados ao robô (${perfis.length}) — toque pra ver ou trocar</summary>
       ${(pags.length || igContas.some(a=>a.ig_id)) ? perfis.map(c=>`<div style="display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap">
           <span class="bolinha" style="background:${c.cor}"></span><b style="min-width:140px">${escapar(c.nome)}${c.metaAuto?' <span title="Ligado automático pelo @ do Instagram — pode trocar" style="font-size:.7rem;background:#dcfce7;color:#166534;border-radius:20px;padding:1px 7px;font-weight:600">✅ automático</span>':''}${!c.metaPageId&&!c.igConta&&!paginaDoPerfil(c,pags)?' <span title="Nenhuma página com esse @ apareceu. O Instagram precisa ser profissional e ligado a uma Página do Facebook; depois clique em Reconectar." style="font-size:.7rem;background:#fef3c7;color:#92400e;border-radius:20px;padding:1px 7px;font-weight:600">sem página</span>':''}</b>
           <select onchange="escolherPaginaMeta(${c.id}, this.value)" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px;min-width:220px">
@@ -5173,8 +5178,9 @@ function renderConexoes(){
             ${igContas.filter(a=>a.ig_id).map(a=>`<option value="ig:${a.ig_id}" ${c.igConta===a.ig_id?'selected':''}>📸 @${escapar(a.username||a.ig_id)} (só Instagram)</option>`).join('')}
           </select>${c.metaPageId?`<label style="display:flex;align-items:center;gap:5px;font-size:.78rem;margin:0;cursor:pointer" title="Responde sozinho comentário simples (linda, arrasou, só emoji) com obrigada + 💜. Pergunta nunca."><input type="checkbox" ${c.autoResponder?'checked':''} onchange="ligarAutoResposta(${c.id}, this.checked)" style="width:16px;height:16px;margin:0"> 💬 Responder sozinho</label>`:''}</div>`).join('')
         : '<div style="font-size:.84rem;color:var(--muted)">Nenhuma página encontrada nessa conta do Facebook.</div>'}
-      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="ligarAutomatico(true)">🔗 Ligar todos</button>${conexaoMeta?`<button class="btn-claro" onclick="conectarMeta()">🔄 Reconectar</button><button class="btn-mini" onclick="desconectarMeta()">Desconectar</button>`:`<button class="btn-claro" onclick="conectarMeta()">🔗 Conectar Facebook</button>`}<button class="btn-claro" onclick="conectarSoInstagram()">📸 Conectar só o Instagram</button></div>`
-    : `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="conectarMeta()">🔗 Conectar Facebook e Instagram</button><button class="btn-claro" onclick="conectarSoInstagram()">📸 Conectar só o Instagram</button></div>`}
+      </details>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="ligarAutomatico(true)">🔗 Ligar todos</button>${conexaoMeta?`<button class="btn-claro" onclick="conectarMeta()">🔄 Reconectar</button><button class="btn-mini" onclick="desconectarMeta()">Desconectar</button>`:`<button class="btn-claro" onclick="conectarMeta()">🔗 Conectar Facebook</button>`}</div>`
+    : `<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-claro" onclick="conectarMeta()">🔗 Conectar Facebook e Instagram</button></div>`}
     <div id="conexaoMsg" style="font-size:.84rem;margin-top:8px;color:var(--muted)"></div>
   </div>`;
 }
