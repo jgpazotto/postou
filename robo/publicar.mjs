@@ -227,13 +227,19 @@ async function publicarInstagram(p, pagina) {
   // collab: convida até 3 perfis (eles aceitam no Instagram deles)
   const collab = Array.isArray(p.collabIG) ? p.collabIG.filter(Boolean).slice(0, 3) : [];
   const comCollab = (params) => collab.length ? { ...params, collaborators: JSON.stringify(collab) } : params;
+  // se o Instagram recusar o convite de collab, publica sem collab (não perde o post)
+  const criarComCollab = async (params) => {
+    if (!collab.length) return graph('POST', ig + '/media', params);
+    try { return await graph('POST', ig + '/media', comCollab(params)); }
+    catch (e) { log('   ⚠️ collab recusado (' + e.message + ') — publicando sem collab'); return graph('POST', ig + '/media', params); }
+  };
   let creation;
   if (midias.length === 1) {
     const m = midias[0];
     const params = m.tipo === 'video'
       ? { media_type: 'REELS', video_url: m.url, caption, share_to_feed: 'true', access_token: tk }
       : { image_url: m.url, caption, access_token: tk };
-    creation = (await graph('POST', ig + '/media', comCollab(params))).id;
+    creation = (await criarComCollab(params)).id;
     await esperarContainer(creation, tk, 300, B);
   } else {
     const filhos = [];
@@ -245,7 +251,7 @@ async function publicarInstagram(p, pagina) {
       await esperarContainer(id, tk, 300, B);
       filhos.push(id);
     }
-    creation = (await graph('POST', ig + '/media', comCollab({ media_type: 'CAROUSEL', children: filhos.join(','), caption, access_token: tk }))).id;
+    creation = (await criarComCollab({ media_type: 'CAROUSEL', children: filhos.join(','), caption, access_token: tk })).id;
     await esperarContainer(creation, tk, 300, B);
   }
   const pub = await graph('POST', ig + '/media_publish', { creation_id: creation, access_token: tk });
