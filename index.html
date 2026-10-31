@@ -651,6 +651,7 @@ const REDES = {
   x:        {nome:'X (Twitter)',sigla:'X',  cor:'#000000', perfil:u=>'https://x.com/'+u, postar:'https://x.com/intent/post'},
   kwai:     {nome:'Kwai',      sigla:'KW',  cor:'#FF7E00', perfil:u=>'https://www.kwai.com/@'+u, postar:'https://www.kwai.com/'},
   pinterest:{nome:'Pinterest', sigla:'PIN', cor:'#E60023', perfil:u=>'https://www.pinterest.com/'+u, postar:'https://www.pinterest.com/pin-builder/'},
+  threads:{nome:'Threads', sigla:'TH', cor:'#000000', perfil:u=>'https://www.threads.com/@'+u, postar:'https://www.threads.com/'},
   whatsapp: {nome:'WhatsApp',  sigla:'WA',  cor:'#25D366', perfil:u=>'https://wa.me/'+String(u).replace(/\D/g,''), postar:'https://wa.me/'},
   telegram: {nome:'Telegram',  sigla:'TG',  cor:'#229ED9', perfil:u=>'https://t.me/'+u, postar:'https://web.telegram.org/'},
   outra:    {nome:'Outra rede',sigla:'WEB', cor:'#6b7280', perfil:u=>u, postar:''}
@@ -665,6 +666,7 @@ const REDE_DICA = {
   x:{ex:'ex.: lojadamaria', dica:'Usuário sem @ (só o nome do perfil).'},
   kwai:{ex:'ex.: lojadamaria', dica:'Usuário sem @ (só o nome do perfil).'},
   pinterest:{ex:'ex.: lojadamaria (ou link)', dica:'Usuário sem @, ou cole o link do perfil.'},
+  threads:{ex:'ex.: lojadamaria (ou link)', dica:'O mesmo @ do Instagram, sem @.'},
   whatsapp:{ex:'ex.: +15085551234 (EUA) ou +5511999998888', dica:'Com o código do país na frente: EUA +1, Brasil +55. Ex.: +1 (EUA) + DDD + número.'},
   telegram:{ex:'ex.: lojadamaria', dica:'Usuário sem @ (só o nome).'},
   outra:{ex:'cole o link (https://...)', dica:'Cole o link completo do perfil ou página.'}
@@ -682,7 +684,7 @@ function linkRede(r){
 }
 const TIPOS = {foto:'Foto/Feed', video:'Vídeo', reel:'Reel/Short', story:'Story', carrossel:'Carrossel', live:'Live', texto:'Texto'};
 const MAPA_TIPO_V1 = {feed:'foto', reel:'reel', story:'story', carrossel:'carrossel', live:'live'};
-const LIMITES = {instagram:2200, x:280, tiktok:2200, youtube:5000, facebook:5000, linkedin:3000, pinterest:500, kwai:1000, telegram:4096};
+const LIMITES = {instagram:2200, x:280, tiktok:2200, youtube:5000, facebook:5000, linkedin:3000, pinterest:500, threads:500, kwai:1000, telegram:4096};
 const STATUS = ['ideia','rascunho','producao','aprovado','agendado','publicado'];
 const STATUS_NOME = {ideia:'💡 Ideia', rascunho:'✏️ Rascunho', producao:'🎬 Em produção', aprovado:'👍 Aprovado', agendado:'⏰ Agendado', publicado:'✅ Publicado'};
 
@@ -1652,6 +1654,7 @@ function renderHoje(){
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="agendarNoMeta(${p.id});this.textContent='✔ Legenda copiada → cole no Meta'" title="Copia a legenda e abre o Meta Business Suite pra agendar o post">📅 Agendar no Meta</button>
         ${botoesPostar}
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="marcarPublicado(${p.id})">✅ Publicado!</button>
+        ${temMidia(p)?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem;border-color:#86efac" onclick="statusWhatsApp(${p.id})" title="Abre o WhatsApp com a arte pronta pra você postar no Status">💚 Status do Whats</button>`:''}
         ${!temMidia(p)?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="subirMidiaPost(${p.id})" title="Subir o vídeo ou a arte desse post">🎬 Subir vídeo/arte</button>`:''}
         <button class="btn-mini" onclick="abrirModalPost(${p.id})">✏️</button>
         <button class="btn-mini" style="color:#b91c1c" title="Excluir este post" onclick="event.stopPropagation();if(confirm('Excluir este post? 🗑\\nEssa ação não dá pra desfazer.')){excluirPost(${p.id});}">🗑</button>
@@ -1777,6 +1780,26 @@ function postarAgora(id, rede){
       <button class="btn-claro" onclick="fecharModal()">Ainda não</button>
       <button class="btn" onclick="marcarPublicado(${p.id});fecharModal()">✅ Já publiquei!</button>
     </div>`);
+}
+/* ---------- 💚 Status do WhatsApp: abre o compartilhar do celular com a arte + legenda ---------- */
+async function statusWhatsApp(id){
+  const p = dados.posts.find(x=>x.id===id); if(!p) return;
+  const m = (Array.isArray(p.midias) && p.midias[0]) || (p.midiaUrl ? {url:p.midiaUrl, tipo:p.midiaTipo||'imagem'} : null);
+  if(!m){ alert('Esse post ainda não tem arte ou vídeo. 🎬'); return; }
+  const texto = p.legenda || p.titulo || '';
+  try{ if(texto && navigator.clipboard) await navigator.clipboard.writeText(texto); }catch(e){}
+  try{
+    const r = await fetch(m.url); const blob = await r.blob();
+    const ext = (blob.type.split('/')[1]||'jpg').replace('jpeg','jpg').replace('quicktime','mov');
+    const arq = new File([blob], 'postou-status.'+ext, { type: blob.type });
+    if(navigator.canShare && navigator.canShare({ files:[arq] })){
+      await navigator.share({ files:[arq] });
+      return;
+    }
+    // computador: baixa a arte e explica
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = arq.name; document.body.appendChild(a); a.click(); a.remove();
+    alert('💚 Baixei a arte e copiei a legenda!\nNo computador o WhatsApp não deixa postar Status. Abra este post no celular (postou.app.br) e toque em 💚 Status do Whats: abre direto o WhatsApp → Meu status.');
+  }catch(e){ if(e && e.name==='AbortError') return; alert('Não consegui abrir o compartilhar 😕 ('+(e.message||e)+'). Tente pelo celular.'); }
 }
 async function compartilharPost(id){
   const p = dados.posts.find(x=>x.id===id);
@@ -3586,6 +3609,7 @@ function abrirModalPost(id, dataPre){
     <div id="mMidiaStatus" style="font-size:.78rem;color:var(--muted);margin-top:4px"></div>
     <div id="mMidiasPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px"></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:9px 11px;margin-top:8px;cursor:pointer"><input type="checkbox" id="mAuto" ${p&&p.autoPublicar?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 🤖 Publicar sozinho no horário (Instagram e Facebook)</label>
+    <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:9px 11px;margin-top:6px;cursor:pointer" title="Depois de publicar no feed, o robô posta a mesma arte/vídeo nos stories do Instagram"><input type="checkbox" id="mVirarStory" ${p&&p.virarStory?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 📱 Post vira story (posta também nos stories do Instagram)</label>
     <label style="margin-top:8px">🤝 Collab no Instagram <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô convida sozinho — até 3 @, separados por espaço)</span></label>
     <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="ex.: @perfil1 @perfil2 — deixe vazio se não for collab">
     <label>📝 Observações <span style="font-weight:400;color:var(--muted);font-size:.78rem">(só pra você — não vai na legenda)</span></label>
@@ -3677,6 +3701,7 @@ function salvarPost(id){
   };
   novo.midias = midiasTemp.slice();
   novo.autoPublicar = !!(document.getElementById('mAuto') && document.getElementById('mAuto').checked);
+  novo.virarStory = !!(document.getElementById('mVirarStory') && document.getElementById('mVirarStory').checked);
   { const ob=document.getElementById('mObs'); novo.obs = ob && ob.value.trim() ? ob.value.trim() : undefined; }
   { const num=id=>{ const el=document.getElementById(id); if(!el) return null; const v=String(el.value||'').replace(/[^\d]/g,''); return v===''?null:parseInt(v); };
     const r={ views:num('mResViews'), curtidas:num('mResCurt'), comentarios:num('mResCom') };
