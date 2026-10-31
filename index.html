@@ -633,6 +633,9 @@
 (function(){ try{ const u=new URLSearchParams(location.search); const st=u.get('state')||'';
   if(st.startsWith('postouig')){ if(u.get('code')) sessionStorage.setItem('postou_ig_code', u.get('code').replace(/#_$/,''));
     else sessionStorage.setItem('postou_ig_erro', u.get('error_description')||u.get('error')||'cancelado');
+    history.replaceState(null,'',location.pathname); }
+  if(st.startsWith('postouth')){ if(u.get('code')) sessionStorage.setItem('postou_th_code', u.get('code').replace(/#_$/,''));
+    else sessionStorage.setItem('postou_th_erro', u.get('error_description')||u.get('error')||'cancelado');
     history.replaceState(null,'',location.pathname); } }catch(e){} })();
 /* ===== CONFIGURAÇÃO ===== */
 const SUPABASE_URL = 'https://qzdursjwvlzwahemrkmv.supabase.co';
@@ -5092,6 +5095,8 @@ const META_VERSAO = 'v23.0';
 const META_IG_CONFIG_ID = '1659179415560237';  // Login do Instagram (sem Página)
 const META_IG_APP_ID = '1039348538855189';   // App do Instagram (Login do Instagram)
 let igContas = [];               // contas do Instagram conectadas sem Página (conexoes_ig)
+let thContas = [];               // 🧵 contas do Threads (mesma tabela conexoes_ig, api='threads')
+const META_TH_APP_ID = '2093294924680102'; // App do Threads (caso de uso Threads no app Postou)
 const META_ESCOPOS = 'pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,business_management';
 let conexaoMeta = null;          // linha de conexoes_meta do usuário
 let publicacoesMapa = {};        // "postId|rede" -> {status, resultado}
@@ -5155,11 +5160,14 @@ async function carregarConexao(){
     conexaoMeta = data || null;
   }catch(e){ conexaoMeta = null; }
   await receberCodigoIG();
+  await receberCodigoThreads();
   try{
-    const { data } = await sb.from('conexoes_ig').select('id,ig_id,username,erro,atualizado').eq('user_id',usuarioId);
-    igContas = data || [];
-  }catch(e){ igContas = []; }
-  if(igContas.some(a=>a.ig_id)) ligarAutomatico(false);
+    const { data } = await sb.from('conexoes_ig').select('id,ig_id,username,erro,atualizado,api').eq('user_id',usuarioId);
+    const todas = data || [];
+    thContas = todas.filter(a=>a.api==='threads');
+    igContas = todas.filter(a=>a.api!=='threads');
+  }catch(e){ igContas = []; thContas = []; }
+  if(igContas.some(a=>a.ig_id) || thContas.some(a=>a.ig_id)) ligarAutomatico(false);
   renderConexoes();
 }
 /* ---------- 📸 Login do Instagram (sem Página do Facebook) ---------- */
@@ -5178,6 +5186,28 @@ async function receberCodigoIG(){
   const { error } = await sb.from('conexoes_ig').insert({ code });
   setTimeout(()=>alert(error ? '⚠️ Não consegui guardar a conexão: '+error.message
     : '📸 Recebi a conexão do Instagram! 💜\nO robô termina de ligar em até 5 minutinhos. Depois, em Usuários → 🤖 Publicação automática, confira se o perfil ficou ligado.'),300);
+}
+/* ---------- 🧵 Login do Threads ---------- */
+function conectarThreads(){
+  const estado = 'postouth' + Math.random().toString(36).slice(2,10);
+  location.href = 'https://threads.net/oauth/authorize?client_id='+META_TH_APP_ID
+    + '&redirect_uri='+encodeURIComponent('https://postou.app.br/')+'&response_type=code'
+    + '&scope='+encodeURIComponent('threads_basic,threads_content_publish')+'&state='+estado;
+}
+async function receberCodigoThreads(){
+  let code=null, erro=null;
+  try{ code=sessionStorage.getItem('postou_th_code'); erro=sessionStorage.getItem('postou_th_erro'); sessionStorage.removeItem('postou_th_code'); sessionStorage.removeItem('postou_th_erro'); }catch(e){}
+  if(erro) setTimeout(()=>alert('🧵 O Threads não conectou: '+erro),300);
+  if(!code || !usuarioId) return;
+  let { error } = await sb.from('conexoes_ig').insert({ code:'th:'+code, api:'threads' });
+  if(error) ({ error } = await sb.from('conexoes_ig').insert({ code:'th:'+code }));
+  setTimeout(()=>alert(error ? '⚠️ Não consegui guardar a conexão do Threads: '+error.message
+    : '🧵 Recebi a conexão do Threads! 💜\nO robô termina de ligar em até 15 minutinhos. Depois é só marcar Threads + 🤖 Publicar sozinho no post.'),300);
+}
+function escolherThreads(clienteId, igId){
+  const c = clientePorId(clienteId); if(!c) return;
+  if(igId) c.thConta = igId; else delete c.thConta;
+  tocar(); renderConexoes();
 }
 function carregarSdkFacebook(){
   return new Promise((ok,falha)=>{
@@ -5214,6 +5244,8 @@ async function desconectarIG(id){
   const conta = igContas.find(a=>a.id===id);
   await sb.from('conexoes_ig').delete().eq('id',id);
   if(conta && conta.ig_id) dados.clientes.forEach(c=>{ if(c.igConta===conta.ig_id){ delete c.igConta; delete c.metaAuto; } });
+  const contaTh = thContas.find(a=>a.id===id);
+  if(contaTh && contaTh.ig_id) dados.clientes.forEach(c=>{ if(c.thConta===contaTh.ig_id) delete c.thConta; });
   tocar(); carregarConexao();
 }
 async function desconectarMeta(){
@@ -5230,7 +5262,7 @@ function escolherPaginaMeta(clienteId, pageId){
   tocar();
 }
 // 🔗 Liga sozinho: o @ do Instagram do perfil bate com o Instagram da página (ou o nome bate)
-function normalizarArroba(t){ return String(t||'').toLowerCase().replace(/^https?:\/\/(www\.)?instagram\.com\//,'').replace(/[^a-z0-9]/g,''); }
+function normalizarArroba(t){ return String(t||'').toLowerCase().replace(/^https?:\/\/(www\.)?(instagram\.com|threads\.(net|com))\/@?/,'').replace(/[^a-z0-9]/g,''); }
 function paginaDoPerfil(c, pags){
   const igs = (c.redes||[]).filter(r=>r.tipo==='instagram').map(r=>normalizarArroba(r.usuario||r.link)).filter(Boolean);
   let p = pags.find(p=>p.ig_user && igs.includes(normalizarArroba(p.ig_user)));
@@ -5241,6 +5273,12 @@ function ligarAutomatico(avisar){
   const pags = (conexaoMeta && conexaoMeta.paginas) || [];
   let n = 0;
   dados.clientes.filter(ehPerfilSocial).forEach(c=>{
+    // 🧵 Threads: liga pelo @ cadastrado na rede Threads (ou pelo mesmo @ do Instagram)
+    if(!c.thConta && thContas.length){
+      const ats = (c.redes||[]).filter(r=>r.tipo==='threads'||r.tipo==='instagram').map(r=>normalizarArroba(r.usuario||r.link)).filter(Boolean);
+      const t = thContas.find(a=>a.ig_id && a.username && ats.includes(normalizarArroba(a.username)));
+      if(t){ c.thConta = t.ig_id; n++; }
+    }
     if(c.metaPageId) return;            // não mexe no que já foi escolhido
     const p = paginaDoPerfil(c, pags);
     if(p){ c.metaPageId = p.id; c.metaAuto = true; n++; return; }
@@ -5260,7 +5298,8 @@ function renderConexoes(){
   el.innerHTML = `<div class="cartao" style="margin-bottom:16px;border:1px solid #e9d5ff;background:linear-gradient(135deg,#faf5ff,#fdf2f8)">
     <h3 style="margin:0 0 4px">🤖 Publicação automática <span style="font-size:.72rem;background:#7c3aed;color:#fff;border-radius:20px;padding:2px 8px;vertical-align:middle">NOVO</span></h3>
     <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Conecte seu Facebook e o Postou publica sozinho no Instagram e no Facebook, no dia e hora do post. 💜 Instagram sem Página do Facebook? Use o botão 📸 aqui embaixo.</p>
-    <div style="margin:0 0 12px"><button class="btn" onclick="conectarSoInstagram()">📸 Conectar só o Instagram</button></div>
+    <div style="margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="conectarSoInstagram()">📸 Conectar só o Instagram</button><button class="btn-claro" onclick="conectarThreads()" title="O robô publica sozinho no Threads também">🧵 Conectar Threads</button></div>
+    ${thContas.length ? `<div style="font-size:.86rem;margin-bottom:8px">${thContas.map(a=>`<div style="margin:3px 0">🧵 ${a.ig_id?'<b>@'+escapar(a.username||a.ig_id)+'</b> conectado no Threads':'⏳ ligando o Threads… (até 15 min)'}${a.erro?` · <span style="color:#dc2626">${escapar(a.erro)}</span>`:''} <button class="btn-mini" onclick="desconectarIG('${a.id}')">Desconectar</button></div>`).join('')}</div>` : ''}
     ${igContas.length ? `<div style="font-size:.86rem;margin-bottom:8px">${igContas.map(a=>`<div style="margin:3px 0">📸 ${a.ig_id?'<b>@'+escapar(a.username||a.ig_id)+'</b> conectado (só Instagram)':'⏳ ligando o Instagram… (até 5 min)'}${a.erro?` · <span style="color:#dc2626">${escapar(a.erro)}</span>`:''} <button class="btn-mini" onclick="desconectarIG('${a.id}')">Desconectar</button></div>`).join('')}</div>` : ''}
     ${(conexaoMeta || igContas.some(a=>a.ig_id)) ? `
       ${conexaoMeta?`<div style="font-size:.86rem;margin-bottom:8px">✅ Facebook conectado${conexaoMeta.erro?` · <span style="color:#dc2626">${escapar(conexaoMeta.erro)}</span>`:''}</div>`:''}
@@ -5271,7 +5310,7 @@ function renderConexoes(){
             <option value="">— não publicar automático —</option>
             ${pags.map(p=>`<option value="${p.id}" ${c.metaPageId===p.id?'selected':''}>${escapar(p.name)}${p.ig_user?' + @'+escapar(p.ig_user):' (sem Instagram)'}</option>`).join('')}
             ${igContas.filter(a=>a.ig_id).map(a=>`<option value="ig:${a.ig_id}" ${c.igConta===a.ig_id?'selected':''}>📸 @${escapar(a.username||a.ig_id)} (só Instagram)</option>`).join('')}
-          </select>${c.metaPageId?`<label style="display:flex;align-items:center;gap:5px;font-size:.78rem;margin:0;cursor:pointer" title="Responde sozinho comentário simples (linda, arrasou, só emoji) com obrigada + 💜. Pergunta nunca."><input type="checkbox" ${c.autoResponder?'checked':''} onchange="ligarAutoResposta(${c.id}, this.checked)" style="width:16px;height:16px;margin:0"> 💬 Responder sozinho</label>`:''}</div>`).join('')
+          </select>${thContas.some(a=>a.ig_id)?`<select onchange="escolherThreads(${c.id}, this.value)" title="Threads deste perfil" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px"><option value="">🧵 sem Threads</option>${thContas.filter(a=>a.ig_id).map(a=>`<option value="${a.ig_id}" ${c.thConta===a.ig_id?'selected':''}>🧵 @${escapar(a.username||a.ig_id)}</option>`).join('')}</select>`:''}${c.metaPageId?`<label style="display:flex;align-items:center;gap:5px;font-size:.78rem;margin:0;cursor:pointer" title="Responde sozinho comentário simples (linda, arrasou, só emoji) com obrigada + 💜. Pergunta nunca."><input type="checkbox" ${c.autoResponder?'checked':''} onchange="ligarAutoResposta(${c.id}, this.checked)" style="width:16px;height:16px;margin:0"> 💬 Responder sozinho</label>`:''}</div>`).join('')
         : '<div style="font-size:.84rem;color:var(--muted)">Nenhuma página encontrada nessa conta do Facebook.</div>'}
       </details>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="ligarAutomatico(true)">🔗 Ligar todos</button>${conexaoMeta?`<button class="btn-claro" onclick="conectarMeta()">🔄 Reconectar</button><button class="btn-mini" onclick="desconectarMeta()">Desconectar</button>`:`<button class="btn-claro" onclick="conectarMeta()">🔗 Conectar Facebook</button>`}</div>`
@@ -5293,24 +5332,30 @@ async function carregarPublicacoes(){
     let mudou = false;
     (dados.posts||[]).forEach(p=>{
       if(!p.autoPublicar || p.status==='publicado') return;
-      const auto = (p.redes||[]).filter(r=>r==='instagram'||r==='facebook');
+      const auto = redesAutoDoPost(p);
       if(auto.length && auto.every(r=>publicacoesMapa[p.id+'|'+r] && publicacoesMapa[p.id+'|'+r].status==='ok')){ p.status='publicado'; mudou=true; }
     });
     if(mudou) tocar(); else if(!igual) render();
   }catch(e){}
 }
+function redesAutoDoPost(p){
+  const c = (typeof clientePorId==='function' && clientePorId(p.clienteId)) || {};
+  return (p.redes||[]).filter(r=>r==='instagram'||r==='facebook'||(r==='threads'&&c.thConta));
+}
+const SIGLA_AUTO = { instagram:'IG', facebook:'FB', threads:'🧵', instagram_story:'📱 Story' };
 function badgeAuto(p){
   if(!p || !p.autoPublicar) return '';
-  const auto = (p.redes||[]).filter(r=>r==='instagram'||r==='facebook');
+  const auto = redesAutoDoPost(p).slice();
+  if(p.virarStory && p.tipo!=='story' && auto.includes('instagram')) auto.push('instagram_story');
   const partes = auto.map(r=>{
-    const x = publicacoesMapa[p.id+'|'+r]; const sig = r==='instagram'?'IG':'FB';
+    const x = publicacoesMapa[p.id+'|'+r]; const sig = SIGLA_AUTO[r]||r;
     if(!x) return `<span title="Vai publicar sozinho no horário">⏰ ${sig}</span>`;
     if(x.status==='ok') return `<span title="Publicado pelo robô">✅ ${sig}</span>`;
     if(x.status==='publicando') return `<span>⏳ ${sig}</span>`;
     const err = (x.resultado&&x.resultado.erro)||'erro';
     return `<span style="color:#dc2626" title="${escapar(err)}">⚠️ ${sig}</span> <button class="btn-mini" onclick="tentarDeNovo(${p.id},'${r}')" title="${escapar(err)}">tentar de novo</button>`;
   });
-  const manuais = (p.redes||[]).filter(r=>r!=='instagram'&&r!=='facebook').map(r=>(REDES&&REDES[r]&&REDES[r].nome)||r);
+  const manuais = (p.redes||[]).filter(r=>!auto.includes(r)).map(r=>(REDES&&REDES[r]&&REDES[r].nome)||r);
   return `<div style="font-size:.78rem;margin-top:3px">🤖 ${partes.join(' · ')}${manuais.length?` <span style="color:var(--muted)">· ${escapar(manuais.join(', '))}: manual</span>`:''}</div>${p.obs?`<div style="font-size:.78rem;color:var(--muted);margin-top:2px">📝 ${escapar(p.obs)}</div>`:''}`;
 }
 async function tentarDeNovo(postId, rede){
