@@ -19,7 +19,11 @@ const IG_APP_ID = process.env.IG_APP_ID || '1039348538855189';
 const IG_APP_SECRET = process.env.IG_APP_SECRET || '';  // "Chave secreta do app do Instagram" (Meta → Instagram → Login da empresa)
 const JANELA_HORAS = 12;           // publica posts cujo horário passou há no máximo 12h (o GitHub às vezes atrasa o agendamento)
 const FUSO_PADRAO = 'America/Sao_Paulo';
-const REDES_AUTO = ['instagram', 'facebook'];
+const REDES_AUTO = ['instagram', 'facebook', 'threads'];
+// 🧵 Threads (caso de uso "Acessar a API do Threads" no app Postou)
+const GRAPH_TH = 'https://graph.threads.net/v1.0';
+const TH_APP_ID = process.env.THREADS_APP_ID || '2093294924680102';
+const TH_APP_SECRET = process.env.THREADS_APP_SECRET || '';
 const SECO = process.argv.includes('--seco'); // modo teste: não publica nada, só mostra
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -142,6 +146,7 @@ async function conexoesInstagram() {
   const agora = new Date().toISOString();
   for (const c of r.body || []) {
     if (!c.code || SECO) continue;
+    if (String(c.code).startsWith('th:')) { await trocarCodigoThreads(c); continue; }
     try {
       log('📸 trocando o código do Instagram de', c.user_id);
       let t;
@@ -172,6 +177,14 @@ async function conexoesInstagram() {
   for (const c of r.body || []) {
     if (!c.token || !c.ig_id) continue;
     // token do Instagram dura 60 dias: renova quando faltar menos de 10
+    if (!SECO && c.api === 'threads' && c.expira_em && (new Date(c.expira_em) - Date.now()) < 10 * 864e5) {
+      try {
+        const t = await graph('GET', 'https://graph.threads.net/refresh_access_token', { grant_type: 'th_refresh_token', access_token: c.token });
+        c.token = t.access_token;
+        await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify({ token: t.access_token, expira_em: t.expires_in ? new Date(Date.now() + t.expires_in * 1000).toISOString() : null, atualizado: agora }) });
+        log('🔑 Threads renovado @' + c.username);
+      } catch (e) { log('⚠️ não renovei Threads @' + c.username, e.message); }
+    }
     if (!SECO && c.api === 'ig' && c.expira_em && (new Date(c.expira_em) - Date.now()) < 10 * 864e5) {
       try {
         const t = await graph('GET', GRAPH_IG.replace(/\/v[\d.]+$/, '') + '/refresh_access_token', { grant_type: 'ig_refresh_token', access_token: c.token });
@@ -185,6 +198,66 @@ async function conexoesInstagram() {
     mapa.get(c.user_id).push(c);
   }
   return mapa;
+}
+
+// ---------------------------------------------------------------- 🧵 Threads
+async function trocarCodigoThreads(c) {
+  const agora = new Date().toISOString();
+  try {
+    if (!TH_APP_SECRET) throw new Error('falta o segredo THREADS_APP_SECRET no GitHub');
+    log('🧵 trocando o código do Threads de', c.user_id);
+    const curto = await graph('POST', 'https://graph.threads.net/oauth/access_token', { client_id: TH_APP_ID, client_secret: TH_APP_SECRET, grant_type: 'authorization_code', redirect_uri: REDIRECT_IG, code: String(c.code).slice(3) });
+    const t = await graph('GET', 'https://graph.threads.net/access_token', { grant_type: 'th_exchange_token', client_secret: TH_APP_SECRET, access_token: curto.access_token });
+    const me = await graph('GET', GRAPH_TH + '/me', { fields: 'id,username', access_token: t.access_token });
+    await sb(`conexoes_ig?user_id=eq.${c.user_id}&api=eq.threads&ig_id=eq.${me.id}&id=neq.${c.id}`, { method: 'DELETE' });
+    const linha = { token: t.access_token, ig_id: String(me.id), username: me.username || null, api: 'threads',
+      expira_em: t.expires_in ? new Date(Date.now() + t.expires_in * 1000).toISOString() : null, code: null, erro: null, atualizado: agora };
+    await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify(linha) });
+    Object.assign(c, linha);
+    log('   ✅ Threads ligado @' + me.username);
+  } catch (e) {
+    log('   ❌ Threads', e.message);
+    await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify({ code: null, api: 'threads', erro: 'Conecte o Threads de novo: ' + e.message, atualizado: agora }) });
+    c.code = null; c.erro = e.message; c.api = 'threads';
+  }
+}
+async function publicarThreads(p, conta) {
+  const tk = conta.token, base = GRAPH_TH + '/' + conta.ig_id;
+  const texto = legendaDe(p, 'threads').slice(0, 500);
+  const midias = midiasDoPost(p);
+  const ehVideo = m => m.tipo === 'video' || /\.(mp4|mov)(\?|$)/i.test(m.url);
+  let criacao;
+  if (!midias.length) {
+    criacao = await graph('POST', base + '/threads', { media_type: 'TEXT', text: texto, access_token: tk });
+  } else if (midias.length === 1) {
+    const m = midias[0];
+    criacao = await graph('POST', base + '/threads', ehVideo(m)
+      ? { media_type: 'VIDEO', video_url: m.url, text: texto, access_token: tk }
+      : { media_type: 'IMAGE', image_url: m.url, text: texto, access_token: tk });
+  } else {
+    const filhos = [];
+    for (const m of midias.slice(0, 20)) {
+      const f = await graph('POST', base + '/threads', ehVideo(m)
+        ? { media_type: 'VIDEO', video_url: m.url, is_carousel_item: 'true', access_token: tk }
+        : { media_type: 'IMAGE', image_url: m.url, is_carousel_item: 'true', access_token: tk });
+      filhos.push(f.id);
+    }
+    await esperarThreads(filhos[filhos.length - 1], tk);
+    criacao = await graph('POST', base + '/threads', { media_type: 'CAROUSEL', children: filhos.join(','), text: texto, access_token: tk });
+  }
+  await esperarThreads(criacao.id, tk);
+  return { id: (await graph('POST', base + '/threads_publish', { creation_id: criacao.id, access_token: tk })).id };
+}
+async function esperarThreads(id, tk, maxSeg = 300) {
+  // a Meta recomenda esperar ~30s; conferimos o status até ficar pronto
+  for (let s = 0; s < maxSeg; s += 10) {
+    await sleep(s === 0 ? 5000 : 10000);
+    try {
+      const j = await graph('GET', GRAPH_TH + '/' + id, { fields: 'status,error_message', access_token: tk });
+      if (j.status === 'FINISHED' || j.status === 'PUBLISHED') return;
+      if (j.status === 'ERROR' || j.status === 'EXPIRED') throw new Error('Threads recusou a mídia: ' + (j.error_message || j.status));
+    } catch (e) { if (/recusou/.test(e.message)) throw e; if (s > 60) return; }
+  }
 }
 
 // ---------------------------------------------------------------- Publicar
@@ -321,8 +394,10 @@ async function main() {
       for (const rede of redesDoPost) {
         const chave = `${row.user_id}|${p.id}|${rede}`;
         if (feito.has(chave)) continue;
+        const contaTH = rede === 'threads' ? igsDoUsuario.find(a => a.api === 'threads' && a.ig_id === cli.thConta) : null;
+        if (rede === 'threads' && !contaTH) { continue; } // perfil sem Threads ligado: fica manual
         const pagina = (con.paginas || []).find(pg => pg.id === cli.metaPageId) || null;
-        const contaIG = !pagina && cli.igConta ? igsDoUsuario.find(a => a.ig_id === cli.igConta) : null;
+        const contaIG = !pagina && cli.igConta ? igsDoUsuario.find(a => a.api !== 'threads' && a.ig_id === cli.igConta) : null;
         if (!pagina && contaIG && rede === 'facebook') { log(`   ⏭ ${cli.nome}: só Instagram (sem Página) — Facebook fica manual`); continue; }
         log(`➡️ ${rede} · "${p.titulo}" (${p.data} ${p.hora || ''}) · ${cli.nome || '?'}`);
         if (SECO) { total++; continue; }
@@ -333,7 +408,8 @@ async function main() {
         let status = 'ok', resultado;
         try {
           const pp = rede === 'instagram_story' ? { ...p, tipo: 'story', midias: midiasDoPost(p).slice(0, 1) } : p;
-          if (contaIG) resultado = await publicarInstagram(pp, { ig_id: contaIG.ig_id, token: contaIG.token, base: contaIG.api === 'ig' ? GRAPH_IG : '' });
+          if (contaTH) resultado = await publicarThreads(pp, contaTH);
+          else if (contaIG) resultado = await publicarInstagram(pp, { ig_id: contaIG.ig_id, token: contaIG.token, base: contaIG.api === 'ig' ? GRAPH_IG : '' });
           else {
             if (!pagina) throw new Error('Escolha a página do Facebook para "' + (cli.nome || 'este perfil') + '" em 🔗 Conexões');
             resultado = rede === 'facebook' ? await publicarFacebook(pp, pagina) : await publicarInstagram(pp, pagina);
