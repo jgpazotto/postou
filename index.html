@@ -1046,6 +1046,17 @@ async function carregarDono(){
   if(lista.length<=1){ html+=`<div class="vazio" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">⚠️ O painel está vendo só a sua conta. Falta ativar a <b>permissão de dona</b> no Supabase — o comando que a gente vai rodar juntas. Depois disso, todos os assinantes aparecem aqui.</div>`; }
   html+=`<div class="tiles"><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.length}</div><div class="rot">contas no Postou</div></div><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.filter(u=>u.expirado).length}</div><div class="rot">testes expirados</div></div></div>`;
   if(avisoDono){ html+=`<div class="vazio" style="border:1px solid #0a8a4a;color:#0a8a4a;border-radius:10px;padding:10px;margin-bottom:12px">${avisoDono}</div>`; avisoDono=''; }
+  // 💬 dúvidas que o assistente não soube responder (de todas as contas)
+  const duvidas = [];
+  (data||[]).forEach(row=>{ const c=row.conteudo||{}; const nm=(c.assinatura&&c.assinatura.nome)||'(sem nome)'; (c.duvidasChat||[]).forEach(d=>duvidas.push({nome:nm, q:d.q, em:d.em||''})); });
+  duvidas.sort((a,b)=>String(b.em).localeCompare(String(a.em)));
+  if(duvidas.length){
+    html+=`<details style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:14px;padding:12px 16px;margin-bottom:14px">
+      <summary style="font-weight:800;color:#0369a1;cursor:pointer">💬 Dúvidas que o assistente não soube responder (${duvidas.length})</summary>
+      <div style="font-size:.8rem;color:var(--muted);margin:8px 0">Cada uma vira resposta nova no chat. Passe pra Coordenadora do App. 💜</div>
+      ${duvidas.slice(0,40).map(d=>`<div class="pag-linha" style="font-size:.84rem"><span style="flex:1">“${escapar(d.q)}” <span style="color:var(--muted)">— ${escapar(d.nome)}${d.em?' · '+escapar(String(d.em).slice(0,10).split('-').reverse().join('/')):''}</span></span></div>`).join('')}
+    </details>`;
+  }
   const premiar = lista.filter(u=>u.indicadoPor && codigoParaUserId[u.indicadoPor] && !dados.premiosTratados.includes(u.userId));
   if(premiar.length){
     html+=`<div style="background:linear-gradient(135deg,#faf5ff,#fdf2f8);border:1px solid #e9d5ff;border-radius:14px;padding:14px 16px;margin-bottom:14px">
@@ -4893,8 +4904,8 @@ const BASE_CONHECIMENTO = [
   {k:['atrasado','atrasada','hoje','o que fazer','pendente','andamento hoje'], r:'A aba 🏠 Hoje é seu painel do dia: mostra as postagens de hoje, as atrasadas (que precisam de andamento) e as tarefas com prazo. Comece o dia sempre por ela! Os números no topo resumem tudo.'},
   {k:['filtro','filtrar','ver apenas','apenas um','separar cliente'], r:'Use a caixinha "Todos os usuários" no topo da tela para ver só um usuário por vez. O filtro vale para todas as abas: Hoje, Calendário, Tarefas, Ideias e Status.'},
   {k:['backup','copia','seguranca','exportar','salvar dados'], r:'Clique em "⬇ Backup" no topo do app para baixar um arquivo com todos os seus dados. Recomendo fazer 1x por semana e guardar num lugar seguro (ex.: seu grupo do WhatsApp ou Google Drive). Seus dados também ficam salvos na nuvem automaticamente — o backup é uma garantia extra.'},
-  {k:['senha','login','entrar','esqueci','acesso'], r:'Você entra com o e-mail e a senha cadastrados no app. Se esqueceu a senha, quem administra o Postou pode criar uma nova no painel do Supabase (Authentication → Users). Importante: nunca compartilhe sua senha com ninguém!'},
-  {k:['celular','telefone','tela inicial','icone','aplicativo'], r:'Para usar no celular como um app de verdade: abra postou-app.netlify.app no Chrome → toque no menu ⋮ → "Adicionar à tela inicial". Pronto: vira um ícone do Postou no seu celular! 📱'},
+  {k:['senha','login','entrar','esqueci','acesso'], r:'Você entra com o e-mail e a senha cadastrados no app. Esqueceu a senha? Na tela de entrar, digite seu e-mail e toque em "🔑 Esqueci minha senha": chega um link no seu e-mail (olhe também o SPAM) pra criar uma senha nova. Importante: nunca compartilhe sua senha com ninguém!'},
+  {k:['celular','telefone','tela inicial','icone','aplicativo'], r:'Para usar no celular como um app de verdade: abra postou.app.br no celular. iPhone (Safari): botão Compartilhar ⬆️ → "Adicionar à Tela de Início". Android (Chrome): menu ⋮ → "Adicionar à tela inicial". Pronto: vira um ícone do Postou no seu celular! 📱'},
   {k:['nuvem','sincronizar','computador','salvo','sincronizacao'], r:'Tudo o que você faz é salvo na nuvem automaticamente — repare no "☁️ Tudo salvo" no topo. Pode cadastrar no computador e abrir no celular: está tudo lá, sempre atualizado.'},
   {k:['excluir','apagar','deletar','remover'], r:'Para excluir: clientes têm o botão 🗑 Excluir no cartão (atenção: apaga também os posts, tarefas e ideias dele!). Posts podem ser excluídos abrindo a postagem (✏️) → 🗑 Excluir. Tarefas e ideias têm o 🗑 direto na lista.'},
   {k:['cor','cores','identificacao'], r:'Cada usuário tem uma cor de identificação, escolhida no cadastro. Ela aparece no calendário, nas tarefas, no quadro de status — assim você bate o olho e já sabe de quem é cada coisa!'},
@@ -4920,7 +4931,7 @@ const BASE_CONHECIMENTO = [
   {k:['video','videos','reels','tiktok viral','viralizar','video curto'], r:'Vídeo curto é o formato que mais cresce hoje! Fórmula que funciona: prenda a atenção nos 2 primeiros segundos, entregue o conteúdo rápido, e termine com um convite (seguir, comentar, chamar no WhatsApp). Não precisa produção cara — luz natural + celular + som limpo já resolvem.'},
   {k:['bio','perfil bonito','arrumar perfil','descricao do perfil'], r:'Uma bio que converte tem 3 coisas: QUEM você é / O QUE você faz por quem te segue / COMO falar com você (link ou WhatsApp). Exemplo: "Doces artesanais em Curitiba 🍫 | Encomendas para festas | Peça pelo WhatsApp 👇". Simples e direto!'},
   {k:['conseguir clientes','mais clientes','divulgar','divulgacao','captar','prospectar'], r:'Para conseguir clientes: 1) capriche na bio com chamada para o WhatsApp; 2) poste com constância mostrando seu trabalho (prova social!); 3) peça depoimentos aos clientes felizes e poste; 4) responda rápido; 5) use as ✨ Ideias por nicho para nunca ficar sem conteúdo. Cliente satisfeito postado = novo cliente chegando!'},
-  {k:['quanto cobrar','precificar','preco do servico','cobrar do cliente','tabela de preco'], r:'Para precificar: some seus custos (material, tempo, transporte), adicione sua margem (o lucro que faz valer a pena) e pesquise o mercado da sua região. Não cobre barato demais para "pegar cliente" — atrai quem não valoriza. E acompanhe sua margem real no 🧮 Contador ajudante da aba Vendas!'},
+  {k:['quanto cobrar','quanto devo cobrar','devo cobrar','precificar','preco do servico','cobrar do cliente','tabela de preco'], r:'Para precificar: some seus custos (material, tempo, transporte), adicione sua margem (o lucro que faz valer a pena) e pesquise o mercado da sua região. Não cobre barato demais para "pegar cliente" — atrai quem não valoriza. E acompanhe sua margem real no 🧮 Contador ajudante da aba Vendas!'},
   {k:['stories','story','storys'], r:'Stories são a conversa diária com quem já te segue: mostre bastidores, enquetes, "chegou hoje", antes e depois. Não precisa ser perfeito — precisa ser frequente! Dica: todo story com produto/serviço merece uma chamada tipo "chama no WhatsApp" ou link.'},
   {k:['sugerir agenda','agenda','montar calendario','melhores dias','melhores horarios','sugestao de agenda','planejar mes','agendar o mes'], r:'Na aba 👥 Usuários, cada usuário tem o botão 🗓 Sugerir agenda: com base no nicho e na meta de posts/mês, o Postou monta um calendário nos melhores dias e horários, já com uma ideia pronta em cada post (entram como rascunho, para você revisar). É um ótimo ponto de partida — depois é só ajustar conforme o seu público responde! 🚀'},
   {k:['tendencia','tendencias','bombando','em alta','moda do momento','o que ta bombando','viral','onda'], r:'Na aba 💡 Ideias, o botão 🔥 Tendências mostra o que está rendendo agora, por nicho — com dicas de amiga que eu atualizo de tempos em tempos. 💛 Escolhe o nicho, guarda as que combinarem e vira postagem num clique!'},
@@ -4938,6 +4949,18 @@ const BASE_CONHECIMENTO = [
   {k:['configuracao','configuracoes','minha conta','atualizar dados','mudar meu nome','meu telefone','atualizar telefone','editar meu perfil','meus dados'], r:'Para atualizar seus dados: clique em ⚙️ Conta lá em cima, no topo. Você muda seu nome e seu WhatsApp e clica em Salvar — fica atualizado na hora. O e-mail (seu login) não muda por aí; se precisar, fale com a Joice. 💜'},
   {k:['agendar servico','agenda de servico','marcar servico','servico na agenda','repetir servico','servico toda semana','servico quinzenal','dia do servico'], r:'Para agendar um serviço: na aba 👥 Usuários, no cartão de um cliente de Serviço, clique em 🗓 Agendar serviço. Escolha a data, o horário e se repete (só esse dia, toda semana, a cada 15 dias ou todo mês). Ele entra no 📅 Calendário na cor do cliente, com o 🧰. Se repetir, já coloco os próximos 3 meses! 💜'}
 ];
+BASE_CONHECIMENTO.push(...[
+  {k:['robo','robozinho','publicar sozinho','posta sozinho','automatico','automatica','publicacao automatica','agendar automatico','sem eu estar'], r:'🤖 O robô do Postou publica sozinho no horário certo! Ao criar o post (📅 Calendário → + Nova postagem), suba a arte ou o vídeo, espere aparecer "✅ Pronto!", marque "🤖 Publicar sozinho" e salve. Antes, conecte o Instagram/Facebook do perfil (aba 👥 Usuários → quadro 🤖 → botão 📸). Funciona com foto, carrossel, vídeo/reels e stories.'},
+  {k:['conectar instagram','conecto meu instagram','conecto o instagram','conectar meu instagram','conecto','conectar','ligar instagram','conectar o instagram','conectar facebook','conectar conta','conexao','sem pagina','nao tenho pagina','pagina do face','pagina do facebook','ter pagina','precisa de pagina','precisa ter pagina'], r:'📸 Para conectar o Instagram: aba 👥 Usuários → quadro 🤖 lá em cima → botão 📸 Conectar Instagram → entre com o seu Instagram e aceite. Não precisa ter Página do Facebook! O perfil precisa ser Profissional (Criador de conteúdo ou Empresa): no Instagram vá em Configurações → Tipo de conta e ferramentas → Mudar para conta profissional (é grátis). Se aparecer algum aviso, chama a gente no direct do @postou.br que a gente te ajuda. 💜'},
+  {k:['vira story','virar story','post vira story','story automatico','post no story','repostar story','compartilhar no story','story tambem','stories tambem','no story tambem'], r:'📱 Post vira story: no formulário do post, marque a caixinha "📱 Post vira story". O robô publica no feed e logo depois coloca a mesma arte nos seus stories do Instagram. Dois em um! (precisa estar com 🤖 Publicar sozinho marcado)'},
+  {k:['status do whats','status whatsapp','status do whatsapp','whats status','meu status'], r:'💚 No card do post (aba 🏠 Hoje) toque em "💚 Status do Whats" pelo celular: abre o compartilhar com a arte pronta → escolha WhatsApp → Meu status. A legenda já fica copiada, é só colar. O WhatsApp não deixa robô postar status, então são 2 toquinhos seus. 😉'},
+  {k:['facebook pessoal','perfil pessoal','meu face','postar no face','face pessoal','facebook automatico'], r:'📘 O Facebook não deixa nenhum app publicar sozinho em PERFIL PESSOAL (só em Página). Duas saídas: 1) no Instagram, ligue Central de Contas → Experiências conectadas → Compartilhamento entre perfis → compartilhar no Facebook (vale para o que você posta pelo app do Instagram); 2) no card do post, toque em "📘 Postar no Face": abre o compartilhar com a arte e a legenda copiada, é só colar e publicar.'},
+  {k:['threads'], r:'🧵 O Threads já pode ser cadastrado nas redes do perfil (👥 Usuários → ✏️ Editar → + Adicionar rede → Threads). O robô publicar sozinho no Threads está chegando em breve! Por enquanto use o botão 🚀 Postar no card, que copia o texto e abre o Threads.'},
+  {k:['teste gratis','periodo de teste','gratis','trial','30 dias','mes organizado','promocao','promo','dias gratis'], r:'🎁 Toda conta nova ganha 15 dias grátis com TUDO liberado. Promo Mês Organizado: reposte um post do @postou.br nos seus stories marcando @postou.br e mande no direct o e-mail do cadastro: a gente libera 30 dias grátis (em vez de 15). Quem assinar ainda ganha o e-book "Redes Organizadas em 7 Dias". 💜'},
+  {k:['cancelar','cancelamento','parar de pagar','desistir','fidelidade'], r:'Sem fidelidade: você cancela quando quiser. Se pagou pelo Mercado Pago, é só cancelar a assinatura lá (ou chama no direct do @postou.br que a gente te ajuda). Seus dados continuam guardados e dá pra baixar tudo pelo ⬇ Backup.'},
+  {k:['senha do instagram','e seguro','seguranca da conta','vao ver minha senha','roubar conta','hackear'], r:'🔒 O Postou nunca vê a sua senha do Instagram. A conexão é feita pela tela oficial da Meta (Instagram/Facebook), e você pode desconectar quando quiser em Configurações do Instagram → Apps e sites. Seus dados não são vendidos para ninguém.'},
+  {k:['falar com alguem','atendente','pessoa','humano','suporte','ajuda de verdade','direct','contato'], r:'Claro! 💜 Chama no direct do Instagram @postou.br (instagram.com/postou.br) que uma pessoa do time te responde. Pode mandar print da sua dúvida que fica mais fácil!'},
+]);
 const DICAS_DIA = [
   'Poste o imperfeito publicado em vez do perfeito guardado no rascunho. Feito é melhor que perfeito! 🚀',
   'Responder comentários conta MUITO para o algoritmo. Reserve 10 minutinhos depois de cada post só para isso. 💬',
@@ -5001,11 +5024,32 @@ function responderChat(pergunta){
   let melhor = null, melhorPontos = 0;
   BASE_CONHECIMENTO.forEach(item=>{
     let pontos = 0;
-    item.k.forEach(kw=>{ if(temPalavra(p, normalizarTexto(kw))) pontos += kw.split(' ').length; });
+    item.k.forEach(kw=>{
+      const nk = normalizarTexto(kw);
+      if(temPalavra(p, nk)) pontos += kw.split(' ').length;
+      else if(!nk.includes(' ') && nk.length>=6 && new RegExp('(^|[^a-z0-9])'+nk.slice(0,-2)).test(p)) pontos += 0.5; // "agendo" ≈ "agendar"
+    });
     if(pontos > melhorPontos){ melhorPontos = pontos; melhor = item; }
   });
   if(melhor) return melhor.r;
+  guardarDuvidaChat(pergunta);
   return 'Hmm, essa eu ainda não sei responder! 😅 Posso ajudar com qualquer parte do app e também com dicas de marketing: melhor horário para postar, hashtags, engajamento, o que postar, quanto cobrar... Pergunte de outro jeito (ex.: "como agendo um post?", "como ter mais seguidores?") ou veja a aba ❓ Ajuda.';
+}
+/* 💬 dúvidas que o assistente não soube responder: ficam guardadas pra dona ver no 👑 Dono e virar resposta nova */
+function guardarDuvidaChat(pergunta){
+  try{
+    if(typeof usuarioId==='undefined' || !usuarioId || typeof dados!=='object' || !dados) return;
+    dados.duvidasChat = (dados.duvidasChat||[]).slice(-49);
+    dados.duvidasChat.push({ q:String(pergunta).slice(0,300), em:new Date().toISOString() });
+    agendarSalvar();
+  }catch(e){}
+}
+function botaoFalarPessoa(){
+  const b = document.createElement('a');
+  b.href = 'https://ig.me/m/postou.br'; b.target = '_blank'; b.rel = 'noopener';
+  b.textContent = '💬 Falar com uma pessoa (direct @postou.br)';
+  b.style.cssText = 'display:inline-block;margin:4px 0 8px;padding:7px 12px;border-radius:10px;background:#fdf2f8;border:1px solid #fbcfe8;color:#be185d;font-weight:700;font-size:.8rem;text-decoration:none';
+  document.getElementById('chatMsgs').appendChild(b); b.scrollIntoView();
 }
 function alternarChat(){
   const cx = document.getElementById('chatCaixa');
@@ -5015,7 +5059,7 @@ function alternarChat(){
     msgBot('💡 Dica do dia: ' + DICAS_DIA[new Date().getDate() % DICAS_DIA.length]);
     const chips = document.createElement('div');
     chips.className = 'chips';
-    ['Como cadastro um usuário?','Como agendo um post?','O que postar hoje?','Como ter mais engajamento?','Quanto devo cobrar?'].forEach(q=>{
+    ['Como o robô publica sozinho?','Como conecto meu Instagram?','Como agendo um post?','Tenho dias grátis?','O que postar hoje?','Falar com uma pessoa'].forEach(q=>{
       const b = document.createElement('button');
       b.textContent = q;
       b.onclick = ()=>{ perguntar(q); };
@@ -5028,7 +5072,7 @@ function msgBot(t){ const d=document.createElement('div'); d.className='msg bot'
 function msgEu(t){ const d=document.createElement('div'); d.className='msg eu'; d.textContent=t; document.getElementById('chatMsgs').appendChild(d); d.scrollIntoView(); }
 function perguntar(q){
   msgEu(q);
-  setTimeout(()=>msgBot(responderChat(q)), 350);
+  setTimeout(()=>{ const r = responderChat(q); msgBot(r); if(/^Hmm, essa eu ainda/.test(r)) botaoFalarPessoa(); }, 350);
 }
 function enviarChat(){
   const inp = document.getElementById('chatInput');
