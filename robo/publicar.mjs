@@ -266,6 +266,12 @@ function midiasDoPost(p) {
     : (p.midiaUrl ? [{ url: p.midiaUrl, tipo: p.midiaTipo || 'imagem' }] : []);
   return lista.filter(m => m && m.url);
 }
+// 📱 story: usa a versão em pé (9:16) que o site montou, se for da mesma arte
+function midiaDoStory(p) {
+  const m = midiasDoPost(p).slice(0, 1);
+  if (m.length && p.midiaStory && p.midiaStory.url && p.midiaStory.de === m[0].url) return [{ url: p.midiaStory.url, tipo: 'imagem' }];
+  return m;
+}
 function legendaDe(p, rede) { return (p.legendas && p.legendas[rede]) || p.legenda || ''; }
 
 async function esperarContainer(id, token, maxSeg = 300, base = '') {
@@ -407,7 +413,8 @@ async function main() {
         if (!trava.ok) { log('   já estava sendo publicado, pulando'); continue; }
         let status = 'ok', resultado;
         try {
-          const pp = rede === 'instagram_story' ? { ...p, tipo: 'story', midias: midiasDoPost(p).slice(0, 1) } : p;
+          const ehStoryIG = rede === 'instagram_story' || (p.tipo === 'story' && rede === 'instagram');
+          const pp = ehStoryIG ? { ...p, tipo: 'story', midias: midiaDoStory(p) } : p;
           if (contaTH) resultado = await publicarThreads(pp, contaTH);
           else if (contaIG) resultado = await publicarInstagram(pp, { ig_id: contaIG.ig_id, token: contaIG.token, base: contaIG.api === 'ig' ? GRAPH_IG : '' });
           else {
