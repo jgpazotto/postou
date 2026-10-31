@@ -5112,9 +5112,9 @@ function ehPerfilSocial(c){ return c && !c.arquivado && c.tipo!=='cliente' && c.
 /* ---------- mídias do post (arte / vídeo) ---------- */
 function desenharMidias(){
   const el = document.getElementById('mMidiasPrev'); if(!el) return;
-  el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:74px;height:74px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
+  el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:110px;height:110px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
       ${m.tipo==='video'?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,#7c3aed,#ec4899)">🎬</div><video src="${m.url}#t=0.5" muted playsinline preload="metadata" onerror="this.remove()" style="position:relative;width:100%;height:100%;object-fit:cover"></video><span style="position:absolute;left:4px;bottom:3px;font-size:.7rem;background:#0008;color:#fff;border-radius:6px;padding:0 4px">🎬</span>`
-        :`<img src="${m.url}" style="width:100%;height:100%;object-fit:cover">`}
+        :`<img src="${m.url}" title="Toque pra ver grande" onclick="window.open('${m.url}','_blank')" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in">`}
       <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
     </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
 }
