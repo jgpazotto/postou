@@ -5190,10 +5190,11 @@ async function carregarConexao(){
   await receberCodigoIG();
   await receberCodigoThreads();
   try{
-    const { data } = await sb.from('conexoes_ig').select('id,ig_id,username,erro,atualizado,api').eq('user_id',usuarioId);
+    const { data } = await sb.from('conexoes_ig').select('id,ig_id,username,erro,atualizado').eq('user_id',usuarioId);
     const todas = data || [];
-    thContas = todas.filter(a=>a.api==='threads');
-    igContas = todas.filter(a=>a.api!=='threads');
+    // 🧵 Threads: o robô guarda o id como "th:..." (a coluna api não é liberada pro site)
+    thContas = todas.filter(a=>String(a.ig_id||'').startsWith('th:') || /Threads/.test(a.erro||''));
+    igContas = todas.filter(a=>!thContas.includes(a));
   }catch(e){ igContas = []; thContas = []; }
   if(igContas.some(a=>a.ig_id) || thContas.some(a=>a.ig_id)) ligarAutomatico(false);
   renderConexoes();
@@ -5227,8 +5228,7 @@ async function receberCodigoThreads(){
   try{ code=sessionStorage.getItem('postou_th_code'); erro=sessionStorage.getItem('postou_th_erro'); sessionStorage.removeItem('postou_th_code'); sessionStorage.removeItem('postou_th_erro'); }catch(e){}
   if(erro) setTimeout(()=>alert('🧵 O Threads não conectou: '+erro),300);
   if(!code || !usuarioId) return;
-  let { error } = await sb.from('conexoes_ig').insert({ code:'th:'+code, api:'threads' });
-  if(error) ({ error } = await sb.from('conexoes_ig').insert({ code:'th:'+code }));
+  const { error } = await sb.from('conexoes_ig').insert({ code:'th:'+code });
   setTimeout(()=>alert(error ? '⚠️ Não consegui guardar a conexão do Threads: '+error.message
     : '🧵 Recebi a conexão do Threads! 💜\nO robô termina de ligar em até 15 minutinhos. Depois é só marcar Threads + 🤖 Publicar sozinho no post.'),300);
 }
