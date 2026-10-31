@@ -5207,13 +5207,19 @@ function conectarSoInstagram(){
     + '&redirect_uri='+encodeURIComponent('https://postou.app.br/')+'&response_type=code'
     + '&scope='+encodeURIComponent('instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments')+'&state='+estado;
 }
+/* aviso na tela (sem alert, que trava o navegador) */
+function avisoTela(t){
+  const d=document.createElement('div'); d.textContent=t;
+  d.style.cssText='position:fixed;left:50%;top:16px;transform:translateX(-50%);max-width:min(520px,calc(100vw - 32px));z-index:99999;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;padding:14px 18px;border-radius:14px;font-size:.92rem;white-space:pre-line;box-shadow:0 10px 30px rgba(0,0,0,.25);cursor:pointer';
+  d.title='Toque pra fechar'; d.onclick=()=>d.remove(); document.body.appendChild(d); setTimeout(()=>d.remove(),12000);
+}
 async function receberCodigoIG(){
   let code=null, erro=null;
   try{ code=sessionStorage.getItem('postou_ig_code'); erro=sessionStorage.getItem('postou_ig_erro'); sessionStorage.removeItem('postou_ig_code'); sessionStorage.removeItem('postou_ig_erro'); }catch(e){}
-  if(erro) setTimeout(()=>alert('📸 O Instagram não conectou: '+erro),300);
+  if(erro) setTimeout(()=>avisoTela('📸 O Instagram não conectou: '+erro),300);
   if(!code || !usuarioId) return;
   const { error } = await sb.from('conexoes_ig').insert({ code });
-  setTimeout(()=>alert(error ? '⚠️ Não consegui guardar a conexão: '+error.message
+  setTimeout(()=>avisoTela(error ? '⚠️ Não consegui guardar a conexão: '+error.message
     : '📸 Recebi a conexão do Instagram! 💜\nO robô termina de ligar em até 5 minutinhos. Depois, em Usuários → 🤖 Publicação automática, confira se o perfil ficou ligado.'),300);
 }
 /* ---------- 🧵 Login do Threads ---------- */
@@ -5226,10 +5232,10 @@ function conectarThreads(){
 async function receberCodigoThreads(){
   let code=null, erro=null;
   try{ code=sessionStorage.getItem('postou_th_code'); erro=sessionStorage.getItem('postou_th_erro'); sessionStorage.removeItem('postou_th_code'); sessionStorage.removeItem('postou_th_erro'); }catch(e){}
-  if(erro) setTimeout(()=>alert('🧵 O Threads não conectou: '+erro),300);
+  if(erro) setTimeout(()=>avisoTela('🧵 O Threads não conectou: '+erro),300);
   if(!code || !usuarioId) return;
   const { error } = await sb.from('conexoes_ig').insert({ code:'th:'+code });
-  setTimeout(()=>alert(error ? '⚠️ Não consegui guardar a conexão do Threads: '+error.message
+  setTimeout(()=>avisoTela(error ? '⚠️ Não consegui guardar a conexão do Threads: '+error.message
     : '🧵 Recebi a conexão do Threads! 💜\nO robô termina de ligar em até 15 minutinhos. Depois é só marcar Threads + 🤖 Publicar sozinho no post.'),300);
 }
 function escolherThreads(clienteId, igId){
