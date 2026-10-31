@@ -3748,13 +3748,41 @@ function salvarPost(id){
     novo.resultado = (r.views!=null||r.curtidas!=null||r.comentarios!=null) ? r : undefined; }
   { const ci=document.getElementById('mCollabIG'); const lista=ci?(ci.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()).slice(0,3):[]; novo.collabIG = lista.length ? lista : undefined; }
   if(novo.autoPublicar && novo.status!=='publicado') novo.status = 'agendado';
-  if(id){ Object.assign(dados.posts.find(x=>x.id===id), novo); }
+  const salvos = [];
+  if(id){ const p0=dados.posts.find(x=>x.id===id); Object.assign(p0, novo); salvos.push(p0); }
   else {
     const collab = [...document.querySelectorAll('.chk-collab:checked')].map(c=>parseInt(c.value));
     const ids = [...new Set([novo.clienteId, ...collab])];
-    ids.forEach(cid => dados.posts.push(Object.assign({id:novoId()}, novo, {clienteId:cid})));
+    ids.forEach(cid => { const np=Object.assign({id:novoId()}, novo, {clienteId:cid}); dados.posts.push(np); salvos.push(np); });
   }
   fecharModal(); tocar();
+  salvos.forEach(p=>{ prepararArteStory(p); });
+}
+/* 📱 Story sem corte: se a arte não for em pé (9:16), monta uma versão 1080x1920 com a arte inteira no meio e fundo desfocado */
+async function prepararArteStory(p){
+  try{
+    if(!p || !(p.virarStory || p.tipo==='story')) return;
+    const m = (p.midias||[])[0]; if(!m || m.tipo==='video') return;
+    if(p.midiaStory && p.midiaStory.de===m.url) return;
+    const img = await new Promise((ok,falha)=>{ const i=new Image(); i.crossOrigin='anonymous'; i.onload=()=>ok(i); i.onerror=()=>falha(new Error('não abriu a arte')); i.src=m.url+(m.url.includes('?')?'&':'?')+'cors=1'; });
+    const w=img.naturalWidth, h=img.naturalHeight; if(!w||!h) return;
+    if(h/w >= 1.7){ delete p.midiaStory; return; } // já é em pé: usa a própria arte
+    const W=1080, H=1920, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const cx=cv.getContext('2d');
+    // fundo: a própria arte ampliada e desfocada
+    const esc=Math.max(W/w,H/h); cx.filter='blur(40px) brightness(0.85)';
+    cx.drawImage(img,(W-w*esc)/2,(H-h*esc)/2,w*esc,h*esc); cx.filter='none';
+    // arte inteira no meio
+    const e2=Math.min(W/w,(H*0.8)/h); const dw=w*e2, dh=h*e2;
+    cx.shadowColor='rgba(0,0,0,.35)'; cx.shadowBlur=30; cx.drawImage(img,(W-dw)/2,(H-dh)/2,dw,dh);
+    const blob = await new Promise(ok=>cv.toBlob(ok,'image/jpeg',0.9)); if(!blob) return;
+    const caminho = usuarioId+'/story-'+Date.now()+'-'+Math.random().toString(36).slice(2,6)+'.jpg';
+    const { error } = await sb.storage.from('midias').upload(caminho, blob, { contentType:'image/jpeg', upsert:false });
+    if(error) return;
+    const { data } = sb.storage.from('midias').getPublicUrl(caminho);
+    const atual = dados.posts.find(x=>x.id===p.id); if(!atual) return;
+    atual.midiaStory = { url:data.publicUrl, de:m.url };
+    tocar();
+  }catch(e){ console.log('story 9:16:', e.message); }
 }
 function excluirPost(id){ dados.posts = dados.posts.filter(x=>x.id!==id); fecharModal(); tocar(); }
 
