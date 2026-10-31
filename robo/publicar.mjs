@@ -176,6 +176,11 @@ async function conexoesInstagram() {
   const mapa = new Map();
   for (const c of r.body || []) {
     if (!c.token || !c.ig_id) continue;
+    // 🧵 Threads: o site só enxerga ig_id, então o id do Threads fica como "th:..."
+    if (c.api === 'threads' && !String(c.ig_id).startsWith('th:') && !SECO) {
+      c.ig_id = 'th:' + c.ig_id;
+      await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify({ ig_id: c.ig_id }) });
+    }
     // token do Instagram dura 60 dias: renova quando faltar menos de 10
     if (!SECO && c.api === 'threads' && c.expira_em && (new Date(c.expira_em) - Date.now()) < 10 * 864e5) {
       try {
@@ -209,8 +214,8 @@ async function trocarCodigoThreads(c) {
     const curto = await graph('POST', 'https://graph.threads.net/oauth/access_token', { client_id: TH_APP_ID, client_secret: TH_APP_SECRET, grant_type: 'authorization_code', redirect_uri: REDIRECT_IG, code: String(c.code).slice(3) });
     const t = await graph('GET', 'https://graph.threads.net/access_token', { grant_type: 'th_exchange_token', client_secret: TH_APP_SECRET, access_token: curto.access_token });
     const me = await graph('GET', GRAPH_TH + '/me', { fields: 'id,username', access_token: t.access_token });
-    await sb(`conexoes_ig?user_id=eq.${c.user_id}&api=eq.threads&ig_id=eq.${me.id}&id=neq.${c.id}`, { method: 'DELETE' });
-    const linha = { token: t.access_token, ig_id: String(me.id), username: me.username || null, api: 'threads',
+    await sb(`conexoes_ig?user_id=eq.${c.user_id}&ig_id=eq.th:${me.id}&id=neq.${c.id}`, { method: 'DELETE' });
+    const linha = { token: t.access_token, ig_id: 'th:' + me.id, username: me.username || null, api: 'threads',
       expira_em: t.expires_in ? new Date(Date.now() + t.expires_in * 1000).toISOString() : null, code: null, erro: null, atualizado: agora };
     await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify(linha) });
     Object.assign(c, linha);
@@ -222,7 +227,7 @@ async function trocarCodigoThreads(c) {
   }
 }
 async function publicarThreads(p, conta) {
-  const tk = conta.token, base = GRAPH_TH + '/' + conta.ig_id;
+  const tk = conta.token, base = GRAPH_TH + '/' + String(conta.ig_id).replace(/^th:/, '');
   const texto = legendaDe(p, 'threads').slice(0, 500);
   const midias = midiasDoPost(p);
   const ehVideo = m => m.tipo === 'video' || /\.(mp4|mov)(\?|$)/i.test(m.url);
