@@ -1655,6 +1655,7 @@ function renderHoje(){
         ${botoesPostar}
         <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="marcarPublicado(${p.id})">✅ Publicado!</button>
         ${temMidia(p)?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem;border-color:#86efac" onclick="statusWhatsApp(${p.id})" title="Abre o WhatsApp com a arte pronta pra você postar no Status">💚 Status do Whats</button>`:''}
+        ${temMidia(p)?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem;border-color:#93c5fd" onclick="postarNoFace(${p.id})" title="Abre o compartilhar com a arte e a legenda copiada pra postar no seu Facebook pessoal (sem Página)">📘 Postar no Face</button>`:''}
         ${!temMidia(p)?`<button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="subirMidiaPost(${p.id})" title="Subir o vídeo ou a arte desse post">🎬 Subir vídeo/arte</button>`:''}
         <button class="btn-mini" onclick="abrirModalPost(${p.id})">✏️</button>
         <button class="btn-mini" style="color:#b91c1c" title="Excluir este post" onclick="event.stopPropagation();if(confirm('Excluir este post? 🗑\\nEssa ação não dá pra desfazer.')){excluirPost(${p.id});}">🗑</button>
@@ -1799,6 +1800,31 @@ async function statusWhatsApp(id){
     // computador: baixa a arte e explica
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = arq.name; document.body.appendChild(a); a.click(); a.remove();
     alert('💚 Baixei a arte e copiei a legenda!\nNo computador o WhatsApp não deixa postar Status. Abra este post no celular (postou.app.br) e toque em 💚 Status do Whats: abre direto o WhatsApp → Meu status.');
+  }catch(e){ if(e && e.name==='AbortError') return; alert('Não consegui abrir o compartilhar 😕 ('+(e.message||e)+'). Tente pelo celular.'); }
+}
+/* ---------- 📘 Facebook pessoal (sem Página): a Meta não deixa robô postar em perfil pessoal, então abre o compartilhar com arte + legenda copiada ---------- */
+async function postarNoFace(id){
+  const p = dados.posts.find(x=>x.id===id); if(!p) return;
+  const m = (Array.isArray(p.midias) && p.midias[0]) || (p.midiaUrl ? {url:p.midiaUrl, tipo:p.midiaTipo||'imagem'} : null);
+  if(!m){ alert('Esse post ainda não tem arte ou vídeo. 🎬'); return; }
+  const texto = legendaPara ? (legendaPara(p,'facebook') || p.legenda || p.titulo || '') : (p.legenda || p.titulo || '');
+  try{ if(texto && navigator.clipboard) await navigator.clipboard.writeText(texto); }catch(e){}
+  try{
+    const r = await fetch(m.url); const blob = await r.blob();
+    const ext = (blob.type.split('/')[1]||'jpg').replace('jpeg','jpg').replace('quicktime','mov');
+    const arq = new File([blob], 'postou-face.'+ext, { type: blob.type });
+    const celular = /iPhone|iPad|Android/i.test(navigator.userAgent);
+    if(celular && navigator.canShare && navigator.canShare({ files:[arq] })){
+      const av = document.createElement('div');
+      av.textContent = '📘 Legenda copiada! Escolha o Facebook, segure o dedo no texto → Colar → Publicar 💜';
+      av.style.cssText = 'position:fixed;left:12px;right:12px;bottom:16px;z-index:99999;background:#1877f2;color:#fff;padding:12px 14px;border-radius:12px;font-size:.9rem;box-shadow:0 6px 20px rgba(0,0,0,.25)';
+      document.body.appendChild(av); setTimeout(()=>av.remove(), 9000);
+      await navigator.share({ files:[arq] });
+      return;
+    }
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = arq.name; document.body.appendChild(a); a.click(); a.remove();
+    window.open('https://www.facebook.com/', '_blank');
+    alert('📘 Baixei a arte e copiei a legenda!\nNo Facebook que abriu: "No que você está pensando?" → Foto/vídeo → escolha a arte (pasta Downloads) → cole a legenda (Cmd+V) → Publicar.');
   }catch(e){ if(e && e.name==='AbortError') return; alert('Não consegui abrir o compartilhar 😕 ('+(e.message||e)+'). Tente pelo celular.'); }
 }
 async function compartilharPost(id){
