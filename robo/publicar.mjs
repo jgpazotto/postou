@@ -315,7 +315,10 @@ async function main() {
       const quando = horarioDoPost(p.data, p.hora, fuso);
       if (!quando || quando.getTime() > agora || agora - quando.getTime() > JANELA_HORAS * 36e5) continue;
       const cli = (dados.clientes || []).find(c => c.id === p.clienteId) || {};
-      for (const rede of (p.redes || []).filter(x => REDES_AUTO.includes(x))) {
+      // 📱 "post vira story": depois do Instagram, publica a 1ª foto/vídeo também como story
+      const redesDoPost = (p.redes || []).filter(x => REDES_AUTO.includes(x));
+      if (p.virarStory && p.tipo !== 'story' && redesDoPost.includes('instagram')) redesDoPost.push('instagram_story');
+      for (const rede of redesDoPost) {
         const chave = `${row.user_id}|${p.id}|${rede}`;
         if (feito.has(chave)) continue;
         const pagina = (con.paginas || []).find(pg => pg.id === cli.metaPageId) || null;
@@ -329,10 +332,11 @@ async function main() {
         if (!trava.ok) { log('   já estava sendo publicado, pulando'); continue; }
         let status = 'ok', resultado;
         try {
-          if (contaIG) resultado = await publicarInstagram(p, { ig_id: contaIG.ig_id, token: contaIG.token, base: contaIG.api === 'ig' ? GRAPH_IG : '' });
+          const pp = rede === 'instagram_story' ? { ...p, tipo: 'story', midias: midiasDoPost(p).slice(0, 1) } : p;
+          if (contaIG) resultado = await publicarInstagram(pp, { ig_id: contaIG.ig_id, token: contaIG.token, base: contaIG.api === 'ig' ? GRAPH_IG : '' });
           else {
             if (!pagina) throw new Error('Escolha a página do Facebook para "' + (cli.nome || 'este perfil') + '" em 🔗 Conexões');
-            resultado = rede === 'instagram' ? await publicarInstagram(p, pagina) : await publicarFacebook(p, pagina);
+            resultado = rede === 'facebook' ? await publicarFacebook(pp, pagina) : await publicarInstagram(pp, pagina);
           }
           log('   ✅ publicado', resultado.id);
         } catch (e) {
