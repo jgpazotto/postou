@@ -26,3 +26,4 @@ jobs:
           META_APP_ID: ${{ secrets.META_APP_ID }}
           META_APP_SECRET: ${{ secrets.META_APP_SECRET }}
           IG_APP_SECRET: ${{ secrets.IG_APP_SECRET }}
+          THREADS_APP_SECRET: ${{ secrets.THREADS_APP_SECRET }}
