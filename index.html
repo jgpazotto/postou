@@ -3748,6 +3748,20 @@ function salvarPost(id){
   if(porRedeDiv) porRedeDiv.querySelectorAll('textarea[data-rede]').forEach(t=>{ legendasTemp[t.dataset.rede] = t.value; });
   const legendas = {};
   redes.forEach(r=>{ if(legendasTemp[r] && legendasTemp[r].trim()) legendas[r] = legendasTemp[r]; });
+  // ✍️ aviso de legenda vazia (pedido das Pugs) — 1º clique avisa, 2º clique salva mesmo assim
+  { const leg=(document.getElementById('mLegenda')||{}).value||''; const tp=(document.getElementById('mTipo')||{}).value;
+    const semLeg = !leg.trim() && !Object.keys(legendas).length && tp!=='story';
+    const av=document.getElementById('mLegendaAviso');
+    if(semLeg && !(av && av.dataset.ok==='1')){
+      const el=document.getElementById('mLegenda');
+      const box = av || Object.assign(document.createElement('div'),{id:'mLegendaAviso'});
+      box.dataset.ok='1';
+      box.innerHTML='✍️ <b>Ops, a legenda está vazia!</b> O post sairia sem texto. Escreva a legenda — ou toque em <b>Salvar</b> de novo pra salvar assim mesmo.';
+      box.style.cssText='background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:10px;padding:9px 11px;margin:6px 0;font-size:.85rem';
+      if(!av && el) el.insertAdjacentElement('afterend', box);
+      if(el){ el.scrollIntoView({behavior:'smooth',block:'center'}); el.focus(); el.addEventListener('input',()=>{ const b=document.getElementById('mLegendaAviso'); if(b) b.remove(); },{once:true}); }
+      return;
+    } }
   const novo = {
     clienteId: parseInt(document.getElementById('mCliente').value),
     redes,
