@@ -1623,6 +1623,7 @@ function renderHoje(){
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirRespostas()">💬 Respostas prontas</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirNaoSegue()">🔍 Quem não me segue</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
     </div>`;
   }
+  if(elRec) elRec.innerHTML += painelRoboHoje(f, hoje);
   const posts = dados.posts.filter(p=>(!f||p.clienteId===f));
   const deHoje = posts.filter(p=>p.data===hoje && p.status!=='publicado').sort((a,b)=>(a.hora||'99').localeCompare(b.hora||'99'));
   const atrasados = posts.filter(p=>p.data<hoje && p.status!=='publicado').sort((a,b)=>a.data.localeCompare(b.data));
@@ -5427,6 +5428,36 @@ async function carregarPublicacoes(){
     });
     if(mudou) tocar(); else if(!igual) render();
   }catch(e){}
+}
+/* 🔔 Aba Hoje: o que o robô publicou (hoje e ontem) + erros, com link */
+function painelRoboHoje(f, hoje){
+  try{
+    const ontem = isoSomaDias(hoje,-1);
+    const itens = [];
+    (dados.posts||[]).filter(p=>p.autoPublicar && (!f||p.clienteId===f) && (p.data===hoje||p.data===ontem)).forEach(p=>{
+      const redes = redesAutoDoPost(p).slice();
+      if(p.virarStory && p.tipo!=='story' && redes.includes('instagram')) redes.push('instagram_story');
+      (p.storyEm||[]).forEach(cid=>{ if(String(cid)!==String(p.clienteId)) redes.push('story:'+cid); });
+      const res = redes.map(r=>({r, x:publicacoesMapa[p.id+'|'+r]})).filter(o=>o.x);
+      if(res.length) itens.push({p,res});
+    });
+    if(!itens.length) return '';
+    itens.sort((a,b)=>(b.p.data+(b.p.hora||'')).localeCompare(a.p.data+(a.p.hora||'')));
+    const nomeRede = r => r.startsWith('story:') ? '📲 Story '+(((dados.clientes||[]).find(c=>String(c.id)===r.slice(6))||{}).nome||'') : (SIGLA_AUTO[r]||r);
+    const erros = itens.reduce((n,i)=>n+i.res.filter(o=>o.x.status==='erro').length,0);
+    const linhas = itens.slice(0,8).map(({p,res})=>{
+      const c = clientePorId(p.clienteId)||{};
+      const partes = res.map(({r,x})=>{
+        const nm = nomeRede(r);
+        if(x.status==='ok'){ const l = x.resultado && x.resultado.link; return l ? `<a href="${escapar(l)}" target="_blank" rel="noopener" style="color:#166534;font-weight:600">✅ ${nm} 🔗</a>` : `<span style="color:#166534">✅ ${nm}</span>`; }
+        if(x.status==='publicando') return `<span>⏳ ${nm}</span>`;
+        const err = (x.resultado&&x.resultado.erro)||'erro';
+        return `<span style="color:#dc2626" title="${escapar(err)}">⚠️ ${nm}</span> <button class="btn-mini" onclick="tentarDeNovo(${p.id},'${r}')">tentar de novo</button><div style="font-size:.74rem;color:#b91c1c;margin:2px 0 0 4px">${escapar(String(err).slice(0,140))}</div>`;
+      }).join(' · ');
+      return `<div style="padding:6px 0;border-top:1px dashed #e9d5ff"><div style="font-size:.84rem"><b>${p.data===hoje?'Hoje':'Ontem'} ${escapar(p.hora||'')}</b> · <span class="bolinha" style="background:${c.cor||'#a855f7'}"></span> ${escapar(c.nome||'')} · ${escapar(p.titulo||'(sem título)')}</div><div style="font-size:.8rem;margin-top:2px">${partes}</div></div>`;
+    }).join('');
+    return `<details ${erros?'open':''} style="background:${erros?'#fef2f2':'#f0fdf4'};border:1px solid ${erros?'#fecaca':'#bbf7d0'};border-radius:14px;padding:10px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700;font-size:.9rem">🤖 O robô publicou ${erros?`<span style="color:#dc2626">· ⚠️ ${erros} com erro</span>`:'· tudo certo ✅'} <span style="font-weight:400;color:var(--muted);font-size:.78rem">(hoje e ontem — toque no 🔗 pra ver o post)</span></summary>${linhas}</details>`;
+  }catch(e){ return ''; }
 }
 function redesAutoDoPost(p){
   const c = (typeof clientePorId==='function' && clientePorId(p.clienteId)) || {};
