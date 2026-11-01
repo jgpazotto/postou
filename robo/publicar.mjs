@@ -402,15 +402,21 @@ async function main() {
       // 📱 "post vira story": depois do Instagram, publica a 1ª foto/vídeo também como story
       const redesDoPost = (p.redes || []).filter(x => REDES_AUTO.includes(x));
       if (p.virarStory && p.tipo !== 'story' && redesDoPost.includes('instagram')) redesDoPost.push('instagram_story');
+      // 📲 "story também em outro perfil": repete a arte nos stories de outros perfis (ex.: @jgpazotto)
+      for (const cid of (Array.isArray(p.storyEm) ? p.storyEm : [])) if (String(cid) !== String(p.clienteId)) redesDoPost.push('story:' + cid);
       for (const rede of redesDoPost) {
         const chave = `${row.user_id}|${p.id}|${rede}`;
         if (feito.has(chave)) continue;
-        const contaTH = rede === 'threads' ? igsDoUsuario.find(a => a.api === 'threads' && a.ig_id === cli.thConta) : null;
+        const storyOutro = rede.startsWith('story:');
+        const cliR = storyOutro ? (dados.clientes || []).find(c => String(c.id) === rede.slice(6)) : cli;
+        if (!cliR) continue; // perfil do story extra foi apagado
+        const contaTH = rede === 'threads' ? igsDoUsuario.find(a => a.api === 'threads' && a.ig_id === cliR.thConta) : null;
         if (rede === 'threads' && !contaTH) { continue; } // perfil sem Threads ligado: fica manual
-        const pagina = (con.paginas || []).find(pg => pg.id === cli.metaPageId) || null;
-        const contaIG = !pagina && cli.igConta ? igsDoUsuario.find(a => a.api !== 'threads' && a.ig_id === cli.igConta) : null;
-        if (!pagina && contaIG && rede === 'facebook') { log(`   ⏭ ${cli.nome}: só Instagram (sem Página) — Facebook fica manual`); continue; }
-        log(`➡️ ${rede} · "${p.titulo}" (${p.data} ${p.hora || ''}) · ${cli.nome || '?'}`);
+        const pagina = (con.paginas || []).find(pg => pg.id === cliR.metaPageId) || null;
+        const contaIG = !pagina && cliR.igConta ? igsDoUsuario.find(a => a.api !== 'threads' && a.ig_id === cliR.igConta) : null;
+        if (storyOutro && !pagina && !contaIG) { log(`   ⏭ ${cliR.nome}: sem Instagram ligado — story extra fica manual`); continue; }
+        if (!pagina && contaIG && rede === 'facebook') { log(`   ⏭ ${cliR.nome}: só Instagram (sem Página) — Facebook fica manual`); continue; }
+        log(`➡️ ${rede} · "${p.titulo}" (${p.data} ${p.hora || ''}) · ${cliR.nome || '?'}`);
         if (SECO) { total++; continue; }
         // trava: registra "publicando" antes (unique impede duplicado)
         const trava = await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
@@ -418,12 +424,12 @@ async function main() {
         if (!trava.ok) { log('   já estava sendo publicado, pulando'); continue; }
         let status = 'ok', resultado;
         try {
-          const ehStoryIG = rede === 'instagram_story' || (p.tipo === 'story' && rede === 'instagram');
+          const ehStoryIG = rede === 'instagram_story' || storyOutro || (p.tipo === 'story' && rede === 'instagram');
           const pp = ehStoryIG ? { ...p, tipo: 'story', midias: midiaDoStory(p) } : p;
           if (contaTH) resultado = await publicarThreads(pp, contaTH);
           else if (contaIG) resultado = await publicarInstagram(pp, { ig_id: contaIG.ig_id, token: contaIG.token, base: contaIG.api === 'ig' ? GRAPH_IG : '' });
           else {
-            if (!pagina) throw new Error('Escolha a página do Facebook para "' + (cli.nome || 'este perfil') + '" em 🔗 Conexões');
+            if (!pagina) throw new Error('Escolha a página do Facebook para "' + (cliR.nome || 'este perfil') + '" em 🔗 Conexões');
             resultado = rede === 'facebook' ? await publicarFacebook(pp, pagina) : await publicarInstagram(pp, pagina);
           }
           log('   ✅ publicado', resultado.id);
