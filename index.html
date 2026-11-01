@@ -3616,6 +3616,21 @@ function checkboxesRedes(cliente, marcadas){
 function trocaClientePost(){
   const c = clientePorId(parseInt(document.getElementById('mCliente').value));
   document.getElementById('mChkRedes').innerHTML = checkboxesRedes(c, null);
+  atualizarOndeSai();
+}
+/* 📍 deixa claro em qual perfil o post vai sair */
+function atualizarOndeSai(){
+  const el = document.getElementById('mOndeSai'); if(!el) return;
+  const sel = document.getElementById('mCliente'); const c = sel ? clientePorId(parseInt(sel.value)) : null;
+  if(!c){ el.innerHTML=''; return; }
+  const marcadas = [...document.querySelectorAll('.chk-rede:checked')].map(x=>x.value);
+  if(!marcadas.length){ el.innerHTML='📍 Marque pelo menos uma rede.'; return; }
+  const partes = marcadas.map(t=>{
+    const r = (c.redes||[]).find(x=>x.tipo===t) || {}; const cat = REDES[t]||REDES.outra;
+    const arroba = r.usuario ? '@'+String(r.usuario).replace(/^@/,'') : (r.link ? 'link cadastrado' : c.nome);
+    return `${cat.sigla} <b>${escapar(arroba)}</b>`;
+  });
+  el.innerHTML = '📍 Vai sair no perfil <b>'+escapar(c.nome)+'</b>: '+partes.join(' · ');
 }
 function abrirModalPost(id, dataPre){
   if(!dados.clientes.length){ abrirModal('<h3>Ops!</h3><p>Cadastre um usuário primeiro, na aba Usuários.</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
@@ -3627,6 +3642,7 @@ function abrirModalPost(id, dataPre){
     <select id="mCliente" onchange="trocaClientePost()">${dados.clientes.filter(x=>!x.arquivado || (p&&p.clienteId===x.id)).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<option value="${x.id}" ${p&&p.clienteId===x.id?'selected':''}>${escapar(x.nome)}</option>`).join('')}</select>
     <label>Publicar em quais redes?</label>
     <div class="check-redes" id="mChkRedes" onchange="aoMudarRedes()">${checkboxesRedes(cliInicial, p?p.redes:null)}</div>
+    <div id="mOndeSai" style="font-size:.8rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:7px 10px;margin-top:6px;color:#166534"></div>
     ${(!p && dados.clientes.length>1) ? `
     <label>📋 Copiar este post pra outros perfis? <span style="font-weight:400;color:var(--muted);font-size:.78rem">(cria posts SEPARADOS, um em cada perfil. Pra collab de verdade no Instagram, use o campo 🤝 Collab lá embaixo)</span></label>
     <div class="check-redes" id="mCollab">
@@ -3641,13 +3657,14 @@ function abrirModalPost(id, dataPre){
     </div>
     <div style="font-size:.74rem;color:var(--muted);margin-top:3px">🕐 Hora no seu fuso: <b>${nomeFuso()}</b> — o robô publica nesse horário.</div>
     <label>Tipo de conteúdo</label>
-    <select id="mTipo">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${p&&p.tipo===k?'selected':''}>${v}</option>`).join('')}</select>
+    <select id="mTipo" onchange="verificarFormato()">${Object.entries(TIPOS).map(([k,v])=>`<option value="${k}" ${p&&p.tipo===k?'selected':''}>${v}</option>`).join('')}</select>
     <label>Status</label>
     <select id="mStatus">${STATUS.map(s=>`<option value="${s}" ${p&&p.status===s?'selected':''}>${STATUS_NOME[s]}</option>`).join('')}</select>
     <label>🖼 Arte ou vídeo do post <span style="font-weight:400;color:var(--muted);font-size:.78rem">(até 10 — vira carrossel)</span></label>
     <input type="file" id="mMidia" accept="image/*,video/*" multiple onchange="enviarMidias(this)" style="font-size:.85rem">
     <div id="mMidiaStatus" style="font-size:.78rem;color:var(--muted);margin-top:4px"></div>
     <div id="mMidiasPrev" style="display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 4px"></div>
+    <div id="mFormatoAviso"></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:9px 11px;margin-top:8px;cursor:pointer"><input type="checkbox" id="mAuto" ${p&&p.autoPublicar?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 🤖 Publicar sozinho no horário (Instagram e Facebook)</label>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:9px 11px;margin-top:6px;cursor:pointer" title="Depois de publicar no feed, o robô posta a mesma arte/vídeo nos stories do Instagram"><input type="checkbox" id="mVirarStory" ${p&&p.virarStory?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 📱 Post vira story (posta também nos stories do Instagram)</label>
     <label style="margin-top:8px">🤝 Collab no Instagram <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô convida sozinho — até 3 @, separados por espaço)</span></label>
@@ -3675,10 +3692,11 @@ function abrirModalPost(id, dataPre){
   midiasTemp = p && Array.isArray(p.midias) ? JSON.parse(JSON.stringify(p.midias)) : (p && p.midiaUrl ? [{url:p.midiaUrl,tipo:p.midiaTipo||'imagem'}] : []);
   desenharMidias();
   atualizarContadores();
+  atualizarOndeSai();
 }
 let legendasTemp = {};
 function redesMarcadas(){ return [...document.querySelectorAll('.chk-rede:checked')].map(c=>c.value); }
-function aoMudarRedes(){ desenharPorRede(); atualizarContadores(); }
+function aoMudarRedes(){ desenharPorRede(); atualizarContadores(); atualizarOndeSai(); }
 function alternarPorRede(){
   const d = document.getElementById('porRede');
   d.style.display = d.style.display==='none' ? 'block' : 'none';
@@ -5145,6 +5163,42 @@ function desenharMidias(){
         :`<img src="${m.url}" title="Toque pra ver grande" onclick="window.open('${m.url}','_blank')" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in">`}
       <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
     </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
+  if(midiasTemp.length) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Tira as artes e escolhe outra" onclick="trocarArte()" style="align-self:center">🔄 Trocar arte</button>`);
+  verificarFormato();
+}
+function trocarArte(){ midiasTemp = []; desenharMidias(); const i=document.getElementById('mMidia'); if(i) i.click(); }
+/* 📐 arte quadrada/deitada no feed: avisa e oferece ajustar pra 4:5 com fundo (sem cortar) */
+function verificarFormato(){
+  const box = document.getElementById('mFormatoAviso'); if(!box) return; box.innerHTML='';
+  const m = midiasTemp[0]; const tipo = (document.getElementById('mTipo')||{}).value;
+  if(!m || m.tipo==='video' || !['foto','carrossel'].includes(tipo)) return;
+  const img = new Image(); img.onload = ()=>{
+    const r = img.naturalHeight/img.naturalWidth;
+    if(r >= 1.2) return; // já é 4:5 ou em pé
+    box.innerHTML = `<div style="font-size:.8rem;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:7px 10px;margin:4px 0;color:#9a3412">📐 Essa arte é ${r>0.95?'quadrada':'deitada'}: no Instagram ela fica menor no feed e corta no grid. <button class="btn-mini" onclick="ajustarArte45()">✨ Ajustar pra 4:5 (sem cortar)</button></div>`;
+  }; img.src = m.url;
+}
+async function gerarArteComFundo(url, W, H, maxAltura){
+  const img = await new Promise((ok,falha)=>{ const i=new Image(); i.crossOrigin='anonymous'; i.onload=()=>ok(i); i.onerror=()=>falha(new Error('não abriu a arte')); i.src=url+(url.includes('?')?'&':'?')+'cors=1'; });
+  const w=img.naturalWidth, h=img.naturalHeight, cv=document.createElement('canvas'); cv.width=W; cv.height=H; const cx=cv.getContext('2d');
+  const esc=Math.max(W/w,H/h); cx.filter='blur(40px) brightness(0.85)'; cx.drawImage(img,(W-w*esc)/2,(H-h*esc)/2,w*esc,h*esc); cx.filter='none';
+  const e2=Math.min(W/w,(H*(maxAltura||1))/h); const dw=w*e2, dh=h*e2;
+  cx.shadowColor='rgba(0,0,0,.3)'; cx.shadowBlur=24; cx.drawImage(img,(W-dw)/2,(H-dh)/2,dw,dh);
+  return await new Promise(ok=>cv.toBlob(ok,'image/jpeg',0.9));
+}
+async function ajustarArte45(){
+  const box = document.getElementById('mFormatoAviso'); const m = midiasTemp[0]; if(!m) return;
+  if(box) box.innerHTML = '<div style="font-size:.8rem;color:var(--muted)">⏳ Ajustando a arte…</div>';
+  try{
+    const blob = await gerarArteComFundo(m.url, 1080, 1350, 1);
+    const caminho = usuarioId+'/45-'+Date.now()+'-'+Math.random().toString(36).slice(2,6)+'.jpg';
+    const { error } = await sb.storage.from('midias').upload(caminho, blob, { contentType:'image/jpeg', upsert:false });
+    if(error) throw error;
+    const { data } = sb.storage.from('midias').getPublicUrl(caminho);
+    midiasTemp[0] = { url:data.publicUrl, tipo:'imagem', nome:(m.nome||'arte')+' (4:5)' };
+    desenharMidias();
+    const st = document.getElementById('mMidiaStatus'); if(st) st.innerHTML = '✅ Arte ajustada pra 4:5! Agora toque em <b>Salvar</b> 💜';
+  }catch(e){ if(box) box.innerHTML = '<div style="font-size:.8rem;color:#b91c1c">Não consegui ajustar: '+escapar(e.message||String(e))+'</div>'; }
 }
 // Instagram só aceita foto em JPEG: converte PNG/WebP/HEIC etc. antes de enviar
 function paraJpeg(f){
