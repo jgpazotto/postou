@@ -3667,6 +3667,7 @@ function abrirModalPost(id, dataPre){
     <div id="mFormatoAviso"></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:9px 11px;margin-top:8px;cursor:pointer"><input type="checkbox" id="mAuto" ${p&&p.autoPublicar?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 🤖 Publicar sozinho no horário (Instagram e Facebook)</label>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:9px 11px;margin-top:6px;cursor:pointer" title="Depois de publicar no feed, o robô posta a mesma arte/vídeo nos stories do Instagram"><input type="checkbox" id="mVirarStory" ${p&&p.virarStory?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 📱 Post vira story (posta também nos stories do Instagram)</label>
+    ${(()=>{ const outros=(dados.clientes||[]).filter(c=>c.igConta||c.metaPageId); if(outros.length<2) return ''; const sel=(p&&p.storyEm)||[]; return `<details ${sel.length?'open':''} style="background:#fdf2f8;border:1px solid #fbcfe8;border-radius:10px;padding:7px 11px;margin-top:6px"><summary style="cursor:pointer;font-weight:600;font-size:.88rem">📲 Story também em outro perfil <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô repete a arte nos stories deles)</span></summary><div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px">${outros.map(c=>`<label style="display:flex;align-items:center;gap:5px;font-size:.86rem;cursor:pointer;margin:0"><input type="checkbox" class="mStoryEm" value="${c.id}" ${sel.map(String).includes(String(c.id))?'checked':''} style="width:16px;height:16px;margin:0"> ${escapar(c.nome)}</label>`).join('')}</div><div style="font-size:.74rem;color:var(--muted);margin-top:4px">Só sai se 🤖 Publicar sozinho estiver marcado e o perfil tiver Instagram ligado no 🔗 Conexões.</div></details>`; })()}
     <label style="margin-top:8px">🤝 Collab no Instagram <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô convida sozinho — até 3 @, separados por espaço)</span></label>
     <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="ex.: @perfil1 @perfil2 — deixe vazio se não for collab">
     <label>📝 Observações <span style="font-weight:400;color:var(--muted);font-size:.78rem">(só pra você — não vai na legenda)</span></label>
@@ -3760,6 +3761,7 @@ function salvarPost(id){
   novo.midias = midiasTemp.slice();
   novo.autoPublicar = !!(document.getElementById('mAuto') && document.getElementById('mAuto').checked);
   novo.virarStory = !!(document.getElementById('mVirarStory') && document.getElementById('mVirarStory').checked);
+  { const cid=String(document.getElementById('mCliente')?document.getElementById('mCliente').value:''); const l=[...document.querySelectorAll('.mStoryEm:checked')].map(x=>x.value).filter(v=>v!==cid); novo.storyEm = l.length ? l : undefined; }
   { const ob=document.getElementById('mObs'); novo.obs = ob && ob.value.trim() ? ob.value.trim() : undefined; }
   { const num=id=>{ const el=document.getElementById(id); if(!el) return null; const v=String(el.value||'').replace(/[^\d]/g,''); return v===''?null:parseInt(v); };
     const r={ views:num('mResViews'), curtidas:num('mResCurt'), comentarios:num('mResCom') };
@@ -5435,8 +5437,9 @@ function badgeAuto(p){
   if(!p || !p.autoPublicar) return '';
   const auto = redesAutoDoPost(p).slice();
   if(p.virarStory && p.tipo!=='story' && auto.includes('instagram')) auto.push('instagram_story');
+  (p.storyEm||[]).forEach(cid=>{ if(String(cid)!==String(p.clienteId)) auto.push('story:'+cid); });
   const partes = auto.map(r=>{
-    const x = publicacoesMapa[p.id+'|'+r]; const sig = SIGLA_AUTO[r]||r;
+    const x = publicacoesMapa[p.id+'|'+r]; const sig = r.startsWith('story:') ? '📲 Story '+(((dados.clientes||[]).find(c=>String(c.id)===r.slice(6))||{}).nome||'') : (SIGLA_AUTO[r]||r);
     if(!x) return `<span title="Vai publicar sozinho no horário">⏰ ${sig}</span>`;
     if(x.status==='ok') return `<span title="Publicado pelo robô">✅ ${sig}</span>`;
     if(x.status==='publicando') return `<span>⏳ ${sig}</span>`;
