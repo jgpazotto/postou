@@ -3388,7 +3388,7 @@ function abrirHorarioLivre(iso){
   const servs = (typeof catalogo==='function' ? catalogo() : []).filter(s=>s.min>0);
   const nomesDia = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
   abrirModal(`<h3>🔎 Achar horário livre</h3>
-    <p style="font-size:.84rem;color:var(--muted);margin:0 0 8px">Diga quanto tempo precisa e o Postou procura os buracos na sua agenda (compromissos e atendimentos). 💜</p>
+    <p style="font-size:.84rem;color:var(--muted);margin:0 0 8px">Diga quanto tempo precisa e o Postou procura os buracos na sua agenda (compromissos, atendimentos e consultas). Pula seus dias de folga e os 🚫 dias bloqueados (viagem, dia off). 💜</p>
     ${servs.length?`<label>Serviço (opcional — já sabe o tempo)</label><select id="hlServ" onchange="const o=this.selectedOptions[0]; if(o&&o.dataset.min) document.getElementById('hlDur').value=o.dataset.min"><option value="">— escolher pelo tempo —</option>${servs.map(s=>`<option value="${s.id}" data-min="${s.min}">${escapar(s.nome)} (${s.min>=60?Math.floor(s.min/60)+'h'+(s.min%60?s.min%60:''):s.min+'min'})</option>`).join('')}</select>`:''}
     <label>Quanto tempo vai levar?</label>
     <select id="hlDur">${[[30,'30 minutos'],[45,'45 minutos'],[60,'1 hora'],[90,'1h30'],[120,'2 horas'],[150,'2h30'],[180,'3 horas'],[240,'4 horas'],[300,'5 horas'],[480,'O dia todo (8h)']].map(([m,t])=>`<option value="${m}" ${m===60?'selected':''}>${t}</option>`).join('')}</select>
@@ -3409,6 +3409,7 @@ function ocupadosDoDia(iso){
     if(x.tipoCompromisso==='pagamento') return;
     const noDia = x.dataFim ? (iso>=x.data && iso<=x.dataFim) : x.data===iso;
     if(!noDia) return;
+    if(x.bloqueia){ bl.push([0,24*60]); return; }
     if(x.dataFim || !x.hora){ if(x.dataFim || /viag|folga|f[eé]rias|feriado|dia todo|fechado/i.test(x.titulo||'')) bl.push([0,24*60]); return; }
     const i=hmMin(x.hora); bl.push([i, i+(parseInt(x.duracao)||60)]);
   });
@@ -3467,6 +3468,7 @@ function abrirModalCompromisso(iso, editId){
     <input id="cmTitulo" placeholder="Ex.: Médico, reunião, dentista…" value="${cm?escapar(cm.titulo||''):''}">
     <label>Observação (opcional)</label>
     <input id="cmObs" placeholder="Ex.: levar exames" value="${cm?escapar(cm.obs||''):''}">
+    <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:9px 11px;margin-top:8px;cursor:pointer"><input type="checkbox" id="cmBloqueia" ${cm&&cm.bloqueia?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 🚫 Dia bloqueado (folga, viagem, dia off — não marcar nada)</label>
     <div class="rodape">
       <button class="btn-claro" onclick="fecharModal()">Cancelar</button>
       <button class="btn" onclick="salvarCompromisso(${editId||0})">Salvar</button>
@@ -3484,9 +3486,10 @@ function salvarCompromisso(editId){
   const fim = (dFim && dFim!==dIni) ? dFim : '';
   if(editId){
     const ex = (dados.compromissos||[]).find(x=>x.id===editId);
-    if(ex){ ex.data=dIni; ex.dataFim=fim; ex.hora=hora; ex.titulo=titulo; ex.obs=obs; }
+    if(ex){ ex.data=dIni; ex.dataFim=fim; ex.hora=hora; ex.titulo=titulo; ex.obs=obs; ex.bloqueia = !!(document.getElementById('cmBloqueia')&&document.getElementById('cmBloqueia').checked) || undefined; }
   } else {
     const nv = { id: novoId(), data: dIni, dataFim: fim, hora, titulo, obs };
+    if(document.getElementById('cmBloqueia') && document.getElementById('cmBloqueia').checked) nv.bloqueia = true;
     if(window._durNova && hora){ nv.duracao = window._durNova; } window._durNova = 0;
     dados.compromissos.push(nv);
   }
