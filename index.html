@@ -4,6 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Postou — organize, planeje e publique</title>
+<meta name="description" content="Postou: organize suas redes sociais num lugar só — calendário de posts, ideias prontas por nicho, robô que publica sozinho no Instagram, Facebook e Threads, e financeiro dos clientes. Teste grátis por 15 dias.">
+<meta name="keywords" content="agendar posts instagram, calendário de conteúdo, social media, organizar redes sociais, ideias de posts, publicar automático instagram, app para social media">
+<link rel="canonical" href="https://postou.app.br/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Postou">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:url" content="https://postou.app.br/">
+<meta property="og:title" content="Postou — suas redes organizadas num lugar só">
+<meta property="og:description" content="Calendário, ideias prontas por nicho e robô que publica sozinho. Teste grátis por 15 dias. 💜">
+<meta property="og:image" content="https://postou.app.br/og-postou.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Postou — suas redes organizadas num lugar só">
+<meta name="twitter:description" content="Calendário, ideias prontas por nicho e robô que publica sozinho. Teste grátis por 15 dias.">
+<meta name="twitter:image" content="https://postou.app.br/og-postou.jpg">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Postou">
@@ -950,7 +966,7 @@ function verificarExpiracao(){
   div.innerHTML = `<div class="caixa-login">
     <h2 style="margin-bottom:8px">Seu teste de 15 dias acabou 🥲</h2>
     <p>Gostou do Postou? A gente adoraria continuar com você! Fale com a Joice para assinar — seus dados estão guardados e voltam assim que você ativar.</p>
-    <a class="btn" style="display:block;text-decoration:none;margin-bottom:8px" href="https://instagram.com/joicepazotto" target="_blank">💜 Falar com a Joice e assinar</a>
+    <a class="btn" style="display:block;text-decoration:none;margin-bottom:8px" href="https://ig.me/m/postou.br" target="_blank">💜 Falar com a Joice e assinar</a>
     <button class="btn-claro" style="width:100%;margin-bottom:8px" onclick="exportar()">⬇ Baixar meus dados</button>
     <button class="btn-claro" style="width:100%" onclick="sair()">Sair</button>
   </div>`;
@@ -2736,7 +2752,7 @@ function abrirModalCliente(id, tipoInicial){
     if(dados.clientes.length >= conf.maxClientes){
       abrirModal(`<h3>🚀 Hora de crescer!</h3>
         <p style="font-size:.9rem">Seu plano atual permite ${conf.maxClientes===1?'1 perfil (a sua própria conta)':conf.maxClientes+' contas'}. Para gerenciar mais, fale com a Joice e migre para o <b>Postou Business</b>!</p>
-        <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Ok</button><a class="btn" style="text-decoration:none" href="https://instagram.com/joicepazotto" target="_blank">💜 Falar com a Joice</a></div>`);
+        <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Ok</button><a class="btn" style="text-decoration:none" href="https://ig.me/m/postou.br" target="_blank">💜 Falar com a Joice</a></div>`);
       return;
     }
   }
@@ -5017,7 +5033,7 @@ const BASE_CONHECIMENTO = [
 ];
 BASE_CONHECIMENTO.push(...[
   {k:['robo','robozinho','publicar sozinho','posta sozinho','automatico','automatica','publicacao automatica','agendar automatico','sem eu estar'], r:'🤖 O robô do Postou publica sozinho no horário certo! Ao criar o post (📅 Calendário → + Nova postagem), suba a arte ou o vídeo, espere aparecer "✅ Pronto!", marque "🤖 Publicar sozinho" e salve. Antes, conecte o Instagram/Facebook do perfil (aba 👥 Usuários → quadro 🤖 → botão 📸). Funciona com foto, carrossel, vídeo/reels e stories.'},
-  {k:['conectar instagram','conecto meu instagram','conecto o instagram','conectar meu instagram','conecto','conectar','ligar instagram','conectar o instagram','conectar facebook','conectar conta','conexao','sem pagina','nao tenho pagina','pagina do face','pagina do facebook','ter pagina','precisa de pagina','precisa ter pagina'], r:'📸 Para conectar o Instagram: aba 👥 Usuários → quadro 🤖 lá em cima → botão 📸 Conectar Instagram → entre com o seu Instagram e aceite. Não precisa ter Página do Facebook! O perfil precisa ser Profissional (Criador de conteúdo ou Empresa): no Instagram vá em Configurações → Tipo de conta e ferramentas → Mudar para conta profissional (é grátis). Se aparecer algum aviso, chama a gente no direct do @postou.br que a gente te ajuda. 💜'},
+  {k:['conectar instagram','conecto meu instagram','conecto o instagram','conectar meu instagram','conecto','conectar','ligar instagram','conectar o instagram','conectar facebook','conectar conta','conexao','sem pagina','nao tenho pagina','pagina do face','pagina do facebook','ter pagina','precisa de pagina','precisa ter pagina'], r:'📸 Para conectar o Instagram: aba 👥 Usuários → quadro 🤖 lá em cima → botão 🚀 Ligar meu robô (passo a passo) ou 📸 Conectar só o Instagram → entre com o seu Instagram e aceite. Não precisa ter Página do Facebook! O perfil precisa ser Profissional (Criador de conteúdo ou Empresa): no Instagram vá em Configurações → Tipo de conta e ferramentas → Mudar para conta profissional (é grátis). Se aparecer algum aviso, chama a gente no direct do @postou.br que a gente te ajuda. 💜'},
   {k:['vira story','virar story','post vira story','story automatico','post no story','repostar story','compartilhar no story','story tambem','stories tambem','no story tambem'], r:'📱 Post vira story: no formulário do post, marque a caixinha "📱 Post vira story". O robô publica no feed e logo depois coloca a mesma arte nos seus stories do Instagram. Dois em um! (precisa estar com 🤖 Publicar sozinho marcado)'},
   {k:['status do whats','status whatsapp','status do whatsapp','whats status','meu status'], r:'💚 No card do post (aba 🏠 Hoje) toque em "💚 Status do Whats" pelo celular: abre o compartilhar com a arte pronta → escolha WhatsApp → Meu status. A legenda já fica copiada, é só colar. O WhatsApp não deixa robô postar status, então são 2 toquinhos seus. 😉'},
   {k:['facebook pessoal','perfil pessoal','meu face','postar no face','face pessoal','facebook automatico'], r:'📘 O Facebook não deixa nenhum app publicar sozinho em PERFIL PESSOAL (só em Página). Duas saídas: 1) no Instagram, ligue Central de Contas → Experiências conectadas → Compartilhamento entre perfis → compartilhar no Facebook (vale para o que você posta pelo app do Instagram); 2) no card do post, toque em "📘 Postar no Face": abre o compartilhar com a arte e a legenda copiada, é só colar e publicar.'},
@@ -5293,6 +5309,41 @@ async function receberCodigoIG(){
   setTimeout(()=>avisoTela(error ? '⚠️ Não consegui guardar a conexão: '+error.message
     : '📸 Recebi a conexão do Instagram! 💜\nO robô termina de ligar em até 5 minutinhos. Depois, em Usuários → 🤖 Publicação automática, confira se o perfil ficou ligado.'),300);
 }
+/* ---------- 🚀 Assistente "Ligar meu robô" (pensado pro Ge 💜) ---------- */
+function assistenteRobo(passo){
+  const ligado = igContas.some(a=>a.ig_id) || !!conexaoMeta;
+  const barra = n => `<div style="display:flex;gap:6px;margin:4px 0 14px">${[1,2,3].map(i=>`<div style="flex:1;height:6px;border-radius:6px;background:${i<=n?'linear-gradient(90deg,#7c3aed,#ec4899)':'#ede9fe'}"></div>`).join('')}</div>`;
+  const grande = 'display:block;width:100%;font-size:1rem;padding:13px;margin-top:10px';
+  const caixa = 'background:#faf5ff;border:1px solid #e9d5ff;border-radius:12px;padding:12px 14px;font-size:.92rem;line-height:1.55';
+  let h = '';
+  if(ligado && passo!==2 && passo!==3){
+    h = `<h3>🎉 Seu robô já está ligado!</h3>
+      <div style="${caixa}">Agora é só:<br>1️⃣ <b>📅 Calendário → + Nova postagem</b><br>2️⃣ Suba a foto ou o vídeo e escreva a legenda<br>3️⃣ Marque <b>🤖 Publicar sozinho</b> e salve.<br><br>No horário, o Postou publica pra você. Na aba 🏠 Hoje aparece "🤖 O robô publicou" com o link. 💜</div>
+      <button class="btn" style="${grande}" onclick="fecharModal(); trocarAba('calendario')">📅 Criar meu primeiro post</button>
+      <button class="btn-claro" style="${grande}" onclick="assistenteRobo(2)">📸 Conectar outro Instagram</button>`;
+  } else if(passo===1){
+    h = `<h3>🚀 Ligar meu robô</h3>${barra(1)}
+      <p style="font-size:1.02rem;font-weight:700;margin:0 0 8px">Passo 1 de 3 — Seu Instagram é <u>profissional</u>?</p>
+      <div style="${caixa}">O robô só funciona em perfil <b>Criador de conteúdo</b> ou <b>Empresa</b> (é grátis e não muda nada pros seus seguidores).<br><br>
+      <b>Como ver no celular:</b><br>📱 Abra o Instagram → seu perfil → <b>☰</b> (3 risquinhos, em cima à direita)<br>→ <b>Tipo de conta e ferramentas</b><br>→ Se aparecer <b>"Mudar para conta profissional"</b>, toque e escolha <b>Criador de conteúdo</b>.<br>→ Se aparecer "Mudar para conta pessoal", <b>já está certo!</b> ✅</div>
+      <button class="btn" style="${grande}" onclick="assistenteRobo(2)">✅ Já é profissional — próximo</button>
+      <button class="btn-claro" style="${grande}" onclick="window.open('https://ig.me/m/postou.br','_blank')">😕 Não achei — me ajuda pelo direct</button>`;
+  } else if(passo===2){
+    h = `<h3>🚀 Ligar meu robô</h3>${barra(2)}
+      <p style="font-size:1.02rem;font-weight:700;margin:0 0 8px">Passo 2 de 3 — Aceitar o convite do Postou</p>
+      <div style="${caixa}">Enquanto o Postou está em fase de testes na Meta, a gente te manda um <b>convite</b>. Pra aceitar:<br><br>📱 Instagram → <b>☰</b> → <b>Configurações e privacidade</b><br>→ <b>Apps e sites</b> (ou "Permissões do site")<br>→ <b>Convites de testador</b> → <b>Aceitar</b> no "Postou" ✅<br><br><span style="font-size:.84rem;color:var(--muted)">Não tem convite lá? Manda seu @ no direct do @postou.br que a gente envia na hora.</span></div>
+      <button class="btn" style="${grande}" onclick="assistenteRobo(3)">✅ Aceitei — próximo</button>
+      <button class="btn-claro" style="${grande}" onclick="window.open('https://ig.me/m/postou.br','_blank')">💬 Pedir meu convite</button>
+      <div style="text-align:center;margin-top:8px"><button class="btn-mini" onclick="assistenteRobo(1)">← voltar</button></div>`;
+  } else {
+    h = `<h3>🚀 Ligar meu robô</h3>${barra(3)}
+      <p style="font-size:1.02rem;font-weight:700;margin:0 0 8px">Passo 3 de 3 — Conectar!</p>
+      <div style="${caixa}">Toque no botão aqui embaixo. Vai abrir o Instagram:<br>1️⃣ Confira se aparece <b>o seu @</b> (se for outro, toque em "Não é você?" e entre no seu)<br>2️⃣ Toque em <b>Permitir</b><br>3️⃣ Você volta pro Postou sozinha(o) e aparece "📸 Recebi a conexão!" 🎉<br><br><span style="font-size:.84rem;color:var(--muted)">Em até 5 minutinhos o robô termina de ligar. Se aparecer "o desenvolvedor do aplicativo já está ciente do problema", é só voltar no passo 2 (falta aceitar o convite).</span></div>
+      <button class="btn" style="${grande}" onclick="conectarSoInstagram()">📸 Conectar meu Instagram</button>
+      <div style="text-align:center;margin-top:8px"><button class="btn-mini" onclick="assistenteRobo(2)">← voltar</button></div>`;
+  }
+  abrirModal(h + `<div class="rodape"><button class="btn-claro" onclick="fecharModal()">Fechar</button></div>`);
+}
 /* ---------- 🧵 Login do Threads ---------- */
 function conectarThreads(){
   const estado = 'postouth' + Math.random().toString(36).slice(2,10);
@@ -5404,6 +5455,7 @@ function renderConexoes(){
     <h3 style="margin:0 0 4px">🤖 Publicação automática <span style="font-size:.72rem;background:#7c3aed;color:#fff;border-radius:20px;padding:2px 8px;vertical-align:middle">NOVO</span></h3>
     <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Conecte seu Facebook e o Postou publica sozinho no Instagram e no Facebook, no dia e hora do post. 💜 Instagram sem Página do Facebook? Use o botão 📸 aqui embaixo.</p>
     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:9px 11px;margin:0 0 10px;font-size:.82rem;color:#7c2d12">🧪 <b>O robô está em fase de testes na Meta.</b> Se aparecer <i>"o desenvolvedor do aplicativo já está ciente do problema"</i>, é porque seu perfil ainda não foi liberado. <a href="https://ig.me/m/postou.br" target="_blank" rel="noopener" style="color:#7c3aed;font-weight:700">💬 Peça seu convite</a> — a gente libera e te ensina a aceitar em 1 minutinho.</div>
+    ${!(igContas.some(a=>a.ig_id) || conexaoMeta) ? `<button class="btn" onclick="assistenteRobo(1)" style="display:block;width:100%;font-size:1rem;padding:13px;margin:0 0 10px">🚀 Ligar meu robô — passo a passo (3 minutinhos)</button>` : `<div style="margin:0 0 8px"><button class="btn-mini" onclick="assistenteRobo(1)">🧭 Ver o passo a passo de novo</button></div>`}
     <div style="margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="conectarSoInstagram()">📸 Conectar só o Instagram</button><button class="btn-claro" onclick="conectarThreads()" title="O robô publica sozinho no Threads também">🧵 Conectar Threads</button></div>
     ${thContas.length ? `<div style="font-size:.86rem;margin-bottom:8px">${thContas.map(a=>`<div style="margin:3px 0">🧵 ${a.ig_id?'<b>@'+escapar(a.username||a.ig_id)+'</b> conectado no Threads':'⏳ ligando o Threads… (até 15 min)'}${a.erro?` · <span style="color:#dc2626">${escapar(a.erro)}</span>`:''} <button class="btn-mini" onclick="desconectarIG('${a.id}')">Desconectar</button></div>`).join('')}</div>` : ''}
     ${igContas.length ? `<div style="font-size:.86rem;margin-bottom:8px">${igContas.map(a=>`<div style="margin:3px 0">📸 ${a.ig_id?'<b>@'+escapar(a.username||a.ig_id)+'</b> conectado (só Instagram)':'⏳ ligando o Instagram… (até 5 min)'}${a.erro?` · <span style="color:#dc2626">${escapar(a.erro)}</span>`:''} <button class="btn-mini" onclick="desconectarIG('${a.id}')">Desconectar</button></div>`).join('')}</div>` : ''}
