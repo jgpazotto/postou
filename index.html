@@ -1750,7 +1750,7 @@ function renderHoje(){
   }
   html += blocoCobrancasHoje(f);
   html += blocoAtendimentosHoje(f);
-  html += `<div class="hoje-grupo"><h3 class="grupo-topo">📌 Compromissos de hoje <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="abrirModalCompromisso('${hoje}')">+ Compromisso</button></h3>` +
+  html += `<div class="hoje-grupo"><h3 class="grupo-topo">📌 Compromissos de hoje <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="abrirHorarioLivre()">🔎 Achar horário livre</button> <button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="abrirModalCompromisso('${hoje}')">+ Compromisso</button></h3>` +
     (compromissosHoje.length ? compromissosHoje.map(c=>`
       <div class="pag-linha">
         <span class="bolinha" style="background:var(--g3)"></span>
@@ -3181,7 +3181,7 @@ function renderCalDia(el){
   }
   html += `</div>`;
   html += `<div class="dia-sec">
-    <div class="dia-sec-topo"><h4>📌 Compromissos e atendimentos</h4><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="abrirNovoAtendimento('${iso}')">✂️ + Atendimento</button><button class="btn-claro" onclick="abrirModalCompromisso('${iso}')">+ Compromisso</button></span></div>`;
+    <div class="dia-sec-topo"><h4>📌 Compromissos e atendimentos</h4><span style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="abrirNovoAtendimento('${iso}')">✂️ + Atendimento</button><button class="btn-claro" onclick="abrirModalCompromisso('${iso}')">+ Compromisso</button><button class="btn-claro" onclick="abrirHorarioLivre('${iso}')">🔎 Horário livre</button></span></div>`;
   if(!comps.length){
     html += `<div class="vazio">Nada marcado. Ex.: médico, reunião, dentista…</div>`;
   } else {
@@ -3380,6 +3380,78 @@ function blocoAtendimentosHoje(f){
   if(sumidas.length) html += `<div class="hoje-grupo"><h3>💜 Clientes com saudade</h3>${sumidas.map(x=>`<div class="pag-linha"><span class="bolinha" style="background:${x.c.cor}"></span><span style="flex:1"><b>${escapar(x.c.nome)}</b> <span style="color:var(--muted);font-size:.8rem">· última vez ${dataBRcompleta(x.ult)}</span></span><button class="btn-claro" style="padding:4px 10px;font-size:.78rem" onclick="zapSaudade(${x.c.id})">💬 Chamar</button></div>`).join('')}</div>`;
   return html;
 }
+/* ---------- 🔎 Achar horário livre (ideia da Joice 💜) ---------- */
+function hmMin(h){ const p=String(h||'').split(':'); return (parseInt(p[0])||0)*60+(parseInt(p[1])||0); }
+function minHm(m){ return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+function abrirHorarioLivre(iso){
+  const cfg = (dados.config && dados.config.expediente) || { ini:'09:00', fim:'18:00', dias:[1,2,3,4,5,6] };
+  const servs = (typeof catalogo==='function' ? catalogo() : []).filter(s=>s.min>0);
+  const nomesDia = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+  abrirModal(`<h3>🔎 Achar horário livre</h3>
+    <p style="font-size:.84rem;color:var(--muted);margin:0 0 8px">Diga quanto tempo precisa e o Postou procura os buracos na sua agenda (compromissos e atendimentos). 💜</p>
+    ${servs.length?`<label>Serviço (opcional — já sabe o tempo)</label><select id="hlServ" onchange="const o=this.selectedOptions[0]; if(o&&o.dataset.min) document.getElementById('hlDur').value=o.dataset.min"><option value="">— escolher pelo tempo —</option>${servs.map(s=>`<option value="${s.id}" data-min="${s.min}">${escapar(s.nome)} (${s.min>=60?Math.floor(s.min/60)+'h'+(s.min%60?s.min%60:''):s.min+'min'})</option>`).join('')}</select>`:''}
+    <label>Quanto tempo vai levar?</label>
+    <select id="hlDur">${[[30,'30 minutos'],[45,'45 minutos'],[60,'1 hora'],[90,'1h30'],[120,'2 horas'],[150,'2h30'],[180,'3 horas'],[240,'4 horas'],[300,'5 horas'],[480,'O dia todo (8h)']].map(([m,t])=>`<option value="${m}" ${m===60?'selected':''}>${t}</option>`).join('')}</select>
+    <div class="linha-flex"><div style="flex:1"><label>A partir de</label><input type="date" id="hlIni" value="${iso&&iso>hojeISO()?iso:hojeISO()}"></div>
+      <div style="flex:1"><label>Olhar quantos dias?</label><select id="hlDias"><option value="7">7 dias</option><option value="14" selected>14 dias</option><option value="30">30 dias</option></select></div></div>
+    <details style="margin:8px 0"><summary style="cursor:pointer;font-weight:600;font-size:.86rem">⏰ Meu horário de trabalho: ${cfg.ini}–${cfg.fim} · ${cfg.dias.map(d=>nomesDia[d]).join(', ')} (toque pra mudar)</summary>
+      <div class="linha-flex"><div style="flex:1"><label>Começo</label><input type="time" id="hlExIni" value="${cfg.ini}"></div><div style="flex:1"><label>Fim</label><input type="time" id="hlExFim" value="${cfg.fim}"></div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px">${nomesDia.map((n,i)=>`<label style="display:flex;gap:4px;align-items:center;font-size:.86rem;margin:0"><input type="checkbox" class="hlDia" value="${i}" ${cfg.dias.includes(i)?'checked':''} style="width:16px;height:16px;margin:0">${n}</label>`).join('')}</div>
+    </details>
+    <button class="btn" style="width:100%;padding:12px;font-size:1rem;margin-top:6px" onclick="buscarHorarioLivre()">🔎 Procurar horários</button>
+    <div id="hlRes" style="margin-top:10px"></div>
+    <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Fechar</button></div>`);
+}
+function ocupadosDoDia(iso){
+  // blocos [ini,fim] em minutos; viagem/evento de vários dias ou "dia todo" bloqueia o dia inteiro
+  const bl = [];
+  (dados.compromissos||[]).forEach(x=>{
+    if(x.tipoCompromisso==='pagamento') return;
+    const noDia = x.dataFim ? (iso>=x.data && iso<=x.dataFim) : x.data===iso;
+    if(!noDia) return;
+    if(x.dataFim || !x.hora){ if(x.dataFim || /viag|folga|f[eé]rias|feriado|dia todo|fechado/i.test(x.titulo||'')) bl.push([0,24*60]); return; }
+    const i=hmMin(x.hora); bl.push([i, i+(parseInt(x.duracao)||60)]);
+  });
+  return bl.sort((a,b)=>a[0]-b[0]);
+}
+function buscarHorarioLivre(){
+  const dur = parseInt(document.getElementById('hlDur').value)||60;
+  const ini = document.getElementById('hlIni').value || hojeISO();
+  const nDias = parseInt(document.getElementById('hlDias').value)||14;
+  const ex = { ini: document.getElementById('hlExIni').value||'09:00', fim: document.getElementById('hlExFim').value||'18:00', dias:[...document.querySelectorAll('.hlDia:checked')].map(c=>parseInt(c.value)) };
+  if(!ex.dias.length) ex.dias=[1,2,3,4,5,6];
+  dados.config = dados.config || {}; dados.config.expediente = ex; tocar();
+  const sv = document.getElementById('hlServ'); const servId = sv && sv.value ? sv.value : '';
+  const agora = new Date(), hj = hojeISO(), minAgora = agora.getHours()*60+agora.getMinutes();
+  const nomesDia = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  const dias = [];
+  for(let k=0;k<nDias;k++){
+    const iso = isoSomaDias(ini,k); const d = dataFromISO(iso); if(!ex.dias.includes(d.getDay())) continue;
+    let a = hmMin(ex.ini); const z = hmMin(ex.fim);
+    if(iso===hj) a = Math.max(a, Math.ceil((minAgora+30)/30)*30);
+    const bl = ocupadosDoDia(iso); const livres=[];
+    for(let t=a; t+dur<=z; t+=30){ if(!bl.some(([b0,b1])=>t<b1 && t+dur>b0)) livres.push(t); }
+    if(livres.length){ const ocup = bl.reduce((s,[b0,b1])=>s+Math.max(0,Math.min(b1,z)-Math.max(b0,hmMin(ex.ini))),0); dias.push({iso, dia:nomesDia[d.getDay()], livres, ocup}); }
+  }
+  const el = document.getElementById('hlRes');
+  if(!dias.length){ el.innerHTML = `<div class="vazio">Nenhum horário livre de ${dur>=60?(dur/60)+'h':dur+'min'} nesse período 😕 Tente olhar mais dias ou mudar o horário de trabalho.</div>`; return; }
+  const tranquilo = dias.slice().sort((a,b)=>a.ocup-b.ocup || a.iso.localeCompare(b.iso))[0].iso;
+  el.innerHTML = `<div style="font-size:.84rem;color:var(--muted);margin-bottom:6px">Toque num horário pra marcar. ⭐ = dia mais tranquilo.</div>` + dias.slice(0,10).map(x=>{
+    const mostra = x.livres.filter((t,i)=>i===0 || t-x.livres[i-1]>=60 || i%2===0).slice(0,6);
+    return `<div style="padding:7px 0;border-top:1px dashed #e9d5ff"><b>${x.iso===tranquilo?'⭐ ':''}${x.iso===hj?'Hoje':x.dia} ${dataBR(x.iso)}</b>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px">${mostra.map(t=>`<button class="btn-claro" style="padding:5px 11px;font-size:.84rem" onclick="marcarHorarioLivre('${x.iso}','${minHm(t)}',${dur},'${servId}')">${minHm(t)}–${minHm(t+dur)}</button>`).join('')}</div></div>`;
+  }).join('');
+}
+function marcarHorarioLivre(iso, hora, dur, servId){
+  if(servId && typeof abrirNovoAtendimento==='function' && clientesDoNegocio().length){
+    abrirNovoAtendimento(iso);
+    setTimeout(()=>{ const h=document.getElementById('atHora'); if(h) h.value=hora; const s=document.getElementById('atServico'); if(s) s.value=servId; },50);
+    return;
+  }
+  window._durNova = dur;
+  abrirModalCompromisso(iso);
+  setTimeout(()=>{ const h=document.getElementById('cmHora'); if(h) h.value=hora; const o=document.getElementById('cmObs'); if(o && !o.value) o.value='Duração: '+(dur>=60?(Math.floor(dur/60)+'h'+(dur%60?dur%60:'')):dur+'min'); const t=document.getElementById('cmTitulo'); if(t) t.focus(); },50);
+}
 function abrirModalCompromisso(iso, editId){
   const cm = editId ? (dados.compromissos||[]).find(x=>x.id===editId) : null;
   abrirModal(`
@@ -3414,7 +3486,9 @@ function salvarCompromisso(editId){
     const ex = (dados.compromissos||[]).find(x=>x.id===editId);
     if(ex){ ex.data=dIni; ex.dataFim=fim; ex.hora=hora; ex.titulo=titulo; ex.obs=obs; }
   } else {
-    dados.compromissos.push({ id: novoId(), data: dIni, dataFim: fim, hora, titulo, obs });
+    const nv = { id: novoId(), data: dIni, dataFim: fim, hora, titulo, obs };
+    if(window._durNova && hora){ nv.duracao = window._durNova; } window._durNova = 0;
+    dados.compromissos.push(nv);
   }
   fecharModal();
   mesAtual = dataFromISO(dIni); calVisao = 'dia'; marcarBotaoVisao();
@@ -4976,6 +5050,7 @@ function importar(input){
 
 /* ---------- ASSISTENTE (chat de ajuda) ---------- */
 const BASE_CONHECIMENTO = [
+  {k:['horario livre','horarios livres','achar horario','encaixar','encaixe','vaga na agenda','tem vaga','agenda livre','buraco na agenda','marcar consulta','quando posso marcar','melhor dia pra marcar','qual horario esta livre','procedimento vai demorar'], r:'🔎 Achar horário livre: na aba 🏠 Hoje (em 📌 Compromissos) ou no 📅 Calendário (abrindo um dia) toque em 🔎 Achar horário livre. Escolha quanto tempo vai levar (ou o serviço — ex.: 3 horas), a partir de quando, e o Postou mostra os horários vagos da sua agenda, com ⭐ no dia mais tranquilo. Tocou no horário, já marca! 💜'},
   {k:['desenvolvedor ja esta ciente','desenvolvedor do aplicativo','ciente do problema','aplicativo desativado','app nao ativo','nao abre o facebook','nao conecta','nao consegui ativar','nao consigo ativar','nao consegui conectar','robo nao liga','robo nao conecta','reativado','convite de testador','testador'], r:'🧪 Se aparecer "o desenvolvedor do aplicativo já está ciente do problema", é porque o Postou ainda está em fase de testes na Meta e seu perfil precisa aceitar um convite. 1️⃣ Mande seu @ no direct do @postou.br pedindo o convite. 2️⃣ No app do Instagram: ☰ → Configurações → Apps e sites → Convites de testador → Aceitar "Postou". 3️⃣ No Postou: aba 👥 Usuários → quadro 🤖 → 🚀 Ligar meu robô (passo a passo). Pronto! 💜'},
   {k:['mensalidade','cobranca mensal','cobrar todo mes','vencimento','lembrar pagamento','quem falta pagar','imunidade','grupo de engajamento','cobrar cliente','cobrar no whatsapp'], r:'💰 Mensalidade com vencimento: cadastre cada pessoa em 👥 Usuários com o Valor, o Dia do pagamento e o WhatsApp. Perto do vencimento ela aparece na aba 🏠 Hoje em "💰 Pagamentos por vir" com o botão 📱 Lembrar (mensagem de cobrança gentil pronta no WhatsApp) e ✔ Recebido pra dar baixa no mês. Tudo cai no 💵 Caixa. 💜'},
   {k:['cadastrar','cadastro','cadastra','cliente','usuario','novo usuario','adicionar usuario','perfil'], r:'Para cadastrar um usuário: vá na aba 👥 Usuários → botão "+ Novo usuário". Preencha o nome, o nicho, adicione as redes sociais dele (usuário sem o @) e escolha uma cor de identificação. Essa cor acompanha o usuário em todas as telas!'},
