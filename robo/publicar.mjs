@@ -342,6 +342,11 @@ async function publicarInstagram(p, pagina) {
   return { id: pub.id };
 }
 
+// 🔗 link do post publicado (se a API não der, segue sem link — não atrapalha)
+async function pegarLink(path, campo, tk) {
+  try { return (await graph('GET', path, { fields: campo, access_token: tk }))[campo] || null; } catch { return null; }
+}
+
 async function publicarFacebook(p, pagina) {
   const tk = pagina.token, pg = '/' + pagina.id;
   const midias = midiasDoPost(p);
@@ -426,11 +431,19 @@ async function main() {
         try {
           const ehStoryIG = rede === 'instagram_story' || storyOutro || (p.tipo === 'story' && rede === 'instagram');
           const pp = ehStoryIG ? { ...p, tipo: 'story', midias: midiaDoStory(p) } : p;
-          if (contaTH) resultado = await publicarThreads(pp, contaTH);
-          else if (contaIG) resultado = await publicarInstagram(pp, { ig_id: contaIG.ig_id, token: contaIG.token, base: contaIG.api === 'ig' ? GRAPH_IG : '' });
-          else {
+          if (contaTH) {
+            resultado = await publicarThreads(pp, contaTH);
+            resultado.link = await pegarLink(GRAPH_TH + '/' + resultado.id, 'permalink', contaTH.token);
+          } else if (contaIG) {
+            const B = contaIG.api === 'ig' ? GRAPH_IG : GRAPH;
+            resultado = await publicarInstagram(pp, { ig_id: contaIG.ig_id, token: contaIG.token, base: contaIG.api === 'ig' ? GRAPH_IG : '' });
+            if (!resultado.story) resultado.link = await pegarLink(B + '/' + resultado.id, 'permalink', contaIG.token);
+          } else {
             if (!pagina) throw new Error('Escolha a página do Facebook para "' + (cliR.nome || 'este perfil') + '" em 🔗 Conexões');
             resultado = rede === 'facebook' ? await publicarFacebook(pp, pagina) : await publicarInstagram(pp, pagina);
+            if (!resultado.story) resultado.link = rede === 'facebook'
+              ? (await pegarLink(GRAPH + '/' + resultado.id, 'permalink_url', pagina.token)) || ('https://www.facebook.com/' + resultado.id)
+              : await pegarLink(GRAPH + '/' + resultado.id, 'permalink', pagina.token);
           }
           log('   ✅ publicado', resultado.id);
         } catch (e) {
