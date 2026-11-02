@@ -3794,7 +3794,24 @@ function renderStoryPadrao(){
     ${lig.map(c=>{ const pad=(c.storyPadrao||[]).map(String); const outros=lig.filter(o=>o.id!==c.id);
       return `<details style="background:#fff;border:1px solid #fbcfe8;border-radius:10px;padding:7px 11px;margin:6px 0" ${pad.length?'open':''}><summary style="cursor:pointer;font-size:.9rem"><span class="bolinha" style="background:${c.cor||'#a855f7'}"></span> <b>${escapar(c.nome)}</b> ${pad.length?`<span style="font-size:.76rem;color:#9d174d">→ story em ${pad.length} perfil(s)</span>`:'<span style="font-size:.76rem;color:var(--muted)">— toque pra escolher</span>'}</summary>
         <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px">${outros.map(o=>`<label style="display:flex;align-items:center;gap:5px;font-size:.86rem;cursor:pointer;margin:0"><input type="checkbox" ${pad.includes(String(o.id))?'checked':''} onchange="marcarStoryPadrao(${c.id},${o.id},this.checked)" style="width:16px;height:16px;margin:0"> ${escapar(o.nome)}</label>`).join('')}</div></details>`; }).join('')}
+  </div>
+  <div class="cartao" style="margin-bottom:16px;border:1px solid #c7d2fe;background:#eef2ff">
+    <h3 style="margin:0 0 4px">🪞 Espelho <span style="font-size:.72rem;background:#7c3aed;color:#fff;border-radius:20px;padding:2px 8px;vertical-align:middle">NOVO</span></h3>
+    <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Postou direto pelo Instagram ou pelo Edits? O robô percebe sozinho (em até 15 min) e <b>repete nos stories</b> dos perfis escolhidos. Vale pra posts e Reels novos daqui pra frente. 💜 <span style="font-size:.78rem">(Música, figurinhas e textos do story original não vão junto — só a foto ou o vídeo.)</span></p>
+    ${lig.map(c=>{ const esp=(c.espelhoPara||[]).map(String); const outros=lig.filter(o=>o.id!==c.id);
+      return `<details style="background:#fff;border:1px solid #c7d2fe;border-radius:10px;padding:7px 11px;margin:6px 0" ${esp.length?'open':''}><summary style="cursor:pointer;font-size:.9rem"><span class="bolinha" style="background:${c.cor||'#a855f7'}"></span> <b>${escapar(c.nome)}</b> ${esp.length?`<span style="font-size:.76rem;color:#4338ca">→ espelha em ${esp.length} perfil(s)</span>`:'<span style="font-size:.76rem;color:var(--muted)">— toque pra escolher</span>'}</summary>
+        <div style="font-size:.78rem;color:var(--muted);margin-top:4px">O que sair no Instagram de ${escapar(c.nome)} vai pros stories de:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px">${outros.map(o=>`<label style="display:flex;align-items:center;gap:5px;font-size:.86rem;cursor:pointer;margin:0"><input type="checkbox" ${esp.includes(String(o.id))?'checked':''} onchange="marcarEspelho(${c.id},${o.id},this.checked)" style="width:16px;height:16px;margin:0"> ${escapar(o.nome)}</label>`).join('')}</div></details>`; }).join('')}
   </div>`;
+}
+function marcarEspelho(cid, oid, on){
+  const c=clientePorId(cid); if(!c) return;
+  let l=(c.espelhoPara||[]).map(String).filter(v=>v!==String(oid));
+  if(on) l.push(String(oid));
+  if(l.length && !(c.espelhoPara||[]).length) c.espelhoDesde = new Date().toISOString();
+  c.espelhoPara = l.length ? l : undefined;
+  if(!l.length) delete c.espelhoDesde;
+  tocar(); renderStoryPadrao();
 }
 function marcarStoryPadrao(cid, oid, on){
   const c=clientePorId(cid); if(!c) return;
