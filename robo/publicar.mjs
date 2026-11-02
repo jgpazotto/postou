@@ -19,7 +19,10 @@ const IG_APP_ID = process.env.IG_APP_ID || '1039348538855189';
 const IG_APP_SECRET = process.env.IG_APP_SECRET || '';  // "Chave secreta do app do Instagram" (Meta → Instagram → Login da empresa)
 const JANELA_HORAS = 12;           // publica posts cujo horário passou há no máximo 12h (o GitHub às vezes atrasa o agendamento)
 const FUSO_PADRAO = 'America/Sao_Paulo';
-const REDES_AUTO = ['instagram', 'facebook', 'threads'];
+const REDES_AUTO = ['instagram', 'facebook', 'threads', 'youtube'];
+// ▶️ YouTube (Google Cloud projeto "postou-robo", conta jgpazotto@gmail.com)
+const YT_CLIENT_ID = process.env.YT_CLIENT_ID || '99506954223-d7ucttpdj5n86bk2d6jlifi7vj79g7d8.apps.googleusercontent.com';
+const YT_CLIENT_SECRET = process.env.YT_CLIENT_SECRET || '';
 // 🧵 Threads (caso de uso "Acessar a API do Threads" no app Postou)
 const GRAPH_TH = 'https://graph.threads.net/v1.0';
 const TH_APP_ID = process.env.THREADS_APP_ID || '2093294924680102';
@@ -147,6 +150,7 @@ async function conexoesInstagram() {
   for (const c of r.body || []) {
     if (!c.code || SECO) continue;
     if (String(c.code).startsWith('th:')) { await trocarCodigoThreads(c); continue; }
+    if (String(c.code).startsWith('yt:')) { if (YT_CLIENT_SECRET) await trocarCodigoYouTube(c); else log('⏸ YouTube esperando o segredo YT_CLIENT_SECRET'); continue; }
     try {
       log('📸 trocando o código do Instagram de', c.user_id);
       let t;
@@ -203,6 +207,61 @@ async function conexoesInstagram() {
     mapa.get(c.user_id).push(c);
   }
   return mapa;
+}
+
+// ---------------------------------------------------------------- ▶️ YouTube
+async function googleToken(params) {
+  const r = await fetch('https://oauth2.googleapis.com/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: YT_CLIENT_ID, client_secret: YT_CLIENT_SECRET, ...params }).toString() });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.error) throw new Error('Google: ' + (j.error_description || j.error || ('HTTP ' + r.status)));
+  return j;
+}
+async function trocarCodigoYouTube(c) {
+  const agora = new Date().toISOString();
+  try {
+    if (!YT_CLIENT_SECRET) throw new Error('falta o segredo YT_CLIENT_SECRET no GitHub');
+    log('▶️ trocando o código do YouTube de', c.user_id);
+    const t = await googleToken({ grant_type: 'authorization_code', redirect_uri: REDIRECT_IG, code: String(c.code).slice(3) });
+    if (!t.refresh_token) throw new Error('o Google não mandou a chave de longo prazo — conecte de novo');
+    const r = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', { headers: { Authorization: 'Bearer ' + t.access_token } });
+    const j = await r.json().catch(() => ({}));
+    const ch = (j.items || [])[0];
+    if (!ch) throw new Error('essa conta Google não tem canal no YouTube (ou escolha a conta do canal)');
+    await sb(`conexoes_ig?user_id=eq.${c.user_id}&ig_id=eq.yt:${ch.id}&id=neq.${c.id}`, { method: 'DELETE' });
+    const linha = { token: t.refresh_token, ig_id: 'yt:' + ch.id, username: (ch.snippet && ch.snippet.title) || ch.id, api: 'youtube', expira_em: null, code: null, erro: null, atualizado: agora };
+    await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify(linha) });
+    Object.assign(c, linha);
+    log('   ✅ YouTube ligado: ' + linha.username);
+  } catch (e) {
+    log('   ❌ YouTube', e.message);
+    await sb('conexoes_ig?id=eq.' + c.id, { method: 'PATCH', body: JSON.stringify({ code: null, api: 'youtube', erro: 'Conecte o YouTube de novo: ' + e.message, atualizado: agora }) });
+    c.code = null; c.erro = e.message; c.api = 'youtube';
+  }
+}
+async function publicarYouTube(p, conta) {
+  if (!YT_CLIENT_SECRET) throw new Error('falta o segredo YT_CLIENT_SECRET no GitHub');
+  const video = midiasDoPost(p).find(m => m.tipo === 'video' || /\.(mp4|mov)(\?|$)/i.test(m.url));
+  if (!video) throw new Error('YouTube só aceita vídeo — esse post não tem vídeo');
+  const { access_token } = await googleToken({ grant_type: 'refresh_token', refresh_token: conta.token });
+  const v = await fetch(video.url);
+  if (!v.ok) throw new Error('não consegui baixar o vídeo (' + v.status + ')');
+  const bytes = Buffer.from(await v.arrayBuffer());
+  const leg = legendaDe(p, 'youtube');
+  let titulo = (p.tituloYT || p.titulo || leg.split('\n')[0] || 'Vídeo').replace(/[<>]/g, '').trim();
+  if (titulo.length > 90) titulo = titulo.slice(0, 89) + '…';
+  if (!/#shorts/i.test(titulo)) titulo += ' #Shorts';
+  const meta = { snippet: { title: titulo, description: leg.replace(/[<>]/g, '').slice(0, 4900), categoryId: '22' },
+    status: { privacyStatus: 'public', selfDeclaredMadeForKids: false } };
+  const ini = await fetch('https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status', { method: 'POST',
+    headers: { Authorization: 'Bearer ' + access_token, 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': 'video/*', 'X-Upload-Content-Length': String(bytes.length) },
+    body: JSON.stringify(meta) });
+  if (!ini.ok) { const e = await ini.json().catch(() => ({})); throw new Error('YouTube: ' + ((e.error && e.error.message) || ('HTTP ' + ini.status))); }
+  const up = await fetch(ini.headers.get('location'), { method: 'PUT', headers: { 'Content-Type': 'video/*' }, body: bytes });
+  const j = await up.json().catch(() => ({}));
+  if (!up.ok || !j.id) throw new Error('YouTube: ' + ((j.error && j.error.message) || ('HTTP ' + up.status)));
+  const privado = j.status && j.status.privacyStatus !== 'public';
+  return { id: j.id, link: 'https://youtube.com/shorts/' + j.id, ...(privado ? { aviso: 'saiu privado (app em verificação no Google)' } : {}) };
 }
 
 // ---------------------------------------------------------------- 🧵 Threads
@@ -417,9 +476,11 @@ async function main() {
         if (!cliR) continue; // perfil do story extra foi apagado
         const contaTH = rede === 'threads' ? igsDoUsuario.find(a => a.api === 'threads' && a.ig_id === cliR.thConta) : null;
         if (rede === 'threads' && !contaTH) { continue; } // perfil sem Threads ligado: fica manual
+        const contaYT = rede === 'youtube' ? igsDoUsuario.find(a => a.api === 'youtube' && a.ig_id === cliR.ytConta) : null;
+        if (rede === 'youtube' && !contaYT) { continue; } // perfil sem YouTube ligado: fica manual
         const pagina = (con.paginas || []).find(pg => pg.id === cliR.metaPageId) || null;
-        const contaIG = !pagina && cliR.igConta ? igsDoUsuario.find(a => a.api !== 'threads' && a.ig_id === cliR.igConta) : null;
-        if (storyOutro && !pagina && !contaIG) { log(`   ⏭ ${cliR.nome}: sem Instagram ligado — story extra fica manual`); continue; }
+        const contaIG = !pagina && cliR.igConta ? igsDoUsuario.find(a => a.api !== 'threads' && a.api !== 'youtube' && a.ig_id === cliR.igConta) : null;
+        if (!contaYT && storyOutro && !pagina && !contaIG) { log(`   ⏭ ${cliR.nome}: sem Instagram ligado — story extra fica manual`); continue; }
         if (!pagina && contaIG && rede === 'facebook') { log(`   ⏭ ${cliR.nome}: só Instagram (sem Página) — Facebook fica manual`); continue; }
         log(`➡️ ${rede} · "${p.titulo}" (${p.data} ${p.hora || ''}) · ${cliR.nome || '?'}`);
         if (SECO) { total++; continue; }
@@ -431,7 +492,9 @@ async function main() {
         try {
           const ehStoryIG = rede === 'instagram_story' || storyOutro || (p.tipo === 'story' && rede === 'instagram');
           const pp = ehStoryIG ? { ...p, tipo: 'story', midias: midiaDoStory(p) } : p;
-          if (contaTH) {
+          if (contaYT) {
+            resultado = await publicarYouTube(p, contaYT);
+          } else if (contaTH) {
             resultado = await publicarThreads(pp, contaTH);
             resultado.link = await pegarLink(GRAPH_TH + '/' + resultado.id, 'permalink', contaTH.token);
           } else if (contaIG) {
