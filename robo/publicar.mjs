@@ -265,6 +265,74 @@ async function publicarYouTube(p, conta) {
   return { id: j.id, link: 'https://youtube.com/shorts/' + j.id, ...(privado ? { aviso: 'saiu privado (app em verificação no Google)' } : {}) };
 }
 
+// ---------------------------------------------------------------- 🪞 Espelho
+// Tudo que sair no Instagram de um perfil (mesmo postado pelo app do Instagram / Edits)
+// vai sozinho pros stories dos perfis escolhidos em cliente.espelhoPara (desde cliente.espelhoDesde).
+function contaDoPerfil(cli, con, igs) {
+  const pg = (con.paginas || []).find(p => p.id === cli.metaPageId && p.ig_id);
+  if (pg) return { ig_id: pg.ig_id, token: pg.token, base: '' };
+  const a = cli.igConta ? igs.find(x => x.api !== 'threads' && x.api !== 'youtube' && x.ig_id === cli.igConta) : null;
+  if (a) return { ig_id: a.ig_id, token: a.token, base: a.api === 'ig' ? GRAPH_IG : '' };
+  return null;
+}
+async function espelhar(row, dados, con, igs, feito, doRobo) {
+  let n = 0;
+  const clientes = dados.clientes || [];
+  for (const cli of clientes) {
+    const alvos = (Array.isArray(cli.espelhoPara) ? cli.espelhoPara : []).map(String).filter(x => x !== String(cli.id));
+    if (!alvos.length || !cli.espelhoDesde) continue;
+    const fonte = contaDoPerfil(cli, con, igs);
+    if (!fonte) continue;
+    const B = fonte.base || GRAPH;
+    const desde = Math.max(new Date(cli.espelhoDesde).getTime() || 0, Date.now() - 24 * 36e5);
+    let itens = [];
+    try {
+      const m = await graph('GET', B + '/' + fonte.ig_id + '/media', { fields: 'id,media_type,media_url,thumbnail_url,timestamp', limit: 6, access_token: fonte.token });
+      itens = itens.concat((m.data || []).map(x => ({ ...x, deStory: false })));
+    } catch (e) { log('⚠️ espelho: não li os posts de', cli.nome, e.message); }
+    try {
+      const st = await graph('GET', B + '/' + fonte.ig_id + '/stories', { fields: 'id,media_type,media_url,timestamp', access_token: fonte.token });
+      itens = itens.concat((st.data || []).map(x => ({ ...x, deStory: true })));
+    } catch (e) { /* stories pela API nem sempre liberado — segue só com os posts */ }
+    itens = itens.filter(x => x.id && x.timestamp && new Date(x.timestamp).getTime() >= desde && !doRobo.has(String(x.id)))
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    for (const it of itens) {
+      let url = it.media_url, tipo = it.media_type === 'VIDEO' ? 'video' : 'imagem';
+      if (it.media_type === 'CAROUSEL_ALBUM') {
+        try {
+          const ch = await graph('GET', B + '/' + it.id + '/children', { fields: 'media_type,media_url', access_token: fonte.token });
+          const f = (ch.data || [])[0]; if (f) { url = f.media_url; tipo = f.media_type === 'VIDEO' ? 'video' : 'imagem'; }
+        } catch (e) { /* usa o que veio */ }
+      }
+      if (!url) continue;
+      for (const cid of alvos) {
+        const rede = 'espelho:' + cid;
+        if (feito.has(`${row.user_id}|${it.id}|${rede}`)) continue;
+        const alvoCli = clientes.find(c => String(c.id) === cid);
+        const alvo = alvoCli && contaDoPerfil(alvoCli, con, igs);
+        if (!alvo || alvo.ig_id === fonte.ig_id) continue;
+        if (n >= 6) return n; // no máximo 6 por rodada
+        log(`🪞 espelho: ${cli.nome} → story de ${alvoCli.nome} (${it.deStory ? 'story' : it.media_type})`);
+        if (SECO) { n++; continue; }
+        const trava = await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
+          body: JSON.stringify({ user_id: row.user_id, post_id: String(it.id), rede, status: 'publicando' }) });
+        feito.add(`${row.user_id}|${it.id}|${rede}`);
+        if (!trava.ok) { log('   já feito/trava:', trava.status); continue; }
+        let status = 'ok', resultado;
+        try {
+          resultado = await publicarInstagram({ tipo: 'story', midias: [{ url, tipo }] }, alvo);
+          resultado.de = cli.nome;
+          log('   ✅ espelhado', resultado.id);
+        } catch (e) { status = 'erro'; resultado = { erro: e.message, de: cli.nome }; log('   ❌', e.message); }
+        await sb(`publicacoes?user_id=eq.${row.user_id}&post_id=eq.${it.id}&rede=eq.${encodeURIComponent(rede)}`, {
+          method: 'PATCH', body: JSON.stringify({ status, resultado }) });
+        n++;
+      }
+    }
+  }
+  return n;
+}
+
 // ---------------------------------------------------------------- 🧵 Threads
 async function trocarCodigoThreads(c) {
   const agora = new Date().toISOString();
@@ -449,8 +517,10 @@ async function main() {
   const r = await sb(`organizador?select=user_id,conteudo&user_id=in.(${ids})`);
   if (!r.ok) throw new Error('não consegui ler organizador: ' + r.status);
 
-  const ja = await sb(`publicacoes?select=user_id,post_id,rede,status&user_id=in.(${ids})`);
+  const ja = await sb(`publicacoes?select=user_id,post_id,rede,status,resultado&user_id=in.(${ids})`);
   const feito = new Set((ja.body || []).map(x => `${x.user_id}|${x.post_id}|${x.rede}`));
+  // ids que o próprio robô publicou (o 🪞 espelho não repete o que já saiu pelo Postou)
+  const doRobo = new Set((ja.body || []).map(x => x.resultado && x.resultado.id).filter(Boolean).map(String));
 
   const agora = Date.now();
   let total = 0;
@@ -519,6 +589,7 @@ async function main() {
         total++;
       }
     }
+    try { total += await espelhar(row, dados, con, igsDoUsuario, feito, doRobo); } catch (e) { log('⚠️ espelho', e.message); }
   }
   log(`🏁 terminou · ${total} publicação(ões) tratada(s)`);
 }
