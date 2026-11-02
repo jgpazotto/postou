@@ -226,6 +226,7 @@ async function trocarCodigoYouTube(c) {
     if (!t.refresh_token) throw new Error('o Google não mandou a chave de longo prazo — conecte de novo');
     const r = await fetch('https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true', { headers: { Authorization: 'Bearer ' + t.access_token } });
     const j = await r.json().catch(() => ({}));
+    if (j.error) throw new Error('YouTube: ' + (j.error.message || j.error.status || 'erro'));
     const ch = (j.items || [])[0];
     if (!ch) throw new Error('essa conta Google não tem canal no YouTube (ou escolha a conta do canal)');
     await sb(`conexoes_ig?user_id=eq.${c.user_id}&ig_id=eq.yt:${ch.id}&id=neq.${c.id}`, { method: 'DELETE' });
