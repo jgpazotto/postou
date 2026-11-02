@@ -655,6 +655,9 @@
   if(st.startsWith('postouig')){ if(u.get('code')) sessionStorage.setItem('postou_ig_code', u.get('code').replace(/#_$/,''));
     else sessionStorage.setItem('postou_ig_erro', u.get('error_description')||u.get('error')||'cancelado');
     history.replaceState(null,'',location.pathname); }
+  if(st.startsWith('postouyt')){ if(u.get('code')) sessionStorage.setItem('postou_yt_code', u.get('code'));
+    else sessionStorage.setItem('postou_yt_erro', u.get('error_description')||u.get('error')||'cancelado');
+    history.replaceState(null,'',location.pathname); }
   if(st.startsWith('postouth')){ if(u.get('code')) sessionStorage.setItem('postou_th_code', u.get('code').replace(/#_$/,''));
     else sessionStorage.setItem('postou_th_erro', u.get('error_description')||u.get('error')||'cancelado');
     history.replaceState(null,'',location.pathname); } }catch(e){} })();
@@ -5308,6 +5311,8 @@ const META_IG_CONFIG_ID = '1659179415560237';  // Login do Instagram (sem Págin
 const META_IG_APP_ID = '1039348538855189';   // App do Instagram (Login do Instagram)
 let igContas = [];               // contas do Instagram conectadas sem Página (conexoes_ig)
 let thContas = [];               // 🧵 contas do Threads (mesma tabela conexoes_ig, api='threads')
+const YT_CLIENT_ID = '99506954223-d7ucttpdj5n86bk2d6jlifi7vj79g7d8.apps.googleusercontent.com'; // ▶️ Google Cloud "postou-robo"
+let ytContas = [];               // ▶️ canais do YouTube (mesma tabela conexoes_ig, ig_id "yt:...")
 const META_TH_APP_ID = '2093294924680102'; // App do Threads (caso de uso Threads no app Postou)
 const META_ESCOPOS = 'pages_show_list,pages_manage_posts,pages_read_engagement,instagram_basic,instagram_content_publish,business_management';
 let conexaoMeta = null;          // linha de conexoes_meta do usuário
@@ -5409,13 +5414,16 @@ async function carregarConexao(){
   }catch(e){ conexaoMeta = null; }
   await receberCodigoIG();
   await receberCodigoThreads();
+  await receberCodigoYouTube();
   try{
     const { data } = await sb.from('conexoes_ig').select('id,ig_id,username,erro,atualizado').eq('user_id',usuarioId);
     const todas = data || [];
     // 🧵 Threads: o robô guarda o id como "th:..." (a coluna api não é liberada pro site)
     thContas = todas.filter(a=>String(a.ig_id||'').startsWith('th:') || /Threads/.test(a.erro||''));
-    igContas = todas.filter(a=>!thContas.includes(a));
-  }catch(e){ igContas = []; thContas = []; }
+    let pend=[]; try{ pend=JSON.parse(localStorage.getItem('postou_yt_pend')||'[]'); }catch(e){}
+    ytContas = todas.filter(a=>!thContas.includes(a) && (String(a.ig_id||'').startsWith('yt:') || /YouTube/.test(a.erro||'') || (!a.ig_id && pend.includes(String(a.id)))));
+    igContas = todas.filter(a=>!thContas.includes(a) && !ytContas.includes(a));
+  }catch(e){ igContas = []; thContas = []; ytContas = []; }
   if(igContas.some(a=>a.ig_id) || thContas.some(a=>a.ig_id)) ligarAutomatico(false);
   renderConexoes();
 }
@@ -5492,6 +5500,28 @@ async function receberCodigoThreads(){
   const { error } = await sb.from('conexoes_ig').insert({ code:'th:'+code });
   setTimeout(()=>avisoTela(error ? '⚠️ Não consegui guardar a conexão do Threads: '+error.message
     : '🧵 Recebi a conexão do Threads! 💜\nO robô termina de ligar em até 15 minutinhos. Depois é só marcar Threads + 🤖 Publicar sozinho no post.'),300);
+}
+/* ▶️ YouTube: login do Google → código vai pro robô trocar (segredo fica no GitHub) */
+function conectarYouTube(){
+  const estado = 'postouyt' + Math.random().toString(36).slice(2,10);
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?client_id='+encodeURIComponent(YT_CLIENT_ID)
+    + '&redirect_uri='+encodeURIComponent('https://postou.app.br/')+'&response_type=code&access_type=offline&prompt=consent'
+    + '&scope='+encodeURIComponent('https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube.readonly')+'&state='+estado;
+}
+async function receberCodigoYouTube(){
+  let code=null, erro=null;
+  try{ code=sessionStorage.getItem('postou_yt_code'); erro=sessionStorage.getItem('postou_yt_erro'); sessionStorage.removeItem('postou_yt_code'); sessionStorage.removeItem('postou_yt_erro'); }catch(e){}
+  if(erro) setTimeout(()=>avisoTela('▶️ O YouTube não conectou: '+erro),300);
+  if(!code || !usuarioId) return;
+  const { data, error } = await sb.from('conexoes_ig').insert({ code:'yt:'+code }).select('id');
+  try{ if(data && data[0]){ const l=JSON.parse(localStorage.getItem('postou_yt_pend')||'[]'); l.push(String(data[0].id)); localStorage.setItem('postou_yt_pend', JSON.stringify(l.slice(-10))); } }catch(e){}
+  setTimeout(()=>avisoTela(error ? '⚠️ Não consegui guardar a conexão do YouTube: '+error.message
+    : '▶️ Recebi a conexão do YouTube! 💜\nO robô termina de ligar em até 15 minutinhos. Depois, na aba 🤖 Robô, escolha o canal de cada perfil e marque YouTube + 🤖 Publicar sozinho no post (precisa ter vídeo).'),300);
+}
+function escolherYouTube(clienteId, ytId){
+  const c = clientePorId(clienteId); if(!c) return;
+  if(ytId) c.ytConta = ytId; else delete c.ytConta;
+  tocar(); renderConexoes();
 }
 function escolherThreads(clienteId, igId){
   const c = clientePorId(clienteId); if(!c) return;
@@ -5589,7 +5619,8 @@ function renderConexoes(){
     <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Conecte seu Facebook e o Postou publica sozinho no Instagram e no Facebook, no dia e hora do post. 💜 Instagram sem Página do Facebook? Use o botão 📸 aqui embaixo.</p>
     <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:9px 11px;margin:0 0 10px;font-size:.82rem;color:#7c2d12">🧪 <b>O robô está em fase de testes na Meta.</b> Se aparecer <i>"o desenvolvedor do aplicativo já está ciente do problema"</i>, é porque seu perfil ainda não foi liberado. <a href="https://ig.me/m/postou.br" target="_blank" rel="noopener" style="color:#7c3aed;font-weight:700">💬 Peça seu convite</a> — a gente libera e te ensina a aceitar em 1 minutinho.</div>
     ${!(igContas.some(a=>a.ig_id) || conexaoMeta) ? `<button class="btn" onclick="assistenteRobo(1)" style="display:block;width:100%;font-size:1rem;padding:13px;margin:0 0 10px">🚀 Ligar meu robô — passo a passo (3 minutinhos)</button>` : `<div style="margin:0 0 8px"><button class="btn-mini" onclick="assistenteRobo(1)">🧭 Ver o passo a passo de novo</button></div>`}
-    <div style="margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="conectarSoInstagram()">📸 Conectar só o Instagram</button><button class="btn-claro" onclick="conectarThreads()" title="O robô publica sozinho no Threads também">🧵 Conectar Threads</button></div>
+    <div style="margin:0 0 12px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="conectarSoInstagram()">📸 Conectar só o Instagram</button><button class="btn-claro" onclick="conectarThreads()" title="O robô publica sozinho no Threads também">🧵 Conectar Threads</button><button class="btn-claro" onclick="conectarYouTube()" title="O robô sobe seus vídeos sozinho no YouTube (Shorts)">▶️ Conectar YouTube</button></div>
+    ${ytContas.length ? `<div style="font-size:.86rem;margin-bottom:8px">${ytContas.map(a=>`<div style="margin:3px 0">▶️ ${a.ig_id?'<b>'+escapar(a.username||a.ig_id)+'</b> conectado no YouTube':'⏳ ligando o YouTube… (até 15 min)'}${a.erro?` · <span style="color:#dc2626">${escapar(a.erro)}</span>`:''} <button class="btn-mini" onclick="desconectarIG('${a.id}')">Desconectar</button></div>`).join('')}<div style="font-size:.76rem;color:var(--muted)">🧪 Enquanto o Google analisa o Postou, o vídeo pode subir como <b>privado</b> — aí é só abrir no YouTube e trocar pra público.</div></div>` : ''}
     ${thContas.length ? `<div style="font-size:.86rem;margin-bottom:8px">${thContas.map(a=>`<div style="margin:3px 0">🧵 ${a.ig_id?'<b>@'+escapar(a.username||a.ig_id)+'</b> conectado no Threads':'⏳ ligando o Threads… (até 15 min)'}${a.erro?` · <span style="color:#dc2626">${escapar(a.erro)}</span>`:''} <button class="btn-mini" onclick="desconectarIG('${a.id}')">Desconectar</button></div>`).join('')}</div>` : ''}
     ${igContas.length ? `<div style="font-size:.86rem;margin-bottom:8px">${igContas.map(a=>`<div style="margin:3px 0">📸 ${a.ig_id?'<b>@'+escapar(a.username||a.ig_id)+'</b> conectado (só Instagram)':'⏳ ligando o Instagram… (até 5 min)'}${a.erro?` · <span style="color:#dc2626">${escapar(a.erro)}</span>`:''} <button class="btn-mini" onclick="desconectarIG('${a.id}')">Desconectar</button></div>`).join('')}</div>` : ''}
     ${(conexaoMeta || igContas.some(a=>a.ig_id)) ? `
@@ -5601,7 +5632,7 @@ function renderConexoes(){
             <option value="">— não publicar automático —</option>
             ${pags.map(p=>`<option value="${p.id}" ${c.metaPageId===p.id?'selected':''}>${escapar(p.name)}${p.ig_user?' + @'+escapar(p.ig_user):' (sem Instagram)'}</option>`).join('')}
             ${igContas.filter(a=>a.ig_id).map(a=>`<option value="ig:${a.ig_id}" ${c.igConta===a.ig_id?'selected':''}>📸 @${escapar(a.username||a.ig_id)} (só Instagram)</option>`).join('')}
-          </select>${thContas.some(a=>a.ig_id)?`<select onchange="escolherThreads(${c.id}, this.value)" title="Threads deste perfil" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px"><option value="">🧵 sem Threads</option>${thContas.filter(a=>a.ig_id).map(a=>`<option value="${a.ig_id}" ${c.thConta===a.ig_id?'selected':''}>🧵 @${escapar(a.username||a.ig_id)}</option>`).join('')}</select>`:''}${c.metaPageId?`<label style="display:flex;align-items:center;gap:5px;font-size:.78rem;margin:0;cursor:pointer" title="Responde sozinho comentário simples (linda, arrasou, só emoji) com obrigada + 💜. Pergunta nunca."><input type="checkbox" ${c.autoResponder?'checked':''} onchange="ligarAutoResposta(${c.id}, this.checked)" style="width:16px;height:16px;margin:0"> 💬 Responder sozinho</label>`:''}</div>`).join('')
+          </select>${thContas.some(a=>a.ig_id)?`<select onchange="escolherThreads(${c.id}, this.value)" title="Threads deste perfil" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px"><option value="">🧵 sem Threads</option>${thContas.filter(a=>a.ig_id).map(a=>`<option value="${a.ig_id}" ${c.thConta===a.ig_id?'selected':''}>🧵 @${escapar(a.username||a.ig_id)}</option>`).join('')}</select>`:''}${ytContas.some(a=>a.ig_id)?`<select onchange="escolherYouTube(${c.id}, this.value)" title="Canal do YouTube deste perfil" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px"><option value="">▶️ sem YouTube</option>${ytContas.filter(a=>a.ig_id).map(a=>`<option value="${a.ig_id}" ${c.ytConta===a.ig_id?'selected':''}>▶️ ${escapar(a.username||a.ig_id)}</option>`).join('')}</select>`:''}${c.metaPageId?`<label style="display:flex;align-items:center;gap:5px;font-size:.78rem;margin:0;cursor:pointer" title="Responde sozinho comentário simples (linda, arrasou, só emoji) com obrigada + 💜. Pergunta nunca."><input type="checkbox" ${c.autoResponder?'checked':''} onchange="ligarAutoResposta(${c.id}, this.checked)" style="width:16px;height:16px;margin:0"> 💬 Responder sozinho</label>`:''}</div>`).join('')
         : '<div style="font-size:.84rem;color:var(--muted)">Nenhuma página encontrada nessa conta do Facebook.</div>'}
       </details>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="ligarAutomatico(true)">🔗 Ligar todos</button>${conexaoMeta?`<button class="btn-claro" onclick="conectarMeta()">🔄 Reconectar</button><button class="btn-mini" onclick="desconectarMeta()">Desconectar</button>`:`<button class="btn-claro" onclick="conectarMeta()">🔗 Conectar Facebook</button>`}</div>`
@@ -5661,9 +5692,9 @@ function painelRoboHoje(f, hoje){
 }
 function redesAutoDoPost(p){
   const c = (typeof clientePorId==='function' && clientePorId(p.clienteId)) || {};
-  return (p.redes||[]).filter(r=>r==='instagram'||r==='facebook'||(r==='threads'&&c.thConta));
+  return (p.redes||[]).filter(r=>r==='instagram'||r==='facebook'||(r==='threads'&&c.thConta)||(r==='youtube'&&c.ytConta));
 }
-const SIGLA_AUTO = { instagram:'IG', facebook:'FB', threads:'🧵', instagram_story:'📱 Story' };
+const SIGLA_AUTO = { instagram:'IG', facebook:'FB', threads:'🧵', youtube:'▶️ YT', instagram_story:'📱 Story' };
 function badgeAuto(p){
   if(!p || !p.autoPublicar) return '';
   const auto = redesAutoDoPost(p).slice();
