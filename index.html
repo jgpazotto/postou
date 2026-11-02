@@ -731,7 +731,10 @@ function hojeISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getM
 function novoId(){ return dados.prox++; }
 function clientePorId(id){ return dados.clientes.find(p=>p.id===id); }
 function filtroAtivo(){ const v=document.getElementById('filtroCliente').value; return v==='todos'?null:parseInt(v); }
-function escapar(t){ const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML; }
+function escapar(t){ const d=document.createElement('div'); d.textContent=t||''; return d.innerHTML.replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+/* 🔒 texto dentro de onclick='...': encodeURIComponent não codifica o apóstrofo */
+function encJS(t){ return encodeURIComponent(String(t==null?'':t)).replace(/'/g,'%27'); }
+const EMAIL_OK = /^[^\s@"'<>()]+@[^\s@"'<>()]+\.[^\s@"'<>()]+$/;
 function dataBR(iso){ if(!iso) return ''; const p=iso.split('-'); return p[2]+'/'+p[1]; }
 
 /* ---------- MIGRAÇÃO (dados da versão antiga) ---------- */
@@ -1001,6 +1004,7 @@ function mailtoLiberado(email, nome){
   const primeiro=(nome||'').split(' ')[0]||'';
   const assunto='Seu Postou já está liberado 💜';
   const corpo='Oi '+primeiro+'!\n\nSeu Postou já está liberado! É só entrar em postou.app.br e continuar de onde parou.\n\nQualquer dúvida, é só responder este e-mail.\n\nCom carinho,\nJoice · Postou';
+  if(!EMAIL_OK.test(String(email||''))) return '#';
   return 'mailto:'+email+'?subject='+encodeURIComponent(assunto)+'&body='+encodeURIComponent(corpo);
 }
 function hashCurto(s){ let h=0; s=(s||'').toLowerCase(); for(let i=0;i<s.length;i++){ h=(h*31+s.charCodeAt(i))>>>0; } return (h.toString(36).toUpperCase()+'0000').slice(0,4); }
@@ -1101,8 +1105,8 @@ async function carregarDono(){
     const selPrazo=`<select id="prazoSel_${u.userId}" title="Por quanto tempo liberar" onchange="liberarUsuario('${u.userId}')">${optManter}${prazos.map(p=>`<option value="${p[0]}" ${p[0]===prazoAtual?'selected':''}>${p[1]}</option>`).join('')}</select>`;
     const ddiId='ddi_'+u.userId;
     const ddiSel = u.zap ? `<select id="${ddiId}" title="País do WhatsApp" style="padding:4px;font-size:.72rem"><option value="55" ${ddiSugerido(u.zap)==='55'?'selected':''}>🇧🇷 +55</option><option value="1" ${ddiSugerido(u.zap)==='1'?'selected':''}>🇺🇸 +1</option></select>` : '';
-    const btnZap = u.zap ? `${ddiSel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="avisarZap('${encodeURIComponent(u.zap)}','${encodeURIComponent(u.nome)}','${ddiId}')">📱 Avisar</button>` : '';
-    const btnEmail = u.email ? `<a class="btn-claro" style="padding:5px 10px;font-size:.78rem;text-decoration:none" href="${mailtoLiberado(u.email,u.nome)}">✉️ E-mail</a>` : '';
+    const btnZap = u.zap ? `${ddiSel} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="avisarZap('${encJS(u.zap)}','${encJS(u.nome)}','${ddiId}')">📱 Avisar</button>` : '';
+    const btnEmail = u.email ? `<a class="btn-claro" style="padding:5px 10px;font-size:.78rem;text-decoration:none" href="${escapar(mailtoLiberado(u.email,u.nome))}">✉️ E-mail</a>` : '';
     const acoes = u.ehEu ? '' : `${sel} ${selPrazo} <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="liberarUsuario('${u.userId}')">✅ Liberar</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="darSemana('${u.userId}')">🎁 +7 dias</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" title="Promoção Mês Organizado: repostou nos stories marcando @postou.br → +15 dias (30 no total)" onclick="darQuinzena('${u.userId}')">📅 +15 dias</button> ${btnZap} ${btnEmail}`;
     const linhaZap = u.zap ? `📱 ${escapar(u.zap)} <span style="opacity:.7">(confira 🇧🇷/🇺🇸)</span>` : 'sem WhatsApp';
     const linhaMail = u.email ? ` · ✉️ ${escapar(u.email)}` : '';
@@ -1262,7 +1266,7 @@ async function carregarEquipe(){
     let status;
     if(ativo){ status='<span style="color:#0a8a4a;font-weight:700">✅ já usa o Postou</span> · 👥 '+ativo.nClientes+' conta(s)'; }
     else { status='<span style="color:#c026a8;font-weight:700">⏳ convidado</span> — ainda não entrou'; }
-    return `<div class="pag-linha"><span style="flex:1"><b>${nome}</b> <span style="font-size:.75rem;color:var(--muted)">${escapar(m.email)}</span><br><span style="font-size:.8rem;color:var(--muted)">${escapar(rotPlano)} · <b style="color:var(--g1)">+${dinheiro(extra)}/mês</b> · ${status}</span></span><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="removerFuncionario('${encodeURIComponent(m.email)}')">Remover</button></div>`;
+    return `<div class="pag-linha"><span style="flex:1"><b>${nome}</b> <span style="font-size:.75rem;color:var(--muted)">${escapar(m.email)}</span><br><span style="font-size:.8rem;color:var(--muted)">${escapar(rotPlano)} · <b style="color:var(--g1)">+${dinheiro(extra)}/mês</b> · ${status}</span></span><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="removerFuncionario('${encJS(m.email)}')">Remover</button></div>`;
   }).join('');
   cont.innerHTML=html;
   const totEl=document.getElementById('equipeTotal');
@@ -2550,7 +2554,7 @@ function renderClientes(){
     }).join('');
     const acoes = arq
       ? `<button class="btn-mini" onclick="restaurarCliente(${p.id})">♻️ Restaurar</button>
-         ${p.zap?`<button class="btn-mini" onclick="avisarZap('${encodeURIComponent(p.zap)}','${encodeURIComponent(p.nome)}')">📱 Chamar</button>`:''}
+         ${p.zap?`<button class="btn-mini" onclick="avisarZap('${encJS(p.zap)}','${encJS(p.nome)}')">📱 Chamar</button>`:''}
          <button class="btn-mini perigo" onclick="excluirCliente(${p.id})">🗑 Excluir</button>`
       : `<button class="btn-mini" onclick="moverCliente(${p.id},-1)" title="Subir na lista">⬆️</button>
          <button class="btn-mini" onclick="moverCliente(${p.id},1)" title="Descer na lista">⬇️</button>
@@ -3690,7 +3694,7 @@ function abrirConfig(){
 function listaEmpresas(){ const set=new Set([...(dados.empresas||[]), ...dados.clientes.map(c=>c.empresa).filter(Boolean)]); return [...set].filter(Boolean).sort((a,b)=>a.localeCompare(b,'pt')); }
 function addLoja(){ const el=document.getElementById('cfgLoja'); const v=((el&&el.value)||'').trim(); if(!v) return; dados.empresas=dados.empresas||[]; if(!dados.empresas.includes(v)) dados.empresas.push(v); if(el){ el.value=''; el.focus(); } salvarAgora(); renderLojasConfig(); }
 function removerLoja(nomeEnc){ const nome=decodeURIComponent(nomeEnc); dados.empresas=(dados.empresas||[]).filter(x=>x!==nome); salvarAgora(); renderLojasConfig(); }
-function renderLojasConfig(){ const cont=document.getElementById('cfgLojasLista'); if(!cont) return; const ls=listaEmpresas(); cont.innerHTML = ls.length ? ls.map(e=>{ const propria=(dados.empresas||[]).includes(e); return `<div class="pag-linha"><span style="flex:1">🏬 ${escapar(e)}</span>${propria?`<button class="btn-claro" style="padding:3px 8px;font-size:.75rem" onclick="removerLoja('${encodeURIComponent(e)}')">🗑</button>`:'<span style="font-size:.7rem;color:var(--muted)">(usada por um cliente)</span>'}</div>`; }).join('') : '<div class="vazio" style="padding:8px;text-align:left">Nenhuma loja ainda. Adicione a primeira aí em cima! 💜</div>'; }
+function renderLojasConfig(){ const cont=document.getElementById('cfgLojasLista'); if(!cont) return; const ls=listaEmpresas(); cont.innerHTML = ls.length ? ls.map(e=>{ const propria=(dados.empresas||[]).includes(e); return `<div class="pag-linha"><span style="flex:1">🏬 ${escapar(e)}</span>${propria?`<button class="btn-claro" style="padding:3px 8px;font-size:.75rem" onclick="removerLoja('${encJS(e)}')">🗑</button>`:'<span style="font-size:.7rem;color:var(--muted)">(usada por um cliente)</span>'}</div>`; }).join('') : '<div class="vazio" style="padding:8px;text-align:left">Nenhuma loja ainda. Adicione a primeira aí em cima! 💜</div>'; }
 async function salvarConfig(){
   const nome=(document.getElementById('cfgNome').value||'').trim();
   const zap=(document.getElementById('cfgZap').value||'').replace(/[^\d+]/g,'');
