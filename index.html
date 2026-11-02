@@ -667,6 +667,28 @@ const SUPABASE_KEY = 'sb_publishable_zueiNLfKsr7au2YgziUtXQ_CwGWnLi6';
 /* ======================== */
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+/* 🔑 link "esqueci minha senha": abre a tela pra criar a senha nova */
+const VEIO_RECUPERAR = /type=recovery/.test(location.hash||'');
+try{ sb.auth.onAuthStateChange((ev)=>{ if(ev==='PASSWORD_RECOVERY') setTimeout(abrirNovaSenha, 900); }); }catch(e){}
+function abrirNovaSenha(){
+  if(typeof abrirModal!=='function') return setTimeout(abrirNovaSenha, 500);
+  abrirModal(`<h3>🔑 Crie sua senha nova</h3>
+    <p style="font-size:.86rem;color:var(--muted);margin:0 0 8px">Digite a senha nova (mínimo 6 letras ou números) e guarde bem. 💜</p>
+    <input id="nsSenha" type="password" placeholder="Senha nova" autocomplete="new-password">
+    <input id="nsSenha2" type="password" placeholder="Repita a senha nova" autocomplete="new-password" style="margin-top:8px">
+    <div id="nsMsg" style="font-size:.86rem;margin-top:8px"></div>
+    <div class="rodape"><button class="btn" onclick="salvarNovaSenha()">Salvar senha nova</button></div>`);
+}
+async function salvarNovaSenha(){
+  const a=document.getElementById('nsSenha').value, b=document.getElementById('nsSenha2').value, m=document.getElementById('nsMsg');
+  if(a.length<6){ m.style.color='#b91c1c'; m.textContent='A senha precisa ter pelo menos 6 caracteres.'; return; }
+  if(a!==b){ m.style.color='#b91c1c'; m.textContent='As duas senhas não estão iguais.'; return; }
+  m.style.color='#7c3aed'; m.textContent='Salvando… ⏳';
+  const { error } = await sb.auth.updateUser({ password:a });
+  if(error){ m.style.color='#b91c1c'; m.textContent='Não consegui salvar: '+error.message; return; }
+  m.style.color='#0a8a4a'; m.textContent='✅ Senha nova salva! Da próxima vez, entre com ela.';
+  setTimeout(()=>{ try{ fecharModal(); }catch(e){} history.replaceState(null,'',location.pathname); }, 1600);
+}
 
 const CORES = ['#7c3aed','#ec4899','#f97316','#0e7490','#15803d','#be185d','#1d4ed8','#b45309','#a21caf','#dc2626','#0f766e','#4d7c0f'];
 const REDES = {
@@ -775,7 +797,7 @@ async function fazerCadastro(){
   if(!nome){ msg.textContent='Conta pra gente seu nome! 😊'; return; }
   if(!email || senha.length<6){ msg.textContent='Preencha o e-mail e uma senha com pelo menos 6 caracteres.'; return; }
   document.getElementById('btnCadastrar').textContent = 'Criando sua conta…';
-  const { data, error } = await sb.auth.signUp({ email, password: senha, options: { data: { nome, zap, interesse, indicadoPor } } });
+  const { data, error } = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: 'https://postou.app.br/', data: { nome, zap, interesse, indicadoPor } } });
   document.getElementById('btnCadastrar').textContent = '🎁 Começar meus 15 dias grátis';
   if(error){ msg.textContent = 'Erro ao criar conta: '+error.message; return; }
   if(data && data.session){ msg.textContent=''; await entrarNoApp(); }
@@ -792,7 +814,7 @@ async function fazerLogin(){
   if(error){
     const m = error.message||'';
     msg.style.color='#b91c1c'; msg.style.fontWeight='700'; msg.style.fontSize='.92rem';
-    if(/not confirmed|confirm/i.test(m)){ msg.style.color='#b45309'; msg.innerHTML='📧 <b>Falta confirmar seu e-mail!</b> Procure o e-mail do Postou (veja também o SPAM/Lixo eletrônico) e clique no link. Depois volte e entre. 💜'; }
+    if(/not confirmed|confirm/i.test(m)){ msg.style.color='#b45309'; msg.innerHTML='📧 <b>Falta confirmar seu e-mail!</b> Procure o e-mail do Postou (veja também o SPAM/Lixo eletrônico) e clique no link. Depois volte e entre. 💜<br><a href="#" onclick="reenviarConfirmacao();return false" style="color:#7c3aed;font-weight:700">📩 Não chegou? Reenviar o e-mail</a>'; }
     else if(/Invalid|credential/i.test(m)){ msg.innerHTML='❌ <b>E-mail ou senha incorretos.</b><br><span style="font-weight:400">Confira os dois com calma (cuidado com MAIÚSCULAS e espaços).</span><br>🔑 <a href="#" onclick="recuperarSenha();return false" style="color:#7c3aed;font-weight:700">Esqueci minha senha</a> &nbsp;·&nbsp; <a href="#" onclick="mostrarCadastro();return false" style="color:#7c3aed;font-weight:700">Ainda não tenho conta</a>'; }
     else { msg.innerHTML='⚠️ Não consegui entrar agora. Tente de novo em instantes.<br><span style="font-weight:400;font-size:.8rem">('+escapar(m)+')</span>'; }
     return;
@@ -800,13 +822,22 @@ async function fazerLogin(){
   msg.textContent = ''; msg.style.fontWeight=''; msg.style.fontSize='';
   await entrarNoApp();
 }
+async function reenviarConfirmacao(){
+  const email = (document.getElementById('loginEmail').value||'').trim();
+  const msg = document.getElementById('msgLogin');
+  if(!email){ msg.textContent='✍️ Digite seu e-mail no campo aí em cima.'; return; }
+  msg.style.color='#7c3aed'; msg.textContent='Reenviando… ⏳';
+  const { error } = await sb.auth.resend({ type:'signup', email, options:{ emailRedirectTo:'https://postou.app.br/' } });
+  if(error){ msg.style.color='#b91c1c'; msg.textContent='Não consegui reenviar agora ('+error.message+'). Tente de novo em 1 minutinho.'; return; }
+  msg.style.color='#0a8a4a'; msg.innerHTML='✅ <b>E-mail reenviado!</b> Abra o e-mail de <b>'+escapar(email)+'</b> (olhe também o SPAM) e clique no botão roxo. 💜';
+}
 async function recuperarSenha(){
   const email = (document.getElementById('loginEmail').value||'').trim();
   const msg = document.getElementById('msgLogin');
   msg.style.fontWeight='700'; msg.style.fontSize='.92rem';
   if(!email){ msg.style.color='#b91c1c'; msg.textContent='✍️ Primeiro digite seu e-mail no campo aí em cima, depois clique em "Esqueci minha senha". 💜'; return; }
   msg.style.color='#7c3aed'; msg.textContent='Enviando o link… ⏳';
-  const { error } = await sb.auth.resetPasswordForEmail(email);
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo:'https://postou.app.br/' });
   if(error){ msg.style.color='#b91c1c'; msg.textContent='Não consegui enviar agora: '+error.message; return; }
   msg.style.color='#0a8a4a'; msg.innerHTML='✅ <b>Link enviado!</b> Abra o e-mail de <b>'+escapar(email)+'</b> (olhe também o SPAM) e crie uma senha nova. Depois volte e entre. 💜';
 }
