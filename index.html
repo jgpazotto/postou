@@ -3739,6 +3739,8 @@ function trocaClientePost(){
 /* 📲 stories automáticos: post novo já vem marcado com os stories padrão do perfil */
 function aplicarStoryPadrao(){
   try{
+    const sc=document.getElementById('mCliente'); const cid=sc?String(sc.value):'';
+    document.querySelectorAll('.mStoryEm').forEach(x=>{ const own=String(x.value)===cid; const l=x.closest('label'); if(l) l.style.display=own?'none':''; if(own) x.checked=false; });
     if(!window._postNovo) return;
     const sel=document.getElementById('mCliente'); if(!sel) return;
     const c=clientePorId(parseInt(sel.value))||{}; const pad=(c.storyPadrao||[]).map(String);
