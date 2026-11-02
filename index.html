@@ -424,6 +424,7 @@
   <nav>
     <button data-aba="hoje" class="ativo" onclick="trocarAba('hoje')">🏠 Hoje</button>
     <button data-aba="clientes" onclick="trocarAba('clientes')">👥 Usuários</button>
+    <button data-aba="robo" onclick="trocarAba('robo')">🤖 Robô</button>
     <button data-aba="calendario" onclick="trocarAba('calendario')">📅 Calendário</button>
     <button data-aba="tarefas" onclick="trocarAba('tarefas')">✅ Tarefas</button>
     <button data-aba="ideias" onclick="trocarAba('ideias')">💡 Ideias</button>
@@ -443,8 +444,12 @@
     <div class="tiles" id="tilesHoje"></div>
     <div id="listaHoje"></div>
   </section>
-  <section id="aba-clientes" style="display:none">
+  <section id="aba-robo" style="display:none">
     <div id="conexoesWrap"></div>
+    <div id="storyPadraoWrap"></div>
+  </section>
+  <section id="aba-clientes" style="display:none">
+    <div id="roboAtalho" style="margin:0 0 12px"><button class="btn-claro" onclick="trocarAba('robo')" style="width:100%;max-width:420px;text-align:left">🤖 Publicação automática → agora tem a aba <b>🤖 Robô</b></button></div>
     <div class="secao-topo"><h2>Meus usuários</h2><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="btnNovoUsuario" onclick="abrirModalCliente()">+ Novo usuário 📱</button><button class="btn" id="btnNovoServico" onclick="abrirModalCliente(null,'servico')" style="display:none">+ Novo serviço 🧰</button><button class="btn" id="btnNovoCliente" onclick="abrirModalCliente(null,'cliente')" style="display:none">+ Novo cliente 👤</button></div></div>
     <div id="filtroFuncWrap" style="display:none;margin:0 0 12px"></div>
     <div id="filtroEmpresaWrap" style="display:none;margin:0 0 12px"></div>
@@ -1384,12 +1389,12 @@ function tocar(){ render(); agendarSalvar(); }
 function trocarAba(aba){
   abaAtual = aba;
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('ativo', b.dataset.aba===aba));
-  ['hoje','clientes','calendario','tarefas','ideias','quadro','vendas','caixa','ajuda','dono','equipe','contatos'].forEach(a=>{
+  ['hoje','clientes','robo','calendario','tarefas','ideias','quadro','vendas','caixa','ajuda','dono','equipe','contatos'].forEach(a=>{
     const el=document.getElementById('aba-'+a); if(el) el.style.display = a===aba?'':'none';
   });
   render();
   if(aba==='dono') carregarDono();
-  if(aba==='clientes') renderConexoes();
+  if(aba==='robo'){ renderConexoes(); renderStoryPadrao(); }
   if(aba==='equipe') carregarEquipe();
   if(aba==='contatos') carregarContatos();
 }
@@ -3726,6 +3731,37 @@ function trocaClientePost(){
   const c = clientePorId(parseInt(document.getElementById('mCliente').value));
   document.getElementById('mChkRedes').innerHTML = checkboxesRedes(c, null);
   atualizarOndeSai();
+  aplicarStoryPadrao();
+}
+/* 📲 stories automáticos: post novo já vem marcado com os stories padrão do perfil */
+function aplicarStoryPadrao(){
+  try{
+    if(!window._postNovo) return;
+    const sel=document.getElementById('mCliente'); if(!sel) return;
+    const c=clientePorId(parseInt(sel.value))||{}; const pad=(c.storyPadrao||[]).map(String);
+    const caixas=[...document.querySelectorAll('.mStoryEm')]; if(!caixas.length) return;
+    caixas.forEach(x=>{ x.checked = pad.includes(String(x.value)) && String(x.value)!==String(c.id); });
+    const det=caixas[0].closest('details'); if(det && pad.length) det.open=true;
+  }catch(e){}
+}
+function renderStoryPadrao(){
+  const el=document.getElementById('storyPadraoWrap'); if(!el) return;
+  const lig=(dados.clientes||[]).filter(c=>!c.arquivado && (c.igConta||c.metaPageId)).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt'));
+  if(lig.length<2){ el.innerHTML=''; return; }
+  el.innerHTML=`<div class="cartao" style="margin-bottom:16px;border:1px solid #fbcfe8;background:#fdf2f8">
+    <h3 style="margin:0 0 4px">📲 Stories automáticos</h3>
+    <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Escolha uma vez e pronto: todo post novo do perfil já vem marcado pra ir também pros stories dos perfis escolhidos. O robô publica sozinho — ninguém precisa aceitar nada. 💜 (Dá pra desmarcar num post específico.)</p>
+    ${lig.map(c=>{ const pad=(c.storyPadrao||[]).map(String); const outros=lig.filter(o=>o.id!==c.id);
+      return `<details style="background:#fff;border:1px solid #fbcfe8;border-radius:10px;padding:7px 11px;margin:6px 0" ${pad.length?'open':''}><summary style="cursor:pointer;font-size:.9rem"><span class="bolinha" style="background:${c.cor||'#a855f7'}"></span> <b>${escapar(c.nome)}</b> ${pad.length?`<span style="font-size:.76rem;color:#9d174d">→ story em ${pad.length} perfil(s)</span>`:'<span style="font-size:.76rem;color:var(--muted)">— toque pra escolher</span>'}</summary>
+        <div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px">${outros.map(o=>`<label style="display:flex;align-items:center;gap:5px;font-size:.86rem;cursor:pointer;margin:0"><input type="checkbox" ${pad.includes(String(o.id))?'checked':''} onchange="marcarStoryPadrao(${c.id},${o.id},this.checked)" style="width:16px;height:16px;margin:0"> ${escapar(o.nome)}</label>`).join('')}</div></details>`; }).join('')}
+  </div>`;
+}
+function marcarStoryPadrao(cid, oid, on){
+  const c=clientePorId(cid); if(!c) return;
+  let l=(c.storyPadrao||[]).map(String).filter(v=>v!==String(oid));
+  if(on) l.push(String(oid));
+  c.storyPadrao = l.length ? l : undefined;
+  tocar(); renderStoryPadrao();
 }
 /* 📍 deixa claro em qual perfil o post vai sair */
 function atualizarOndeSai(){
@@ -3744,6 +3780,7 @@ function atualizarOndeSai(){
 function abrirModalPost(id, dataPre){
   if(!dados.clientes.length){ abrirModal('<h3>Ops!</h3><p>Cadastre um usuário primeiro, na aba Usuários.</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
   const p = id?dados.posts.find(x=>x.id===id):null;
+  window._postNovo = !p;
   const cliInicial = p ? clientePorId(p.clienteId) : dados.clientes[0];
   abrirModal(`
     <h3>${p?'Editar postagem':'Nova postagem'}</h3>
@@ -3803,6 +3840,7 @@ function abrirModalPost(id, dataPre){
   desenharMidias();
   atualizarContadores();
   atualizarOndeSai();
+  aplicarStoryPadrao();
 }
 let legendasTemp = {};
 function redesMarcadas(){ return [...document.querySelectorAll('.chk-rede:checked')].map(c=>c.value); }
@@ -5069,7 +5107,7 @@ function importar(input){
 /* ---------- ASSISTENTE (chat de ajuda) ---------- */
 const BASE_CONHECIMENTO = [
   {k:['horario livre','horarios livres','achar horario','encaixar','encaixe','vaga na agenda','tem vaga','agenda livre','buraco na agenda','marcar consulta','quando posso marcar','melhor dia pra marcar','qual horario esta livre','procedimento vai demorar'], r:'🔎 Achar horário livre: na aba 🏠 Hoje (em 📌 Compromissos) ou no 📅 Calendário (abrindo um dia) toque em 🔎 Achar horário livre. Escolha quanto tempo vai levar (ou o serviço — ex.: 3 horas), a partir de quando, e o Postou mostra os horários vagos da sua agenda, com ⭐ no dia mais tranquilo. Tocou no horário, já marca! 💜'},
-  {k:['desenvolvedor ja esta ciente','desenvolvedor do aplicativo','ciente do problema','aplicativo desativado','app nao ativo','nao abre o facebook','nao conecta','nao consegui ativar','nao consigo ativar','nao consegui conectar','robo nao liga','robo nao conecta','reativado','convite de testador','testador'], r:'🧪 Se aparecer "o desenvolvedor do aplicativo já está ciente do problema", é porque o Postou ainda está em fase de testes na Meta e seu perfil precisa aceitar um convite. 1️⃣ Mande seu @ no direct do @postou.br pedindo o convite. 2️⃣ No app do Instagram: ☰ → Configurações → Apps e sites → Convites de testador → Aceitar "Postou". 3️⃣ No Postou: aba 👥 Usuários → quadro 🤖 → 🚀 Ligar meu robô (passo a passo). Pronto! 💜'},
+  {k:['desenvolvedor ja esta ciente','desenvolvedor do aplicativo','ciente do problema','aplicativo desativado','app nao ativo','nao abre o facebook','nao conecta','nao consegui ativar','nao consigo ativar','nao consegui conectar','robo nao liga','robo nao conecta','reativado','convite de testador','testador'], r:'🧪 Se aparecer "o desenvolvedor do aplicativo já está ciente do problema", é porque o Postou ainda está em fase de testes na Meta e seu perfil precisa aceitar um convite. 1️⃣ Mande seu @ no direct do @postou.br pedindo o convite. 2️⃣ No app do Instagram: ☰ → Configurações → Apps e sites → Convites de testador → Aceitar "Postou". 3️⃣ No Postou: aba 🤖 Robô → 🚀 Ligar meu robô (passo a passo). Pronto! 💜'},
   {k:['mensalidade','cobranca mensal','cobrar todo mes','vencimento','lembrar pagamento','quem falta pagar','imunidade','grupo de engajamento','cobrar cliente','cobrar no whatsapp'], r:'💰 Mensalidade com vencimento: cadastre cada pessoa em 👥 Usuários com o Valor, o Dia do pagamento e o WhatsApp. Perto do vencimento ela aparece na aba 🏠 Hoje em "💰 Pagamentos por vir" com o botão 📱 Lembrar (mensagem de cobrança gentil pronta no WhatsApp) e ✔ Recebido pra dar baixa no mês. Tudo cai no 💵 Caixa. 💜'},
   {k:['cadastrar','cadastro','cadastra','cliente','usuario','novo usuario','adicionar usuario','perfil'], r:'Para cadastrar um usuário: vá na aba 👥 Usuários → botão "+ Novo usuário". Preencha o nome, o nicho, adicione as redes sociais dele (usuário sem o @) e escolha uma cor de identificação. Essa cor acompanha o usuário em todas as telas!'},
   {k:['rede','redes sociais','adicionar rede','tiktok','youtube','instagram','facebook','linkedin','kwai','pinterest','link'], r:'As redes ficam dentro do cadastro do usuário: aba 👥 Usuários → ✏️ Editar → "+ Adicionar rede". Escolha a rede, digite o usuário sem o @, e pronto: o selo colorido vira um link que abre direto o perfil. Para redes fora da lista, escolha "Outra rede" e cole o link completo.'},
@@ -5127,8 +5165,8 @@ const BASE_CONHECIMENTO = [
   {k:['agendar servico','agenda de servico','marcar servico','servico na agenda','repetir servico','servico toda semana','servico quinzenal','dia do servico'], r:'Para agendar um serviço: na aba 👥 Usuários, no cartão de um cliente de Serviço, clique em 🗓 Agendar serviço. Escolha a data, o horário e se repete (só esse dia, toda semana, a cada 15 dias ou todo mês). Ele entra no 📅 Calendário na cor do cliente, com o 🧰. Se repetir, já coloco os próximos 3 meses! 💜'}
 ];
 BASE_CONHECIMENTO.push(...[
-  {k:['robo','robozinho','publicar sozinho','posta sozinho','automatico','automatica','publicacao automatica','agendar automatico','sem eu estar'], r:'🤖 O robô do Postou publica sozinho no horário certo! Ao criar o post (📅 Calendário → + Nova postagem), suba a arte ou o vídeo, espere aparecer "✅ Pronto!", marque "🤖 Publicar sozinho" e salve. Antes, conecte o Instagram/Facebook do perfil (aba 👥 Usuários → quadro 🤖 → botão 📸). Funciona com foto, carrossel, vídeo/reels e stories.'},
-  {k:['conectar instagram','conecto meu instagram','conecto o instagram','conectar meu instagram','conecto','conectar','ligar instagram','conectar o instagram','conectar facebook','conectar conta','conexao','sem pagina','nao tenho pagina','pagina do face','pagina do facebook','ter pagina','precisa de pagina','precisa ter pagina'], r:'📸 Para conectar o Instagram: aba 👥 Usuários → quadro 🤖 lá em cima → botão 🚀 Ligar meu robô (passo a passo) ou 📸 Conectar só o Instagram → entre com o seu Instagram e aceite. Não precisa ter Página do Facebook! O perfil precisa ser Profissional (Criador de conteúdo ou Empresa): no Instagram vá em Configurações → Tipo de conta e ferramentas → Mudar para conta profissional (é grátis). Se aparecer algum aviso, chama a gente no direct do @postou.br que a gente te ajuda. 💜'},
+  {k:['robo','robozinho','publicar sozinho','posta sozinho','automatico','automatica','publicacao automatica','agendar automatico','sem eu estar'], r:'🤖 O robô do Postou publica sozinho no horário certo! Ao criar o post (📅 Calendário → + Nova postagem), suba a arte ou o vídeo, espere aparecer "✅ Pronto!", marque "🤖 Publicar sozinho" e salve. Antes, conecte o Instagram/Facebook do perfil (aba 🤖 Robô → botão 📸). Funciona com foto, carrossel, vídeo/reels e stories.'},
+  {k:['conectar instagram','conecto meu instagram','conecto o instagram','conectar meu instagram','conecto','conectar','ligar instagram','conectar o instagram','conectar facebook','conectar conta','conexao','sem pagina','nao tenho pagina','pagina do face','pagina do facebook','ter pagina','precisa de pagina','precisa ter pagina'], r:'📸 Para conectar o Instagram: aba 🤖 Robô → botão 🚀 Ligar meu robô (passo a passo) ou 📸 Conectar só o Instagram → entre com o seu Instagram e aceite. Não precisa ter Página do Facebook! O perfil precisa ser Profissional (Criador de conteúdo ou Empresa): no Instagram vá em Configurações → Tipo de conta e ferramentas → Mudar para conta profissional (é grátis). Se aparecer algum aviso, chama a gente no direct do @postou.br que a gente te ajuda. 💜'},
   {k:['vira story','virar story','post vira story','story automatico','post no story','repostar story','compartilhar no story','story tambem','stories tambem','no story tambem'], r:'📱 Post vira story: no formulário do post, marque a caixinha "📱 Post vira story". O robô publica no feed e logo depois coloca a mesma arte nos seus stories do Instagram. Dois em um! (precisa estar com 🤖 Publicar sozinho marcado)'},
   {k:['status do whats','status whatsapp','status do whatsapp','whats status','meu status'], r:'💚 No card do post (aba 🏠 Hoje) toque em "💚 Status do Whats" pelo celular: abre o compartilhar com a arte pronta → escolha WhatsApp → Meu status. A legenda já fica copiada, é só colar. O WhatsApp não deixa robô postar status, então são 2 toquinhos seus. 😉'},
   {k:['facebook pessoal','perfil pessoal','meu face','postar no face','face pessoal','facebook automatico'], r:'📘 O Facebook não deixa nenhum app publicar sozinho em PERFIL PESSOAL (só em Página). Duas saídas: 1) no Instagram, ligue Central de Contas → Experiências conectadas → Compartilhamento entre perfis → compartilhar no Facebook (vale para o que você posta pelo app do Instagram); 2) no card do post, toque em "📘 Postar no Face": abre o compartilhar com a arte e a legenda copiada, é só colar e publicar.'},
@@ -5402,7 +5440,7 @@ async function receberCodigoIG(){
   if(!code || !usuarioId) return;
   const { error } = await sb.from('conexoes_ig').insert({ code });
   setTimeout(()=>avisoTela(error ? '⚠️ Não consegui guardar a conexão: '+error.message
-    : '📸 Recebi a conexão do Instagram! 💜\nO robô termina de ligar em até 5 minutinhos. Depois, em Usuários → 🤖 Publicação automática, confira se o perfil ficou ligado.'),300);
+    : '📸 Recebi a conexão do Instagram! 💜\nO robô termina de ligar em até 5 minutinhos. Depois, na aba 🤖 Robô, confira se o perfil ficou ligado.'),300);
 }
 /* ---------- 🚀 Assistente "Ligar meu robô" (pensado pro Ge 💜) ---------- */
 function assistenteRobo(passo){
