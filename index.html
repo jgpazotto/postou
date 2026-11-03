@@ -244,6 +244,8 @@
   .tab-met td,.tab-met th{border:1px solid var(--line);padding:4px 8px;text-align:left;}
   .tab-met th{background:var(--bg);color:var(--muted);font-size:.7rem;text-transform:uppercase;}
   /* Chat assistente */
+  .postar-botao{position:fixed; left:18px; bottom:18px; width:58px; height:58px; border-radius:50%; background:var(--grad); color:#fff; border:none; font-size:1.7rem; font-weight:700; cursor:pointer; box-shadow:0 8px 24px rgba(124,58,237,.4); z-index:90; display:none;}
+  body.logado .postar-botao{display:block;}
   .chat-botao{position:fixed; right:18px; bottom:18px; width:58px; height:58px; border-radius:50%; background:var(--grad); color:#fff; border:none; font-size:1.5rem; cursor:pointer; box-shadow:0 8px 24px rgba(124,58,237,.4); z-index:90;}
   .chat-caixa{position:fixed; right:18px; bottom:86px; width:min(360px,calc(100vw - 36px)); height:min(500px,70vh); background:#fff; border:1px solid var(--line); border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,.25); display:none; flex-direction:column; overflow:hidden; z-index:95;}
   .chat-caixa.aberto{display:flex;}
@@ -439,6 +441,15 @@
 </header>
 <main>
   <section id="aba-hoje">
+    <div id="postarJa" style="background:linear-gradient(135deg,#faf5ff,#fdf2f8);border:1px solid #e9d5ff;border-radius:16px;padding:12px 14px;margin:0 0 14px">
+      <div style="font-weight:800;font-size:1rem;margin-bottom:8px">➕ Postar agora</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn" style="flex:1;min-width:92px;padding:12px 8px;font-size:.95rem" onclick="postarJa('foto')">📸 Post</button>
+        <button class="btn" style="flex:1;min-width:92px;padding:12px 8px;font-size:.95rem" onclick="postarJa('story')">📱 Story</button>
+        <button class="btn" style="flex:1;min-width:92px;padding:12px 8px;font-size:.95rem" onclick="postarJa('reel')">🎬 Vídeo/Reels</button>
+      </div>
+      <div style="font-size:.76rem;color:var(--muted);margin-top:6px">Escolha o perfil, suba a foto ou o vídeo e marque 🤖 <b>Publicar sozinho</b>. Pode deixar pra agora ou pra outro horário. 💜</div>
+    </div>
     <div id="bannerEmpresa"></div>
     <div id="recadoHoje"></div>
     <div class="tiles" id="tilesHoje"></div>
@@ -634,6 +645,7 @@
 </main>
 
 <button class="chat-botao" onclick="alternarChat()" title="Assistente do Postou">💬</button>
+<button class="postar-botao" id="postarBotao" onclick="postarJa('foto')" title="Postar agora">➕</button>
 <div class="chat-caixa" id="chatCaixa">
   <div class="chat-topo">🤖 <div>Assistente do Postou<small>respondo na hora, é só perguntar!</small></div></div>
   <div class="chat-msgs" id="chatMsgs"></div>
@@ -876,6 +888,7 @@ async function entrarNoApp(){
   if(user && user.email && !usuarioMeta.email) usuarioMeta.email = user.email;
   document.getElementById('telaLogin').style.display = 'none';
   document.getElementById('app').style.display = 'block';
+  document.body.classList.add('logado');
   try{ contaEmpresaId = localStorage.getItem('postou_contaEmpresa_'+usuarioId) || null; }catch(e){ contaEmpresaId = null; }
   await carregarDados();
   if(contaEmpresaId && !dados){ contaEmpresaId = null; await carregarDados(); }
@@ -3832,7 +3845,22 @@ function atualizarOndeSai(){
     const arroba = r.usuario ? '@'+String(r.usuario).replace(/^@/,'') : (r.link ? 'link cadastrado' : c.nome);
     return `${cat.sigla} <b>${escapar(arroba)}</b>`;
   });
-  el.innerHTML = '📍 Vai sair no perfil <b>'+escapar(c.nome)+'</b>: '+partes.join(' · ');
+  const semRobo = !(c.igConta||c.metaPageId) && marcadas.some(t=>t==='instagram'||t==='facebook');
+  el.innerHTML = '📍 Vai sair no perfil <b>'+escapar(c.nome)+'</b>: '+partes.join(' · ')
+    + (semRobo ? '<div style="margin-top:6px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:7px 10px;color:#92400e;font-size:.82rem">⚠️ <b>'+escapar(c.nome)+'</b> ainda não está ligado ao robô — o Instagram/Facebook desse perfil <b>não sai sozinho</b>. Ligue em 🤖 Robô (📸 Conectar só o Instagram) ou poste por um perfil já ligado.</div>' : '');
+}
+/* ➕ Postar agora: abre a postagem de hoje, daqui a 10 min, já no formato escolhido e com 🤖 ligado */
+function postarJa(tipo){
+  abrirModalPost(null, hojeISO());
+  setTimeout(()=>{
+    try{
+      const t=document.getElementById('mTipo'); if(t){ t.value=tipo; t.dispatchEvent(new Event('change')); }
+      const d=new Date(Date.now()+10*60000); const h=document.getElementById('mHora');
+      if(h) h.value=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+      const a=document.getElementById('mAuto'); if(a && !a.checked){ a.checked=true; a.dispatchEvent(new Event('change')); }
+      const st=document.getElementById('mStatus'); if(st && [...st.options].some(o=>o.value==='agendado')) st.value='agendado';
+    }catch(e){}
+  },60);
 }
 function abrirModalPost(id, dataPre){
   if(!dados.clientes.length){ abrirModal('<h3>Ops!</h3><p>Cadastre um usuário primeiro, na aba Usuários.</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
@@ -5293,6 +5321,8 @@ function temPalavra(texto, kw){
 }
 function responderChat(pergunta){
   const p = normalizarTexto(pergunta);
+  if(/(onde|como|aonde|qual|cade|nao acho|nao encontro|botao)/.test(p) && /(post|public|story|stories|storys|reel|video|foto|add|adicion|colocar|subir|agend)/.test(p) && !/(horario|hashtag|legenda|ideia|engaj|o que e|o que postar)/.test(p))
+    return '➕ Pra postar no Postou: na aba 🏠 Hoje, lá em cima, tem o quadro "➕ Postar agora" — toque em 📸 Post, 📱 Story ou 🎬 Vídeo/Reels (ou no botão redondo ➕ no canto de baixo, à esquerda). Escolha o perfil, suba a foto/vídeo (até 90 s pra story/reels), escreva a legenda e deixe marcado 🤖 Publicar sozinho — o robô publica no horário (já vem daqui a 10 min). 💜 Também dá pelo 📅 Calendário → + Nova postagem.';
   let melhor = null, melhorPontos = 0;
   BASE_CONHECIMENTO.forEach(item=>{
     let pontos = 0;
