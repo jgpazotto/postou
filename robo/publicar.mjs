@@ -322,7 +322,7 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
         try {
           resultado = await publicarInstagram({ tipo: 'story', midias: [{ url, tipo }] }, alvo);
           resultado.de = cli.nome;
-          log('   ✅ espelhado', resultado.id);
+          log('   ✅ espelhado', resultado.id); if (resultado.id) doRobo.add(String(resultado.id));
         } catch (e) { status = 'erro'; resultado = { erro: e.message, de: cli.nome }; log('   ❌', e.message); }
         await sb(`publicacoes?user_id=eq.${row.user_id}&post_id=eq.${it.id}&rede=eq.${encodeURIComponent(rede)}`, {
           method: 'PATCH', body: JSON.stringify({ status, resultado }) });
@@ -584,6 +584,7 @@ async function main() {
           status = 'erro'; resultado = { erro: e.message };
           log('   ❌', e.message);
         }
+        if (resultado && resultado.id) doRobo.add(String(resultado.id)); // espelho não repete o que o robô acabou de postar
         await sb(`publicacoes?user_id=eq.${row.user_id}&post_id=eq.${p.id}&rede=eq.${rede}`, {
           method: 'PATCH', body: JSON.stringify({ status, resultado }) });
         total++;
