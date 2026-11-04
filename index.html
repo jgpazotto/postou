@@ -5488,12 +5488,25 @@ function ehPerfilSocial(c){ return c && !c.arquivado && c.tipo!=='cliente' && c.
 function desenharMidias(){
   const el = document.getElementById('mMidiasPrev'); if(!el) return;
   el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:110px;height:110px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
-      ${m.tipo==='video'?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,var(--g1),var(--g2))">🎬</div><video src="${m.url}#t=0.5" muted playsinline preload="metadata" onerror="this.remove()" style="position:relative;width:100%;height:100%;object-fit:cover"></video><span style="position:absolute;left:4px;bottom:3px;font-size:.7rem;background:#0008;color:#fff;border-radius:6px;padding:0 4px">🎬</span>`
-        :`<img src="${m.url}" title="Toque pra ver grande" onclick="window.open('${m.url}','_blank')" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in">`}
+      ${m.tipo==='video'?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,var(--g1),var(--g2))">🎬</div><video src="${m.url}#t=0.5" muted playsinline preload="metadata" onerror="this.remove()" style="position:relative;width:100%;height:100%;object-fit:cover;pointer-events:none"></video><span onclick="verMidia(${i})" title="Toque pra assistir" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-size:1.4rem;background:#0009;color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center">▶</span></span>`
+        :`<img src="${m.url}" title="Toque pra ver grande" onclick="verMidia(${i})" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in">`}
       <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
     </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
   if(midiasTemp.length) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Tira as artes e escolhe outra" onclick="trocarArte()" style="align-self:center">🔄 Trocar arte</button>`);
   verificarFormato();
+}
+
+function verMidia(i){
+  const m = midiasTemp[i]; if(!m) return;
+  const d = document.createElement('div');
+  d.id='verMidiaBox';
+  d.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:100000;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:16px';
+  d.innerHTML = (m.tipo==='video'
+     ? `<video src="${m.url}" controls autoplay playsinline style="max-width:100%;max-height:80vh;border-radius:12px;background:#000"></video>`
+     : `<img src="${m.url}" style="max-width:100%;max-height:80vh;border-radius:12px">`)
+     + `<button style="margin-top:14px;border:none;border-radius:999px;padding:10px 22px;font-weight:700;background:#fff;cursor:pointer">✓ É esse mesmo — fechar</button>`;
+  d.addEventListener('click', e=>{ if(e.target===d || e.target.tagName==='BUTTON'){ const v=d.querySelector('video'); if(v) v.pause(); d.remove(); } });
+  document.body.appendChild(d);
 }
 function trocarArte(){ midiasTemp = []; desenharMidias(); const i=document.getElementById('mMidia'); if(i) i.click(); }
 /* 📐 arte quadrada/deitada no feed: avisa e oferece ajustar pra 4:5 com fundo (sem cortar) */
