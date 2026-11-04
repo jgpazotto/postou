@@ -40,6 +40,13 @@
   :root[data-tema="verde"]{--bg:#f5fbf7; --line:#e0eee5; --g1:#047857; --g2:#10b981; --g3:#84cc16; --grad:linear-gradient(100deg,#047857,#10b981 55%,#84cc16); --t1:#ecfdf5; --t1b:#a7f3d0; --t2:#f0fdf4; --t2b:#bbf7d0;}
   :root[data-tema="laranja"]{--bg:#fffaf5; --line:#f3e6d8; --g1:#c2410c; --g2:#f97316; --g3:#f59e0b; --grad:linear-gradient(100deg,#c2410c,#f97316 55%,#f59e0b); --t1:#fff7ed; --t1b:#fed7aa; --t2:#fffbeb; --t2b:#fde68a;}
   :root[data-tema="grafite"]{--bg:#f6f7f9; --line:#e2e5ea; --g1:#1e293b; --g2:#475569; --g3:#64748b; --grad:linear-gradient(100deg,#1e293b,#475569 55%,#64748b); --t1:#f1f5f9; --t1b:#cbd5e1; --t2:#f8fafc; --t2b:#cbd5e1;}
+  .perfil-robo{border:1px solid var(--line);border-radius:12px;padding:0 12px;margin:6px 0;background:#fff;}
+  .perfil-robo summary{cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 0;list-style:none;flex-wrap:wrap;}
+  .perfil-robo summary::-webkit-details-marker{display:none}
+  .perfil-robo .redes-chips{font-size:1rem;letter-spacing:2px}
+  .perfil-robo .trocar{margin-left:auto;font-size:.8rem;color:var(--muted)}
+  .perfil-robo[open] .trocar{display:none}
+  .perfil-robo select{max-width:100%;}
   .tema-pop{position:absolute; right:0; top:44px; background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 10px 30px rgba(0,0,0,.12); z-index:200; width:230px;}
   .tema-pop button{display:flex; align-items:center; gap:10px; width:100%; border:1px solid var(--line); background:#fff; border-radius:10px; padding:8px 10px; margin-top:6px; cursor:pointer; font-size:.92rem;}
   .tema-pop button.ativo{border:2px solid var(--g1); font-weight:700;}
@@ -5745,13 +5752,13 @@ function renderConexoes(){
     ${(conexaoMeta || igContas.some(a=>a.ig_id)) ? `
       ${conexaoMeta?`<div style="font-size:.86rem;margin-bottom:8px">✅ Facebook conectado${conexaoMeta.erro?` · <span style="color:#dc2626">${escapar(conexaoMeta.erro)}</span>`:''}</div>`:''}
       <details style="margin:6px 0"><summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:6px 0">⚙️ Perfis ligados ao robô (${perfis.length}) — toque pra ver ou trocar</summary>
-      ${(pags.length || igContas.some(a=>a.ig_id)) ? perfis.map(c=>`<div style="display:flex;align-items:center;gap:8px;margin:6px 0;flex-wrap:wrap">
-          <span class="bolinha" style="background:${c.cor}"></span><b style="min-width:140px">${escapar(c.nome)}${c.metaAuto?' <span title="Ligado automático pelo @ do Instagram — pode trocar" style="font-size:.7rem;background:#dcfce7;color:#166534;border-radius:20px;padding:1px 7px;font-weight:600">✅ automático</span>':''}${!c.metaPageId&&!c.igConta&&!paginaDoPerfil(c,pags)?' <span title="Nenhuma página com esse @ apareceu. O Instagram precisa ser profissional e ligado a uma Página do Facebook; depois clique em Reconectar." style="font-size:.7rem;background:#fef3c7;color:#92400e;border-radius:20px;padding:1px 7px;font-weight:600">sem página</span>':''}</b>
+      ${(pags.length || igContas.some(a=>a.ig_id)) ? perfis.map(c=>`<details class="perfil-robo"><summary><span class="bolinha" style="background:${c.cor}"></span><b>${escapar(c.nome)}</b> <span class="redes-chips">${chipsRobo(c,pags)}</span> <span class="trocar">✏️</span></summary><div style="display:flex;align-items:center;gap:8px;margin:6px 0 10px;flex-wrap:wrap">
+          <b style="min-width:140px;display:none">${escapar(c.nome)}${c.metaAuto?' <span title="Ligado automático pelo @ do Instagram — pode trocar" style="font-size:.7rem;background:#dcfce7;color:#166534;border-radius:20px;padding:1px 7px;font-weight:600">✅ automático</span>':''}${!c.metaPageId&&!c.igConta&&!paginaDoPerfil(c,pags)?' <span title="Nenhuma página com esse @ apareceu. O Instagram precisa ser profissional e ligado a uma Página do Facebook; depois clique em Reconectar." style="font-size:.7rem;background:#fef3c7;color:#92400e;border-radius:20px;padding:1px 7px;font-weight:600">sem página</span>':''}</b>
           <select onchange="escolherPaginaMeta(${c.id}, this.value)" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px;min-width:220px">
             <option value="">— não publicar automático —</option>
             ${pags.map(p=>`<option value="${p.id}" ${c.metaPageId===p.id?'selected':''}>${escapar(p.name)}${p.ig_user?' + @'+escapar(p.ig_user):' (sem Instagram)'}</option>`).join('')}
             ${igContas.filter(a=>a.ig_id).map(a=>`<option value="ig:${a.ig_id}" ${c.igConta===a.ig_id?'selected':''}>📸 @${escapar(a.username||a.ig_id)} (só Instagram)</option>`).join('')}
-          </select>${thContas.some(a=>a.ig_id)?`<select onchange="escolherThreads(${c.id}, this.value)" title="Threads deste perfil" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px"><option value="">🧵 sem Threads</option>${thContas.filter(a=>a.ig_id).map(a=>`<option value="${a.ig_id}" ${c.thConta===a.ig_id?'selected':''}>🧵 @${escapar(a.username||a.ig_id)}</option>`).join('')}</select>`:''}${ytContas.some(a=>a.ig_id)?`<select onchange="escolherYouTube(${c.id}, this.value)" title="Canal do YouTube deste perfil" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px"><option value="">▶️ sem YouTube</option>${ytContas.filter(a=>a.ig_id).map(a=>`<option value="${a.ig_id}" ${c.ytConta===a.ig_id?'selected':''}>▶️ ${escapar(a.username||a.ig_id)}</option>`).join('')}</select>`:''}${c.metaPageId?`<label style="display:flex;align-items:center;gap:5px;font-size:.78rem;margin:0;cursor:pointer" title="Responde sozinho comentário simples (linda, arrasou, só emoji) com obrigada + 💜. Pergunta nunca."><input type="checkbox" ${c.autoResponder?'checked':''} onchange="ligarAutoResposta(${c.id}, this.checked)" style="width:16px;height:16px;margin:0"> 💬 Responder sozinho</label>`:''}</div>`).join('')
+          </select>${thContas.some(a=>a.ig_id)?`<select onchange="escolherThreads(${c.id}, this.value)" title="Threads deste perfil" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px"><option value="">🧵 sem Threads</option>${thContas.filter(a=>a.ig_id).map(a=>`<option value="${a.ig_id}" ${c.thConta===a.ig_id?'selected':''}>🧵 @${escapar(a.username||a.ig_id)}</option>`).join('')}</select>`:''}${ytContas.some(a=>a.ig_id)?`<select onchange="escolherYouTube(${c.id}, this.value)" title="Canal do YouTube deste perfil" style="padding:7px 10px;border:1px solid var(--line);border-radius:10px"><option value="">▶️ sem YouTube</option>${ytContas.filter(a=>a.ig_id).map(a=>`<option value="${a.ig_id}" ${c.ytConta===a.ig_id?'selected':''}>▶️ ${escapar(a.username||a.ig_id)}</option>`).join('')}</select>`:''}${c.metaPageId?`<label style="display:flex;align-items:center;gap:5px;font-size:.78rem;margin:0;cursor:pointer" title="Responde sozinho comentário simples (linda, arrasou, só emoji) com obrigada + 💜. Pergunta nunca."><input type="checkbox" ${c.autoResponder?'checked':''} onchange="ligarAutoResposta(${c.id}, this.checked)" style="width:16px;height:16px;margin:0"> 💬 Responder sozinho</label>`:''}</div></details>`).join('')
         : '<div style="font-size:.84rem;color:var(--muted)">Nenhuma página encontrada nessa conta do Facebook.</div>'}
       </details>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="ligarAutomatico(true)">🔗 Ligar todos</button>${conexaoMeta?`<button class="btn-claro" onclick="conectarMeta()">🔄 Reconectar</button><button class="btn-mini" onclick="desconectarMeta()">Desconectar</button>`:`<button class="btn-claro" onclick="conectarMeta()">🔗 Conectar Facebook</button>`}</div>`
@@ -5829,6 +5836,16 @@ function badgeAuto(p){
   });
   const manuais = (p.redes||[]).filter(r=>!auto.includes(r)).map(r=>(REDES&&REDES[r]&&REDES[r].nome)||r);
   return `<div style="font-size:.78rem;margin-top:3px">🤖 ${partes.join(' · ')}${manuais.length?` <span style="color:var(--muted)">· ${escapar(manuais.join(', '))}: manual</span>`:''}</div>${p.obs?`<div style="font-size:.78rem;color:var(--muted);margin-top:2px">📝 ${escapar(p.obs)}</div>`:''}`;
+}
+
+function chipsRobo(c,pags){
+  const pg = c.metaPageId ? (pags||[]).find(p=>p.id===c.metaPageId) : null;
+  const out=[];
+  if(c.igConta || (pg && pg.ig_user)) out.push('📸');
+  if(pg) out.push('📘');
+  if(c.thConta) out.push('🧵');
+  if(c.ytConta) out.push('▶️');
+  return out.length ? out.join(' ') : '<span style="color:var(--muted);font-size:.8rem">manual</span>';
 }
 async function tentarDeNovo(postId, rede){
   await sb.from('publicacoes').delete().eq('user_id',usuarioId).eq('post_id',postId).eq('rede',rede);
