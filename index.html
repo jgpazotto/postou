@@ -215,7 +215,16 @@
   .lp-grid3{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px;}
   .lp-passo{text-align:center; padding:10px;}
   .lp-num{display:inline-flex; width:44px; height:44px; border-radius:50%; background:var(--grad); color:#fff; align-items:center; justify-content:center; font-weight:800; font-size:1.2rem; margin-bottom:12px;}
-  .lp-planos{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; align-items:stretch;}
+  .lp-prints-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;max-width:1100px;margin:0 auto;}
+  .lp-prints-grid figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px;box-shadow:0 6px 20px rgba(0,0,0,.06);}
+  .lp-prints-grid img{width:100%;height:220px;object-fit:cover;object-position:top;border-radius:10px;display:block;}
+  .lp-prints-grid figcaption{font-size:.88rem;font-weight:600;margin-top:8px;text-align:center;}
+  .lp-tabela-wrap{overflow-x:auto;margin:26px auto 0;max-width:900px;}
+  .lp-tabela{width:100%;border-collapse:collapse;font-size:.88rem;background:#fff;border-radius:14px;overflow:hidden;min-width:560px;}
+  .lp-tabela th,.lp-tabela td{padding:9px 8px;border-bottom:1px solid var(--line);text-align:center;}
+  .lp-tabela td:first-child{text-align:left;font-weight:600;}
+  .lp-tabela .dest{background:var(--t1);font-weight:700;}
+  .lp-planos{display:grid; grid-template-columns:repeat(auto-fit,minmax(178px,1fr)); gap:16px; align-items:stretch;}
   .lp-plano{background:#fff; border:1.5px solid var(--line); border-radius:16px; padding:22px 18px; display:flex; flex-direction:column;}
   .lp-plano.destaque{border-color:var(--g1); box-shadow:0 12px 34px rgba(124,58,237,.16); position:relative;}
   .lp-plano.destaque .lp-tag{position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--grad); color:#fff; font-size:.72rem; font-weight:700; padding:4px 12px; border-radius:999px; white-space:nowrap;}
@@ -326,13 +335,23 @@
   <header class="lp-hero">
     <div class="lp-badge">✨ Um facilitador de vida: agenda, clientes e redes num app só</div>
     <h1>Sua <span>agenda</span>, seus <span>clientes</span> e suas redes num lugar só 💜</h1>
-    <p class="lp-lead">Marque <b>atendimentos</b> com lembrete no WhatsApp em 1 toque, saiba <b>quem falta pagar</b>, e deixe o <b>robô publicar sozinho</b> no Instagram e no Facebook — com ideias prontas pro seu nicho. Pra manicure, cabeleireira, confeiteira, personal, social media e todo mundo que vive de agenda. 🇧🇷🇺🇸</p>
+    <p class="lp-lead">Marque <b>atendimentos</b> com lembrete no WhatsApp, saiba <b>quem falta pagar</b> e deixe o <b>robô postar sozinho</b> no <b>Instagram, Facebook, Threads e YouTube</b> — inclusive os <b>stories em vários perfis de uma vez</b>. Com ideias prontas pro seu nicho. 🇧🇷🇺🇸</p>
     <div class="lp-cta">
       <a href="#" class="lp-btn-grande" onclick="irCadastro();return false">🎁 Testar 15 dias grátis</a>
       <a href="#lp-recursos" class="lp-btn-claro">Ver o que faz</a>
     </div>
     <div class="lp-mini">🎁 Experimente 15 dias grátis</div>
   </header>
+  <section class="lp-sec lp-prints">
+    <h2>Veja o Postou funcionando 👀</h2>
+    <p class="lp-sub">Prints de verdade do app (com dados de exemplo).</p>
+    <div class="lp-prints-grid">
+      <figure><img src="img-robo.jpg" alt="Robô publicou no Instagram e Facebook" loading="lazy"><figcaption>🤖 O robô posta sozinho e te mostra tudo que saiu</figcaption></figure>
+      <figure><img src="img-stories.jpg" alt="Stories automáticos em vários perfis" loading="lazy"><figcaption>📲 Escolha uma vez e todo post vira story nos outros perfis</figcaption></figure>
+      <figure><img src="img-cobranca.jpg" alt="Pagamentos por vir com lembrete" loading="lazy"><figcaption>💰 Veja quem falta pagar e lembre no WhatsApp num toque</figcaption></figure>
+    </div>
+  </section>
+
 
   <section id="lp-recursos" class="lp-sec">
     <h2>Tudo que você precisa, num lugar só</h2>
@@ -342,7 +361,7 @@
       <div class="lp-card"><div class="lp-ic">🧩</div><h3>Tem pra sua profissão</h3><p>Ideias prontas por nicho: social media, psicologia, carros, diarista, brasileiros nos EUA, confeitaria e muito mais.</p></div>
       <div class="lp-card"><div class="lp-ic">📅</div><h3>Calendário inteligente</h3><p>Veja por dia, semana ou mês. Planeje as postagens e nunca mais perca uma data.</p></div>
       <div class="lp-card"><div class="lp-ic">💡</div><h3>Ideias por nicho</h3><p>Centenas de ideias prontas pro seu nicho, com legendas e hashtags. Chega de bloqueio criativo.</p></div>
-      <div class="lp-card"><div class="lp-ic">🚀</div><h3>Postar em poucos cliques</h3><p>Legenda pronta e botão direto pra cada rede. Publicar ficou rápido.</p></div>
+      <div class="lp-card"><div class="lp-ic">🤖</div><h3>Robô que posta sozinho</h3><p>Agende e esqueça: o Postou publica no Instagram, Facebook, Threads e YouTube Shorts no dia e na hora certos.</p></div><div class="lp-card"><div class="lp-ic">📲</div><h3>Stories em vários perfis</h3><p>Escolha uma vez e todo post novo também vai pros stories dos outros perfis. Ninguém precisa aceitar nada.</p></div><div class="lp-card"><div class="lp-ic">🪞</div><h3>Espelho</h3><p>Postou direto no Instagram? O robô percebe sozinho e repete nos stories dos perfis que você escolher.</p></div><div class="lp-card"><div class="lp-ic">➕</div><h3>Postar agora</h3><p>Um botão logo na entrada: foto, story ou reels, e o robô já cuida do resto.</p></div><div class="lp-card"><div class="lp-ic">💬</div><h3>Assistente que ensina</h3><p>Ficou com dúvida? Pergunte no chatzinho do app e ele te mostra onde fica cada coisa.</p></div><div class="lp-card"><div class="lp-ic">🎨</div><h3>Do seu jeito</h3><p>Escolha a cor do painel: roxo, azul, verde, laranja ou grafite. E mande seus posts direto pro Status do WhatsApp.</p></div>
       <div class="lp-card"><div class="lp-ic">👥</div><h3>Postar em vários perfis</h3><p>Conteúdo em collab? Crie uma vez e publique nos vários perfis de uma vez só.</p></div>
       <div class="lp-card"><div class="lp-ic">💰</div><h3>Financeiro e Caixa</h3><p>Controle o que entra, o que tem a receber e os pagamentos dos seus clientes.</p></div>
       <div class="lp-card"><div class="lp-ic">📌</div><h3>Compromissos e lembretes</h3><p>Médico, reunião, gravação, viagem de vários dias… o Postou organiza a sua vida, não só as redes.</p></div>
@@ -375,13 +394,22 @@
       <div style="font-size:.9rem;color:#6b7280;margin-top:4px">Quem assina qualquer plano ganha o e-book <b>“Redes Organizadas em 7 Dias”</b> — sem custo nenhum. 💜</div>
     </div>
     <div class="lp-planos">
-      <div class="lp-plano"><h3>🌱 Pessoal</h3><div class="lp-tagline">Pro seu próprio perfil</div><div class="lp-preco">R$ 4,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 49/ano 💜</div><ul><li>1 perfil</li><li>Calendário completo</li><li>Ideias por nicho</li><li>Compromissos e lembretes</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a><a class="lp-assinar" href="https://mpago.la/1nsxRvD" target="_blank" rel="noopener">Assinar mensal</a><a class="lp-assinar" href="https://mpago.la/1C6pRjY" target="_blank" rel="noopener">Assinar 1 ano</a></div>
-      <div class="lp-plano"><h3>💵 Vendas</h3><div class="lp-tagline">Pra quem vende pelas redes</div><div class="lp-preco">R$ 9,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 99/ano 💜</div><ul><li>Tudo do Pessoal</li><li>Controle de vendas e lucros</li><li>Caixa e recebimentos</li><li>Contador ajudante</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a><a class="lp-assinar" href="https://mpago.la/2xX71dj" target="_blank" rel="noopener">Assinar mensal</a><a class="lp-assinar" href="https://mpago.la/1NDSrK2" target="_blank" rel="noopener">Assinar 1 ano</a></div>
-      <div class="lp-plano"><h3>🏢 Business</h3><div class="lp-tagline">Pessoal + Vendas, até 10 contas</div><div class="lp-preco">R$ 18,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 189/ano 💜</div><ul><li>Até 10 perfis</li><li>Postar em vários perfis</li><li>Financeiro completo</li><li>Datas comemorativas</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a><a class="lp-assinar" href="https://mpago.la/2JcFJ7s" target="_blank" rel="noopener">Assinar mensal</a><a class="lp-assinar" href="https://mpago.la/2VKbSvX" target="_blank" rel="noopener">Assinar 1 ano</a></div>
-      <div class="lp-plano destaque"><div class="lp-tag">⭐ Mais popular</div><h3>🚀 Pro</h3><div class="lp-tagline">Profissional de marketing</div><div class="lp-preco">R$ 24,99<span>/mês</span></div><div class="lp-preco-ano">ou R$ 249/ano 💜</div><ul><li>Vários clientes</li><li>Postar em vários perfis</li><li>Vendas + Caixa</li><li>Tudo liberado</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a><a class="lp-assinar" href="https://mpago.la/1SkECDe" target="_blank" rel="noopener">Assinar mensal</a><a class="lp-assinar" href="https://mpago.la/1afH5VC" target="_blank" rel="noopener">Assinar 1 ano</a></div>
-      <div class="lp-plano"><h3>👑 Ultra</h3><div class="lp-tagline">Agência / muitos clientes</div><div class="lp-preco">R$ 29,90<span>/mês</span></div><div class="lp-preco-ano">ou R$ 299/ano 💜</div><ul><li>Clientes ilimitados</li><li>👥 Gerencia sua equipe</li><li>Tudo do Pro</li><li>Vendas + Caixa</li></ul><a href="#" onclick="irCadastro();return false">Testar grátis</a><a class="lp-assinar" href="https://mpago.la/1KXHozT" target="_blank" rel="noopener">Assinar mensal</a><a class="lp-assinar" href="https://mpago.la/2iPyhmN" target="_blank" rel="noopener">Assinar 1 ano</a></div>
+      <div class="lp-plano"><h3>🌱 Pessoal</h3><div class="lp-tagline">Pro seu próprio perfil</div><div class="lp-preco">R$ 9,90<span>/mês</span></div><div class="lp-preco-ano">ou R$ 99/ano no Pix 💜 (2 meses grátis)</div><ul><li>1 perfil</li><li>Calendário + ideias por nicho</li><li>🤖 Robô posta sozinho</li><li>Compromissos e lembretes</li></ul><a href="#" onclick="irCadastro();return false">Testar 15 dias grátis</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20assinar%20o%20Postou%20Pessoal%20%28mensal%2C%20R%24%209%2C90%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💬 Assinar mensal</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20o%20Postou%20Pessoal%20anual%20no%20Pix%20%28R%24%2099%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💠 Anual no Pix</a></div>
+      <div class="lp-plano"><h3>💵 Vendas</h3><div class="lp-tagline">Pra quem vende pelas redes</div><div class="lp-preco">R$ 14,90<span>/mês</span></div><div class="lp-preco-ano">ou R$ 149/ano no Pix 💜 (2 meses grátis)</div><ul><li>Tudo do Pessoal</li><li>Controle de vendas e lucros</li><li>Caixa e recebimentos</li><li>Lembrete de pagamento no WhatsApp</li></ul><a href="#" onclick="irCadastro();return false">Testar 15 dias grátis</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20assinar%20o%20Postou%20Vendas%20%28mensal%2C%20R%24%2014%2C90%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💬 Assinar mensal</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20o%20Postou%20Vendas%20anual%20no%20Pix%20%28R%24%20149%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💠 Anual no Pix</a></div>
+      <div class="lp-plano"><h3>🏢 Business</h3><div class="lp-tagline">Até 10 perfis</div><div class="lp-preco">R$ 29,90<span>/mês</span></div><div class="lp-preco-ano">ou R$ 299/ano no Pix 💜 (2 meses grátis)</div><ul><li>Até 10 perfis</li><li>📲 Stories em vários perfis</li><li>🪞 Espelho</li><li>Datas comemorativas</li></ul><a href="#" onclick="irCadastro();return false">Testar 15 dias grátis</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20assinar%20o%20Postou%20Business%20%28mensal%2C%20R%24%2029%2C90%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💬 Assinar mensal</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20o%20Postou%20Business%20anual%20no%20Pix%20%28R%24%20299%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💠 Anual no Pix</a></div>
+      <div class="lp-plano destaque"><div class="lp-tag">⭐ Mais escolhido</div><h3>🚀 Pro</h3><div class="lp-tagline">Profissional de marketing</div><div class="lp-preco">R$ 39,90<span>/mês</span></div><div class="lp-preco-ano">ou R$ 399/ano no Pix 💜 (2 meses grátis)</div><ul><li>Até 30 perfis/clientes</li><li>Tudo do Business</li><li>Vendas + Caixa</li><li>Tudo liberado</li></ul><a href="#" onclick="irCadastro();return false">Testar 15 dias grátis</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20assinar%20o%20Postou%20Pro%20%28mensal%2C%20R%24%2039%2C90%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💬 Assinar mensal</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20o%20Postou%20Pro%20anual%20no%20Pix%20%28R%24%20399%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💠 Anual no Pix</a></div>
+      <div class="lp-plano"><h3>👑 Ultra</h3><div class="lp-tagline">Agência / muitos clientes</div><div class="lp-preco">R$ 59,90<span>/mês</span></div><div class="lp-preco-ano">ou R$ 599/ano no Pix 💜 (2 meses grátis)</div><ul><li>Clientes ilimitados</li><li>👥 Gerencia sua equipe</li><li>Tudo do Pro</li><li>Suporte prioritário no WhatsApp</li></ul><a href="#" onclick="irCadastro();return false">Testar 15 dias grátis</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20assinar%20o%20Postou%20Ultra%20%28mensal%2C%20R%24%2059%2C90%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💬 Assinar mensal</a><a class="lp-assinar" href="https://wa.me/16505825298?text=Oi%21%20Quero%20o%20Postou%20Ultra%20anual%20no%20Pix%20%28R%24%20599%29%20%F0%9F%92%9C" target="_blank" rel="noopener">💠 Anual no Pix</a></div>
     </div>
-    <p class="lp-sub" style="margin-top:24px">💜 Valores sob medida pra você — comece grátis e a gente combina o plano ideal.</p>
+    <div class="lp-tabela-wrap"><table class="lp-tabela">
+      <tr><th></th><th>🌱 Pessoal</th><th>💵 Vendas</th><th>🏢 Business</th><th class="dest">🚀 Pro</th><th>👑 Ultra</th></tr>
+      <tr><td>Perfis / clientes</td><td>1</td><td>1</td><td>10</td><td class="dest">30</td><td>ilimitado</td></tr>
+      <tr><td>Calendário, ideias e datas</td><td>✅</td><td>✅</td><td>✅</td><td class="dest">✅</td><td>✅</td></tr>
+      <tr><td>🤖 Robô (Insta, Face, Threads, YouTube)</td><td>✅</td><td>✅</td><td>✅</td><td class="dest">✅</td><td>✅</td></tr>
+      <tr><td>📲 Stories em vários perfis + 🪞 Espelho</td><td>—</td><td>—</td><td>✅</td><td class="dest">✅</td><td>✅</td></tr>
+      <tr><td>💰 Vendas, Caixa e cobranças</td><td>—</td><td>✅</td><td>—</td><td class="dest">✅</td><td>✅</td></tr>
+      <tr><td>👥 Equipe</td><td>—</td><td>—</td><td>—</td><td class="dest">—</td><td>✅</td></tr>
+    </table></div>
+<p class="lp-sub" style="margin-top:24px">🎁 No teste grátis você usa tudo do Pro por 15 dias. Dúvidas? <a href="https://wa.me/16505825298?text=Oi%21%20Tenho%20uma%20d%C3%BAvida%20sobre%20o%20Postou%20%F0%9F%92%9C" target="_blank" rel="noopener" style="color:var(--g1);font-weight:700">Chama no WhatsApp</a> 💜</p>
   </section>
 
   <section id="lp-entrar" class="lp-sec lp-entrar">
