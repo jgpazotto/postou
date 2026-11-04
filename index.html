@@ -5871,13 +5871,14 @@ function painelRoboHoje(f, hoje){
     if(!itens.length) return '';
     itens.sort((a,b)=>(b.p.data+(b.p.hora||'')).localeCompare(a.p.data+(a.p.hora||'')));
     const nomeRede = r => r.startsWith('story:') ? '📲 Story '+(((dados.clientes||[]).find(c=>String(c.id)===r.slice(6))||{}).nome||'') : (SIGLA_AUTO[r]||r);
-    const erros = itens.reduce((n,i)=>n+i.res.filter(o=>o.x.status==='erro').length,0);
+    const erros = itens.reduce((n,i)=>n+i.res.filter(o=>o.x.status==='erro' && !ehSoManual(o.x)).length,0);
     const linhas = itens.slice(0,8).map(({p,res})=>{
       const c = clientePorId(p.clienteId)||{};
       const partes = res.map(({r,x})=>{
         const nm = nomeRede(r);
         if(x.status==='ok'){ const l = x.resultado && x.resultado.link; return l ? `<a href="${escapar(l)}" target="_blank" rel="noopener" style="color:#166534;font-weight:600">✅ ${nm} 🔗</a>` : `<span style="color:#166534">✅ ${nm}</span>`; }
         if(x.status==='publicando') return `<span>⏳ ${nm}</span>`;
+        if(ehSoManual(x)) return `<span style="color:#92400e" title="O Facebook não deixa robô postar story em vídeo">✋ ${nm}: story em vídeo é à mão (não é erro)</span>`;
         const err = (x.resultado&&x.resultado.erro)||'erro';
         return `<span style="color:#dc2626" title="${escapar(err)}">⚠️ ${nm}</span> <button class="btn-mini" onclick="tentarDeNovo(${p.id},'${r}')">tentar de novo</button><div style="font-size:.74rem;color:#b91c1c;margin:2px 0 0 4px">${escapar(String(err).slice(0,140))}</div>`;
       }).join(' · ');
@@ -5886,6 +5887,8 @@ function painelRoboHoje(f, hoje){
     return `<details ${erros?'open':''} style="background:${erros?'#fef2f2':'#f0fdf4'};border:1px solid ${erros?'#fecaca':'#bbf7d0'};border-radius:14px;padding:10px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700;font-size:.9rem">🤖 O robô publicou ${erros?`<span style="color:#dc2626">· ⚠️ ${erros} com erro</span>`:'· tudo certo ✅'} <span style="font-weight:400;color:var(--muted);font-size:.78rem">(hoje e ontem — toque no 🔗 pra ver o post)</span></summary>${linhas}</details>`;
   }catch(e){ return ''; }
 }
+/* ✋ limite do Facebook (story em vídeo) não é erro do robô: mostra como "à mão" e não conta como erro */
+function ehSoManual(x){ const e = String((x&&x.resultado&&x.resultado.erro)||''); return x && x.status==='erro' && /ainda é manual|ainda e manual/i.test(e); }
 function redesAutoDoPost(p){
   const c = (typeof clientePorId==='function' && clientePorId(p.clienteId)) || {};
   return (p.redes||[]).filter(r=>r==='instagram'||r==='facebook'||(r==='threads'&&c.thConta)||(r==='youtube'&&c.ytConta));
@@ -5901,6 +5904,7 @@ function badgeAuto(p){
     if(!x) return `<span title="Vai publicar sozinho no horário">⏰ ${sig}</span>`;
     if(x.status==='ok') return `<span title="Publicado pelo robô">✅ ${sig}</span>`;
     if(x.status==='publicando') return `<span>⏳ ${sig}</span>`;
+    if(ehSoManual(x)) return `<span style="color:#92400e" title="O Facebook não deixa robô postar story em vídeo">✋ ${sig}: à mão</span>`;
     const err = (x.resultado&&x.resultado.erro)||'erro';
     return `<span style="color:#dc2626" title="${escapar(err)}">⚠️ ${sig}</span> <button class="btn-mini" onclick="tentarDeNovo(${p.id},'${r}')" title="${escapar(err)}">tentar de novo</button>`;
   });
