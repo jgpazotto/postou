@@ -214,6 +214,14 @@
   .lp-ic{width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,var(--t1),var(--t2)); display:flex; align-items:center; justify-content:center; font-size:1.5rem; margin-bottom:12px;}
   .lp-card h3{font-size:1.05rem; margin-bottom:6px;}
   .lp-card p{color:var(--muted); font-size:.9rem; line-height:1.45;}
+  .lp-grid6{grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px;}
+  .lp-grid6 .lp-card{display:flex; gap:12px; align-items:flex-start; padding:14px 16px; border-radius:14px;}
+  .lp-grid6 .lp-ic{width:40px; height:40px; min-width:40px; font-size:1.25rem; margin:0;}
+  .lp-grid6 .lp-card h3{font-size:.98rem; margin-bottom:3px;}
+  .lp-grid6 .lp-card p{font-size:.85rem;}
+  .lp-mais{max-width:900px; margin:20px auto 0; text-align:center; font-size:.86rem; color:var(--muted); line-height:2.1;}
+  .lp-mais b{color:var(--ink); margin-right:4px;}
+  .lp-mais span{display:inline-block; background:#fff; border:1px solid var(--line); border-radius:999px; padding:2px 11px; margin:2px 3px; color:var(--ink); white-space:nowrap;}
   .lp-passos{background:#fff; border-radius:24px; border:1px solid var(--line);}
   .lp-grid3{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:20px;}
   .lp-passo{text-align:center; padding:10px;}
@@ -360,19 +368,16 @@
   <section id="lp-recursos" class="lp-sec">
     <h2>Tudo que você precisa, num lugar só</h2>
     <p class="lp-sub">Pare de se perder entre apps, blocos de notas e planilhas.</p>
-    <div class="lp-grid">
-      <div class="lp-card"><div class="lp-ic">👥</div><h3>Cadastre clientes e serviços</h3><p>Clientes das redes, serviços (obra, faxina, diária) e uma agenda de cada um. Cadastro rápido, do jeito que você trabalha.</p></div>
-      <div class="lp-card"><div class="lp-ic">🧩</div><h3>Tem pra sua profissão</h3><p>Ideias prontas por nicho: social media, psicologia, carros, diarista, brasileiros nos EUA, confeitaria e muito mais.</p></div>
-      <div class="lp-card"><div class="lp-ic">📅</div><h3>Calendário inteligente</h3><p>Veja por dia, semana ou mês. Planeje as postagens e nunca mais perca uma data.</p></div>
-      <div class="lp-card"><div class="lp-ic">💡</div><h3>Ideias por nicho</h3><p>Centenas de ideias prontas pro seu nicho, com legendas e hashtags. Chega de bloqueio criativo.</p></div>
-      <div class="lp-card"><div class="lp-ic">🤖</div><h3>Robô que posta sozinho</h3><p>Agende e esqueça: o Postou publica no Instagram, Facebook, Threads e YouTube Shorts no dia e na hora certos.</p></div><div class="lp-card"><div class="lp-ic">📲</div><h3>Stories em vários perfis</h3><p>Escolha uma vez e todo post novo também vai pros stories dos outros perfis. Ninguém precisa aceitar nada.</p></div><div class="lp-card"><div class="lp-ic">🪞</div><h3>Espelho</h3><p>Postou direto no Instagram? O robô percebe sozinho e repete nos stories dos perfis que você escolher.</p></div><div class="lp-card"><div class="lp-ic">➕</div><h3>Postar agora</h3><p>Um botão logo na entrada: foto, story ou reels, e o robô já cuida do resto.</p></div><div class="lp-card"><div class="lp-ic">💬</div><h3>Assistente que ensina</h3><p>Ficou com dúvida? Pergunte no chatzinho do app e ele te mostra onde fica cada coisa.</p></div><div class="lp-card"><div class="lp-ic">🎨</div><h3>Do seu jeito</h3><p>Escolha a cor do painel: roxo, azul, verde, laranja ou grafite. E mande seus posts direto pro Status do WhatsApp.</p></div>
-      <div class="lp-card"><div class="lp-ic">👥</div><h3>Postar em vários perfis</h3><p>Conteúdo em collab? Crie uma vez e publique nos vários perfis de uma vez só.</p></div>
-      <div class="lp-card"><div class="lp-ic">💰</div><h3>Financeiro e Caixa</h3><p>Controle o que entra, o que tem a receber e os pagamentos dos seus clientes.</p></div>
-      <div class="lp-card"><div class="lp-ic">📌</div><h3>Compromissos e lembretes</h3><p>Médico, reunião, gravação, viagem de vários dias… o Postou organiza a sua vida, não só as redes.</p></div>
-      <div class="lp-card"><div class="lp-ic">🧰</div><h3>Também pra serviços</h3><p>Diarista, obra, faxina, vídeo… Cadastre o cliente só com telefone e endereço, mande "estou a caminho" num toque e cobre por diária.</p></div>
-      <div class="lp-card"><div class="lp-ic">👑</div><h3>Equipe (plano Ultra)</h3><p>Cadastre seus funcionários e escolha quem cuida de cada cliente. Depois é só filtrar a agenda por pessoa.</p></div>
-      <div class="lp-card"><div class="lp-ic">🎉</div><h3>Datas comemorativas</h3><p>Já vem com as datas do ano pra você surfar cada gancho de conteúdo.</p></div>
-      <div class="lp-card"><div class="lp-ic">☁️</div><h3>Salvo na nuvem</h3><p>Seus dados seguros e sincronizados, do computador ao celular.</p></div>
+    <div class="lp-grid lp-grid6">
+      <div class="lp-card"><div class="lp-ic">🤖</div><div><h3>Robô que posta sozinho</h3><p>Instagram, Facebook, Threads e YouTube Shorts no dia e hora certos.</p></div></div>
+      <div class="lp-card"><div class="lp-ic">📲</div><div><h3>Stories em vários perfis</h3><p>Todo post vira story nos outros perfis — e o 🪞 Espelho repete até o que você postou direto no Insta.</p></div></div>
+      <div class="lp-card"><div class="lp-ic">💡</div><div><h3>Ideias prontas pro seu nicho</h3><p>Legendas e hashtags pra dezenas de profissões. Chega de bloqueio criativo.</p></div></div>
+      <div class="lp-card"><div class="lp-ic">📅</div><div><h3>Calendário e lembretes</h3><p>Posts, atendimentos e compromissos num calendário só, por dia, semana ou mês.</p></div></div>
+      <div class="lp-card"><div class="lp-ic">💰</div><div><h3>Clientes e cobrança</h3><p>Veja quem falta pagar e lembre no WhatsApp num toque.</p></div></div>
+      <div class="lp-card"><div class="lp-ic">➕</div><div><h3>Postar agora</h3><p>Um botão na entrada: foto, story ou reels, e o robô cuida do resto.</p></div></div>
+    </div>
+    <div class="lp-mais"><b>E tem mais:</b>
+      <span>👥 Vários perfis de uma vez</span><span>🧰 Serviços e diárias</span><span>💬 Assistente que ensina</span><span>🎨 Cor do painel</span><span>📲 Status do WhatsApp</span><span>🎉 Datas comemorativas</span><span>👑 Equipe (Ultra)</span><span>☁️ Salvo na nuvem</span>
     </div>
   </section>
 
@@ -3949,10 +3954,11 @@ function abrirModalPost(id, dataPre){
     <div class="check-redes" id="mChkRedes" onchange="aoMudarRedes()">${checkboxesRedes(cliInicial, p?p.redes:null)}</div>
     <div id="mOndeSai" style="font-size:.8rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:7px 10px;margin-top:6px;color:#166534"></div>
     ${(!p && dados.clientes.length>1) ? `
-    <label>📋 Copiar este post pra outros perfis? <span style="font-weight:400;color:var(--muted);font-size:.78rem">(cria posts SEPARADOS, um em cada perfil. Pra collab de verdade no Instagram, use o campo 🤝 Collab lá embaixo)</span></label>
+    <details class="copiar-perfis" style="margin:10px 0 2px;border:1px solid var(--line);border-radius:12px;padding:8px 12px"><summary style="cursor:pointer;font-weight:700;font-size:.9rem">📋 Copiar pra outros perfis <span style="font-weight:400;color:var(--muted);font-size:.8rem">(opcional · ${dados.clientes.filter(x=>x.id!==cliInicial.id && ehPerfilSocial(x)).length})</span></summary>
+    <div style="font-size:.78rem;color:var(--muted);margin:6px 0">Cria posts SEPARADOS, um em cada perfil. Pra collab de verdade no Instagram, use o campo 🤝 Collab lá embaixo.</div>
     <div class="check-redes" id="mCollab">
       ${dados.clientes.filter(x=>x.id!==cliInicial.id && ehPerfilSocial(x)).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<label style="display:flex;align-items:center;gap:8px;justify-content:flex-start;text-align:left"><input type="checkbox" class="chk-collab" value="${x.id}" style="flex:none;width:16px;height:16px;margin:0"> <span class="bolinha" style="width:10px;height:10px;background:${x.cor};flex:none"></span> <span style="flex:1;text-align:left">${escapar(x.nome)}</span></label>`).join('')}
-    </div>` : ''}
+    </div></details>` : ''}
     <label>Título / assunto</label>
     <input id="mTitulo" value="${p?escapar(p.titulo):''}" placeholder="Ex.: Promoção de sexta">
     <label>Data e hora</label>
@@ -5504,9 +5510,28 @@ function verMidia(i){
   d.innerHTML = (m.tipo==='video'
      ? `<video src="${m.url}" controls autoplay playsinline style="max-width:100%;max-height:80vh;border-radius:12px;background:#000"></video>`
      : `<img src="${m.url}" style="max-width:100%;max-height:80vh;border-radius:12px">`)
-     + `<button style="margin-top:14px;border:none;border-radius:999px;padding:10px 22px;font-weight:700;background:#fff;cursor:pointer">✓ É esse mesmo — fechar</button>`;
-  d.addEventListener('click', e=>{ if(e.target===d || e.target.tagName==='BUTTON'){ const v=d.querySelector('video'); if(v) v.pause(); d.remove(); } });
+     + `<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="vm-status" style="border:none;border-radius:999px;padding:10px 18px;font-weight:700;background:#25d366;color:#fff;cursor:pointer">📲 Mandar pro Status</button><button class="vm-fechar" style="border:none;border-radius:999px;padding:10px 22px;font-weight:700;background:#fff;cursor:pointer">✓ É esse mesmo — fechar</button></div><div class="vm-dica" style="color:#fff;font-size:.8rem;margin-top:8px;text-align:center;max-width:420px"></div>`;
+  /* 📲 já baixa o arquivo pra o "compartilhar" abrir na hora (o celular exige o toque direto) */
+  let arquivo=null;
+  fetch(m.url).then(r=>r.blob()).then(b=>{ const ext=(b.type.split('/')[1]||'jpg').split(';')[0].replace('quicktime','mov').replace('jpeg','jpg'); arquivo=new File([b],'postou-status.'+ext,{type:b.type}); }).catch(()=>{});
+  d.addEventListener('click', e=>{
+    const t=e.target;
+    if(t.classList && t.classList.contains('vm-status')){ mandarProStatus(arquivo, m, d.querySelector('.vm-dica')); return; }
+    if(t===d || (t.classList && t.classList.contains('vm-fechar'))){ const v=d.querySelector('video'); if(v) v.pause(); d.remove(); }
+  });
   document.body.appendChild(d);
+}
+function mandarProStatus(arquivo, m, dica){
+  const leg=((document.getElementById('mLegenda')||{}).value||'').trim();
+  if(leg && navigator.clipboard){ navigator.clipboard.writeText(leg).catch(()=>{}); }
+  if(arquivo && navigator.canShare && navigator.canShare({files:[arquivo]})){
+    navigator.share({files:[arquivo]}).catch(()=>{});
+    if(dica) dica.textContent = 'Escolha WhatsApp Business → Meu status.' + (leg?' A legenda já foi copiada: é só colar. 💜':'');
+    return;
+  }
+  if(!arquivo){ if(dica) dica.textContent='Carregando o arquivo… toque de novo em 2 segundinhos.'; return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(arquivo); a.download=arquivo.name; document.body.appendChild(a); a.click(); a.remove();
+  if(dica) dica.textContent='Baixei o arquivo. No computador não dá pra pôr no Status: abra o Postou no celular e toque aqui de novo. 📱';
 }
 function trocarArte(){ midiasTemp = []; desenharMidias(); const i=document.getElementById('mMidia'); if(i) i.click(); }
 /* 📐 arte quadrada/deitada no feed: avisa e oferece ajustar pra 4:5 com fundo (sem cortar) */
