@@ -287,7 +287,7 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
     const desde = Math.max(new Date(cli.espelhoDesde).getTime() || 0, Date.now() - 24 * 36e5);
     let itens = [];
     try {
-      const m = await graph('GET', B + '/' + fonte.ig_id + '/media', { fields: 'id,media_type,media_url,thumbnail_url,timestamp', limit: 6, access_token: fonte.token });
+      const m = await graph('GET', B + '/' + fonte.ig_id + '/media', { fields: 'id,media_type,media_url,thumbnail_url,timestamp,caption', limit: 6, access_token: fonte.token });
       itens = itens.concat((m.data || []).map(x => ({ ...x, deStory: false })));
     } catch (e) { log('⚠️ espelho: não li os posts de', cli.nome, e.message); }
     try {
@@ -297,6 +297,8 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
     itens = itens.filter(x => x.id && x.timestamp && new Date(x.timestamp).getTime() >= desde && !doRobo.has(String(x.id)))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     for (const it of itens) {
+      // 🚫 perfil pessoal não leva propaganda: post que fala do Postou não é espelhado
+      if (/postou/i.test(it.caption || '')) { log(`   ⏭ espelho: post de ${cli.nome} fala do Postou — não vai pro story dos outros`); continue; }
       let url = it.media_url, tipo = it.media_type === 'VIDEO' ? 'video' : 'imagem';
       if (it.media_type === 'CAROUSEL_ALBUM') {
         try {
@@ -475,16 +477,30 @@ async function pegarLink(path, campo, tk) {
   try { return (await graph('GET', path, { fields: campo, access_token: tk }))[campo] || null; } catch { return null; }
 }
 
+// 🎬 Story em VÍDEO na Página do Facebook (3 passos: start → upload por link → finish)
+async function storyVideoFacebook(pg, tk, url) {
+  const ini = await graph('POST', pg + '/video_stories', { upload_phase: 'start', access_token: tk });
+  if (!ini.video_id) throw new Error('Facebook não abriu o envio do story em vídeo');
+  const ver = process.env.META_GRAPH_VERSION || 'v23.0';
+  const up = await fetch(ini.upload_url || ('https://rupload.facebook.com/video-upload/' + ver + '/' + ini.video_id), {
+    method: 'POST', headers: { Authorization: 'OAuth ' + tk, file_url: url } });
+  const uj = await up.json().catch(() => ({}));
+  if (!up.ok || uj.error || uj.success === false)
+    throw new Error('Facebook recusou o vídeo do story: ' + ((uj.error && (uj.error.message || uj.error.error_user_msg)) || ('HTTP ' + up.status)));
+  const fim = await graph('POST', pg + '/video_stories', { upload_phase: 'finish', video_id: ini.video_id, access_token: tk });
+  return fim.post_id || ini.video_id;
+}
+
 async function publicarFacebook(p, pagina) {
   const tk = pagina.token, pg = '/' + pagina.id;
   const midias = midiasDoPost(p);
   const message = legendaDe(p, 'facebook');
-  // 📱 Story na Página: só foto (story em vídeo no Facebook fica manual por enquanto)
+  // 📱 Story na Página: foto e vídeo (vídeo em pé, 3 a 60s)
   if (p.tipo === 'story') {
     if (!midias.length) throw new Error('Story precisa de foto ou vídeo');
     let ultimo = null;
     for (const m of midias.slice(0, 10)) {
-      if (m.tipo === 'video') throw new Error('Story em vídeo no Facebook ainda é manual — no Instagram foi');
+      if (m.tipo === 'video') { ultimo = await storyVideoFacebook(pg, tk, m.url); continue; }
       const foto = await graph('POST', pg + '/photos', { url: m.url, published: 'false', access_token: tk });
       ultimo = (await graph('POST', pg + '/photo_stories', { photo_id: foto.id, access_token: tk })).post_id || foto.id;
     }
