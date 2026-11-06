@@ -536,6 +536,37 @@ async function publicarFacebook(p, pagina) {
   return { id: (await graph('POST', pg + '/feed', params)).id };
 }
 
+
+// ---------------------------------------------------------------- 🎬 Reels feitos no Postou
+// O "✨ Fotos → Reels" grava no navegador; alguns aparelhos geram WebM/VP9. O Instagram só aceita
+// MP4 (H.264 + AAC) → aqui o robô confere e, se precisar, converte com o ffmpeg do GitHub.
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+async function prepararVideos(p, userId) {
+  if (!Array.isArray(p.midias)) return;
+  for (const m of p.midias) {
+    if (!m || m.tipo !== 'video' || !/^postou-reels-/.test(m.nome || '')) continue;
+    const pasta = mkdtempSync(join(tmpdir(), 'reel-')), ent = join(pasta, 'entrada'), sai = join(pasta, 'saida.mp4');
+    const r = await fetch(m.url); if (!r.ok) throw new Error('não baixei o vídeo (' + r.status + ')');
+    writeFileSync(ent, Buffer.from(await r.arrayBuffer()));
+    try { execFileSync('ffprobe', ['-version'], { stdio: 'ignore' }); }
+    catch { log('   📦 instalando o ffmpeg (só quando precisa)…'); execFileSync('bash', ['-c', 'sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg'], { stdio: 'ignore' }); }
+    const codecs = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', ent]).toString();
+    if (/h264/.test(codecs) && !/opus|vorbis/.test(codecs) && /\.mp4(\?|$)/i.test(m.url)) continue;
+    log('   🎬 convertendo o Reels do Postou pra MP4 (' + codecs.replace(/\s+/g, ' ').trim() + ')');
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', ent, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-r', '30',
+      '-c:a', 'aac', '-b:a', '160k', '-ar', '44100', '-movflags', '+faststart', sai]);
+    const caminho = userId + '/reels-ig-' + Date.now() + '.mp4';
+    const up = await fetch(SB_URL + '/storage/v1/object/midias/' + caminho, { method: 'POST',
+      headers: { ...sbHeaders({ 'Content-Type': 'video/mp4', 'x-upsert': 'true' }) }, body: readFileSync(sai) });
+    if (!up.ok) throw new Error('não consegui guardar o MP4 (' + up.status + ' ' + (await up.text()).slice(0, 120) + ')');
+    m.url = SB_URL + '/storage/v1/object/public/midias/' + caminho;
+    log('   ✅ MP4 pronto');
+  }
+}
+
 // ---------------------------------------------------------------- Principal
 async function main() {
   if (!SB_URL || !SB_KEY || !APP_ID || !APP_SECRET) {
@@ -588,6 +619,7 @@ async function main() {
         if (!pagina && contaIG && rede === 'facebook') { log(`   ⏭ ${cliR.nome}: só Instagram (sem Página) — Facebook fica manual`); continue; }
         log(`➡️ ${rede} · "${p.titulo}" (${p.data} ${p.hora || ''}) · ${cliR.nome || '?'}`);
         if (SECO) { total++; continue; }
+        if (!p._videosProntos) { p._videosProntos = true; try { await prepararVideos(p, row.user_id); } catch (e) { log('   ⚠️ não consegui converter o vídeo:', e.message); } }
         // trava: registra "publicando" antes (unique impede duplicado)
         const trava = await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
           body: JSON.stringify({ user_id: row.user_id, post_id: p.id, rede, status: 'publicando' }) });
