@@ -5543,7 +5543,7 @@ function abrirFotosReels(){
     <label style="font-size:.82rem;font-weight:700">🎵 Música</label>
     <div id="reelMus" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${REEL_MUSICAS.map((m,i)=>`<button type="button" data-m="${m[0]}" class="btn-claro" style="padding:6px 10px;font-size:.8rem${i===0?';outline:2px solid var(--g2)':''}">${m[1]}</button>`).join('')}</div>
     <input type="file" id="reelMusArq" accept="audio/*" style="display:none">
-    <div id="reelMusInfo" style="font-size:.74rem;color:var(--muted);margin-bottom:8px">Músicas criadas pelo Postou — livres de direitos autorais. Pode usar à vontade. ▶ toque em "Ouvir" pra testar.</div>
+    <div id="reelMusInfo" style="font-size:.74rem;color:var(--muted);margin-bottom:8px">Músicas criadas pelo Postou (violão, piano e batida) — livres de direitos autorais. ▶ toque em "Ouvir" pra testar.</div>
     <button type="button" class="btn-claro" id="reelOuvir" style="padding:5px 12px;font-size:.8rem;margin-bottom:10px">▶ Ouvir</button>
     <label style="font-size:.82rem;font-weight:700;display:block">⏱ Tempo de cada foto</label>
     <select id="reelSeg" style="margin:4px 0 10px;width:100%;padding:8px;border-radius:10px;border:1px solid var(--line)"><option value="2">2 segundos (rapidinho)</option><option value="3" selected>3 segundos</option><option value="4">4 segundos</option><option value="5">5 segundos (calminho)</option></select>
@@ -5629,11 +5629,11 @@ async function audioDaMusica(estilo, dur){
 }
 async function gerarMusicaPostou(estilo, dur){
   const SR=44100, ctx=new OfflineAudioContext(2, Math.ceil(SR*dur), SR);
-  const E={ alegre:{bpm:116,prog:[[60,64,67],[55,59,62],[57,60,64],[53,57,60]],inst:'pluck',drums:'pop',baixo:1},
-            fofinha:{bpm:96,prog:[[65,69,72],[60,64,67],[62,65,69],[58,62,65]],inst:'sino',drums:'leve',baixo:0},
-            viagem:{bpm:86,prog:[[57,60,64,67],[53,57,60,64],[60,64,67,71],[55,59,62,64]],inst:'piano',drums:'lofi',baixo:1},
-            motivacional:{bpm:124,prog:[[57,60,64],[53,57,60],[60,64,67],[55,59,62]],inst:'pluck',drums:'4x4',baixo:2},
-            calma:{bpm:72,prog:[[60,64,67,71],[57,60,64,67],[53,57,60,64],[55,59,62,65]],inst:'sino',drums:'',baixo:0} }[estilo] || null;
+  const E={ alegre:{bpm:112,prog:[[60,64,67],[55,59,62],[57,60,64],[53,57,60]],estilo:'strum',drums:'pop',baixo:1},
+            fofinha:{bpm:92,prog:[[65,69,72],[60,64,67],[62,65,69],[58,62,65]],estilo:'dedilhado',drums:'leve',baixo:1},
+            viagem:{bpm:84,prog:[[57,60,64,67],[53,57,60,64],[60,64,67,71],[55,59,62,64]],estilo:'rhodes',drums:'lofi',baixo:1},
+            motivacional:{bpm:122,prog:[[57,60,64],[53,57,60],[60,64,67],[55,59,62]],estilo:'strum',drums:'4x4',baixo:2},
+            calma:{bpm:70,prog:[[60,64,67,71],[57,60,64,67],[53,57,60,64],[55,59,62,65]],estilo:'calma',drums:'',baixo:0} }[estilo] || null;
   if(!E) return null;
   const hz=m=>440*Math.pow(2,(m-69)/12), beat=60/E.bpm, compasso=beat*4;
   const master=ctx.createGain(); master.gain.value=0.9;
@@ -5662,6 +5662,23 @@ async function gerarMusicaPostou(estilo, dur){
     else g.gain.exponentialRampToValueAtTime(0.0001,t+rel);
     o.start(t); o2.start(t); o.stop(t+d+rel+0.1); o2.stop(t+d+rel+0.1);
   };
+  // 🎸 corda (violão/ukulele) — Karplus-Strong calculado na hora
+  const cacheCorda={};
+  const corda=(t,f,vol,brilho)=>{ if(t>dur) return;
+    const chave=Math.round(f)+'_'+(brilho||0); let b=cacheCorda[chave];
+    if(!b){ const len=Math.ceil(SR*2.2), N=Math.max(2,Math.round(SR/f)); b=ctx.createBuffer(1,len,SR); const y=b.getChannelData(0);
+      let prev=0; for(let i=0;i<N;i++){ const r=Math.random()*2-1; prev=prev*0.5+r*0.5; y[i]=brilho?r:prev; }
+      const damp=0.996; y[N]=y[0]; for(let i=N+1;i<len;i++) y[i]=damp*0.5*(y[i-N]+y[i-N-1]);
+      cacheCorda[chave]=b; }
+    const s=ctx.createBufferSource(); s.buffer=b; const g=ctx.createGain(); g.gain.value=vol; const lp=ctx.createBiquadFilter(); lp.type='lowpass'; lp.frequency.value=brilho?5200:3200;
+    s.connect(lp); lp.connect(g); saida(g); s.start(t); };
+  // 🎹 piano elétrico (FM suave)
+  const rhodes=(t,f,d,vol)=>{ if(t>dur) return;
+    const car=ctx.createOscillator(), mod=ctx.createOscillator(), mg=ctx.createGain(), g=ctx.createGain();
+    car.type='sine'; mod.type='sine'; car.frequency.value=f; mod.frequency.value=f; mg.gain.setValueAtTime(f*1.6,t); mg.gain.exponentialRampToValueAtTime(f*0.15,t+0.6);
+    mod.connect(mg); mg.connect(car.frequency); car.connect(g); saida(g);
+    g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+0.01); g.gain.exponentialRampToValueAtTime(vol*0.4,t+0.5); g.gain.exponentialRampToValueAtTime(0.0001,t+d+0.8);
+    car.start(t); mod.start(t); car.stop(t+d+0.9); mod.stop(t+d+0.9); };
   const ruido=(t,d,vol,freq,tipoF)=>{ if(t>dur) return; const b=ctx.createBuffer(1,Math.ceil(SR*d),SR), x=b.getChannelData(0); for(let i=0;i<x.length;i++) x[i]=Math.random()*2-1;
     const s=ctx.createBufferSource(); s.buffer=b; const f=ctx.createBiquadFilter(); f.type=tipoF; f.frequency.value=freq; const g=ctx.createGain();
     g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+d); s.connect(f); f.connect(g); g.connect(master); s.start(t); };
@@ -5672,12 +5689,22 @@ async function gerarMusicaPostou(estilo, dur){
   const gancho=[0,1,2,1,2,3,2,1].map(()=>Math.floor(rnd()*3));
   for(let c=0; c*compasso<dur; c++){
     const t0=c*compasso, ac=E.prog[c%E.prog.length];
-    if(E.inst!=='sino' || estilo==='calma') ac.forEach(m=>nota(t0,hz(m),compasso*0.95,0.045,'pad'));
-    for(let i=0;i<8;i++){ const t=t0+i*beat/2;
-      if(E.inst==='sino'){ if(i%2===0 || estilo==='fofinha') nota(t,hz(ac[(i+c)%ac.length]+12),beat/2,0.07,'sino'); }
-      else nota(t,hz(ac[i%ac.length]+(E.inst==='piano'?0:12)),beat/2,E.inst==='piano'?0.09:0.07,E.inst);
-      if(c%2===1 && E.inst!=='piano') nota(t,hz(ac[gancho[i]]+24),beat/2,0.035,'sino');
+    if(E.estilo!=='dedilhado') ac.forEach(m=>nota(t0,hz(m),compasso*0.95,E.estilo==='calma'?0.05:0.03,'pad'));
+    if(E.estilo==='strum'){ // batida de violão: baixo-cima nos tempos
+      const ritmo=[1,0,1,1,0,1,1,1];
+      ritmo.forEach((on,i)=>{ if(!on) return; const t=t0+i*beat/2, sobe=i%2===1, notas=sobe?[...ac].reverse():ac;
+        notas.concat([ac[0]+12]).forEach((m,k)=>corda(t+k*0.012,hz(m),(sobe?0.18:0.26),1)); });
+      if(c%2===1) gancho.forEach((g,i)=>{ if(i%2===0) corda(t0+i*beat/2,hz(ac[g]+12),0.22,0); });
     }
+    if(E.estilo==='dedilhado'){ // dedilhado fofinho + piano bem leve
+      [0,2,1,2,3,2,1,2].forEach((k,i)=>corda(t0+i*beat/2,hz((ac[k]||ac[0]+12)),0.3,0));
+      if(c%2===1) [0,2,4,6].forEach(i=>rhodes(t0+i*beat/2,hz(ac[gancho[i]]+12),beat*0.4,0.08));
+    }
+    if(E.estilo==='rhodes'){ // acordes de piano elétrico + violão
+      [0,1.5,2.5].forEach(b=>ac.forEach(m=>rhodes(t0+b*beat,hz(m),beat*0.9,0.07)));
+      [0,2,1,3].forEach((k,i)=>corda(t0+(i*2+1)*beat/2,hz((ac[k]||ac[0])+12),0.15,0));
+    }
+    if(E.estilo==='calma'){ ac.forEach((m,k)=>rhodes(t0+k*beat,hz(m),beat*1.5,0.08)); }
     if(E.baixo) for(let i=0;i<4;i++){ const t=t0+i*beat+(E.baixo===2?beat/2:0); nota(t,hz(ac[0]-12),beat*0.8,0.18,'baixo'); }
     for(let i=0;i<4;i++){ const t=t0+i*beat;
       if(E.drums==='pop'){ if(i%2===0) bumbo(t,0.9); else ruido(t,0.16,0.35,1800,'bandpass'); ruido(t,0.04,0.12,8000,'highpass'); ruido(t+beat/2,0.04,0.1,8000,'highpass'); }
