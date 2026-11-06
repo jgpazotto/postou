@@ -5531,7 +5531,9 @@ function desenharMidias(){
 const REEL_MUSICAS = [
   ['alegre','😄 Alegre'],['fofinha','🧸 Fofinha'],['viagem','🌴 Viagem'],['motivacional','💪 Motivacional'],['calma','🌙 Calma'],['nenhuma','🔇 Sem música'],['minha','📁 Música do meu celular']
 ];
-let reelMusicaArquivo = null;
+let reelMusicaArquivo = null, reelVozBlob = null;
+const REEL_CORES = ['postou','#000000','#ffffff','#ec4899','#facc15','#3b82f6','#22c55e','#f97316'];
+let reelOpc = { estilo:'contorno', cor:'postou', pos:'cima' };
 function abrirFotosReels(){
   const fotos = midiasTemp.filter(m=>m.tipo==='imagem');
   if(!fotos.length){ alertaSuave('Coloque pelo menos 1 foto no post primeiro. 💜'); return; }
@@ -5543,12 +5545,20 @@ function abrirFotosReels(){
     <label style="font-size:.82rem;font-weight:700">🎵 Música</label>
     <div id="reelMus" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${REEL_MUSICAS.map((m,i)=>`<button type="button" data-m="${m[0]}" class="btn-claro" style="padding:6px 10px;font-size:.8rem${i===0?';outline:2px solid var(--g2)':''}">${m[1]}</button>`).join('')}</div>
     <input type="file" id="reelMusArq" accept="audio/*" style="display:none">
-    <div id="reelMusInfo" style="font-size:.74rem;color:var(--muted);margin-bottom:8px">Músicas criadas pelo Postou (violão, piano e batida) — livres de direitos autorais. ▶ toque em "Ouvir" pra testar.</div>
+    <div id="reelMusInfo" style="font-size:.74rem;color:var(--muted);margin-bottom:8px">Músicas criadas pelo Postou (violão, piano elétrico e batida) — livres de direitos autorais. ▶ toque em "Ouvir" pra testar.</div>
     <button type="button" class="btn-claro" id="reelOuvir" style="padding:5px 12px;font-size:.8rem;margin-bottom:10px">▶ Ouvir</button>
     <label style="font-size:.82rem;font-weight:700;display:block">⏱ Tempo de cada foto</label>
     <select id="reelSeg" style="margin:4px 0 10px;width:100%;padding:8px;border-radius:10px;border:1px solid var(--line)"><option value="2">2 segundos (rapidinho)</option><option value="3" selected>3 segundos</option><option value="4">4 segundos</option><option value="5">5 segundos (calminho)</option></select>
     <label style="font-size:.82rem;font-weight:700;display:block">✍️ Texto na tela <span style="font-weight:400;color:var(--muted)">(opcional, aparece no começo)</span></label>
-    <input id="reelTexto" maxlength="70" placeholder="Ex.: Semana de banho aqui em casa! 🫧" style="width:100%;margin:4px 0 10px;padding:9px;border-radius:10px;border:1px solid var(--line);box-sizing:border-box">
+    <input id="reelTexto" maxlength="70" placeholder="Ex.: Semana de banho aqui em casa! 🫧" style="width:100%;margin:4px 0 6px;padding:9px;border-radius:10px;border:1px solid var(--line);box-sizing:border-box">
+    <div style="font-size:.78rem;font-weight:700;margin-top:2px">Estilo da letra</div>
+    <div id="reelEst" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${[['contorno','✏️ Contorno'],['caixa','🟪 Com caixa'],['sombra','🌫 Só sombra']].map((x,i)=>`<button type="button" data-v="${x[0]}" class="btn-claro" style="padding:5px 10px;font-size:.78rem${i===0?';outline:2px solid var(--g2)':''}">${x[1]}</button>`).join('')}</div>
+    <div style="font-size:.78rem;font-weight:700">Cor</div>
+    <div id="reelCor" style="display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 6px">${REEL_CORES.map((c,i)=>`<button type="button" data-v="${c}" title="${c}" style="width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 ${i===0?'2px var(--g2)':'1px #ccc'};background:${c==='postou'?'linear-gradient(135deg,#7c3aed,#ec4899)':c}"></button>`).join('')}</div>
+    <div style="font-size:.78rem;font-weight:700">Posição</div>
+    <div id="reelPos" style="display:flex;gap:6px;margin:4px 0 10px">${[['cima','⬆️ Em cima'],['meio','↔️ No meio'],['baixo','⬇️ Embaixo']].map((x,i)=>`<button type="button" data-v="${x[0]}" class="btn-claro" style="padding:5px 10px;font-size:.78rem${i===0?';outline:2px solid var(--g2)':''}">${x[1]}</button>`).join('')}</div>
+    <label style="font-size:.82rem;font-weight:700;display:block">🎙 Sua voz <span style="font-weight:400;color:var(--muted)">(opcional — a música abaixa sozinha)</span></label>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0 10px"><button type="button" class="btn-claro" id="reelVoz" style="padding:6px 12px;font-size:.82rem">🎙 Gravar minha voz</button><button type="button" class="btn-claro" id="reelVozOuvir" style="padding:6px 10px;font-size:.8rem;display:none">▶ Ouvir</button><button type="button" class="btn-claro" id="reelVozApagar" style="padding:6px 10px;font-size:.8rem;display:none">🗑</button><span id="reelVozInfo" style="font-size:.76rem;color:var(--muted)"></span></div>
     <canvas id="reelCanvas" width="720" height="1280" style="width:100%;max-width:220px;display:block;margin:0 auto 8px;border-radius:12px;background:#111"></canvas>
     <div id="reelStatus" style="font-size:.82rem;text-align:center;min-height:1.2em;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
@@ -5571,9 +5581,33 @@ function abrirFotosReels(){
     const ctx = new (window.AudioContext||window.webkitAudioContext)(); const s=ctx.createBufferSource(); s.buffer=buf; s.connect(ctx.destination); s.start(); ouvindo=s;
     d.querySelector('#reelOuvir').textContent='⏹ Parar'; s.onended=()=>{ ouvindo=null; const b=document.getElementById('reelOuvir'); if(b) b.textContent='▶ Ouvir'; };
   };
-  d.querySelector('#reelFechar').onclick=()=>{ pararOuvir(); d.remove(); };
+  const marcar=(sel,attr)=>{ d.querySelector(sel).onclick=e=>{ const b=e.target.closest('button'); if(!b) return; reelOpc[attr]=b.dataset.v;
+      d.querySelectorAll(sel+' button').forEach(x=>{ if(sel==='#reelCor') x.style.boxShadow='0 0 0 1px #ccc'; else x.style.outline=''; });
+      if(sel==='#reelCor') b.style.boxShadow='0 0 0 3px var(--g2)'; else b.style.outline='2px solid var(--g2)'; previa(); }; };
+  marcar('#reelEst','estilo'); marcar('#reelCor','cor'); marcar('#reelPos','pos');
+  let imgsPrevia=[]; const previa=()=>{ if(imgsPrevia.length && document.getElementById('reelCanvas')) desenharQuadroReel(document.getElementById('reelCanvas'), imgsPrevia, 0.6, 3, d.querySelector('#reelTexto').value||'Seu texto aqui'); };
+  d.querySelector('#reelTexto').oninput=previa;
+  // 🎙 gravar voz
+  let gravador=null, vozAudio=null;
+  const vozInfo=d.querySelector('#reelVozInfo');
+  d.querySelector('#reelVoz').onclick=async()=>{
+    const b=d.querySelector('#reelVoz');
+    if(gravador){ gravador.stop(); return; }
+    try{
+      const mic=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+      const pedacos=[]; gravador=new MediaRecorder(mic);
+      gravador.ondataavailable=e=>{ if(e.data.size) pedacos.push(e.data); };
+      gravador.onstop=()=>{ mic.getTracks().forEach(t=>t.stop()); reelVozBlob=new Blob(pedacos,{type:gravador.mimeType||'audio/webm'}); gravador=null;
+        b.textContent='🎙 Gravar de novo'; vozInfo.textContent='✅ Voz gravada'; d.querySelector('#reelVozOuvir').style.display=''; d.querySelector('#reelVozApagar').style.display=''; };
+      gravador.start(); b.textContent='⏹ Parar'; vozInfo.textContent='🔴 Gravando… fale pertinho do aparelho';
+    }catch(e){ vozInfo.textContent='Não consegui usar o microfone. Libere o microfone pro site e tente de novo. 🎙'; }
+  };
+  d.querySelector('#reelVozOuvir').onclick=()=>{ if(!reelVozBlob) return; if(vozAudio){ vozAudio.pause(); vozAudio=null; return; } vozAudio=new Audio(URL.createObjectURL(reelVozBlob)); vozAudio.onended=()=>vozAudio=null; vozAudio.play(); };
+  d.querySelector('#reelVozApagar').onclick=()=>{ reelVozBlob=null; vozInfo.textContent=''; d.querySelector('#reelVozOuvir').style.display='none'; d.querySelector('#reelVozApagar').style.display='none'; d.querySelector('#reelVoz').textContent='🎙 Gravar minha voz'; };
+  d.querySelector('#reelFechar').onclick=()=>{ pararOuvir(); if(gravador) gravador.stop(); d.remove(); };
   d.querySelector('#reelGerar').onclick=()=>{ pararOuvir(); gerarReelDasFotos(fotos, musica, +d.querySelector('#reelSeg').value, d.querySelector('#reelTexto').value.trim()); };
-  carregarImagensReel(fotos).then(imgs=>{ if(imgs.length) desenharQuadroReel(document.getElementById('reelCanvas'), imgs, 0.4, 3, (document.getElementById('reelTexto')||{}).value||''); });
+  reelVozBlob=null;
+  carregarImagensReel(fotos).then(imgs=>{ imgsPrevia=imgs; if(!imgs.length){ d.querySelector('#reelStatus').textContent='⚠️ Não consegui abrir as fotos neste aparelho. Tente de novo ou pelo Chrome.'; return; } previa(); });
 }
 function alertaSuave(t){ const st=document.getElementById('mMidiaStatus'); if(st) st.textContent=t; }
 async function carregarImagensReel(fotos){
@@ -5591,7 +5625,8 @@ function desenharQuadroReel(cv, imgs, t, seg, texto){
     c.globalAlpha=alpha;
     // fundo desfocado (preenche a tela em pé)
     const sc=Math.max(W/img.width, H/img.height)*1.15;
-    c.filter='blur(28px) brightness(.75)'; c.drawImage(img,(W-img.width*sc)/2,(H-img.height*sc)/2,img.width*sc,img.height*sc); c.filter='none';
+    c.filter='blur(28px)'; c.drawImage(img,(W-img.width*sc)/2,(H-img.height*sc)/2,img.width*sc,img.height*sc); c.filter='none';
+    c.fillStyle='rgba(0,0,0,.35)'; c.fillRect(0,0,W,H);
     // foto inteira com zoom lento (efeito Ken Burns)
     const z=1+0.08*k, fit=Math.min(W/img.width, H/img.height)*z, w=img.width*fit, h=img.height*fit;
     const dx=(k-0.5)*W*0.03;
@@ -5602,14 +5637,24 @@ function desenharQuadroReel(cv, imgs, t, seg, texto){
   pinta(imgs[idx], Math.min(1,local/seg), 1);
   if(idx<n-1 && local>seg-fade){ pinta(imgs[idx+1], 0, (local-(seg-fade))/fade); }
   if(texto && t<Math.max(3.2, seg*1.2)){
-    const ap=Math.min(1,t/0.35), some=Math.min(1,(Math.max(3.2,seg*1.2)-t)/0.35), a=Math.min(ap,some);
-    c.save(); c.globalAlpha=a; const fs=Math.round(W*0.062); c.font=`800 ${fs}px system-ui,-apple-system,"Segoe UI",sans-serif`; c.textAlign='center'; c.textBaseline='middle';
-    const linhas=quebrarTextoReel(c, texto, W*0.8); const lh=fs*1.25, bh=linhas.length*lh+fs*0.9, by=H*0.16;
+    const o=reelOpc, ap=Math.min(1,t/0.35), some=Math.min(1,(Math.max(3.2,seg*1.2)-t)/0.35), a=Math.min(ap,some);
+    c.save(); c.globalAlpha=a; const fs=Math.round(W*0.064); c.font=`900 ${fs}px system-ui,-apple-system,"Segoe UI",sans-serif`; c.textAlign='center'; c.textBaseline='middle'; c.lineJoin='round';
+    const linhas=quebrarTextoReel(c, texto, W*0.8); const lh=fs*1.25, bh=linhas.length*lh+fs*0.9;
+    const by= o.pos==='meio' ? (H-bh)/2 : o.pos==='baixo' ? H*0.72 : H*0.14;
     const bw=Math.min(W*0.9, Math.max(...linhas.map(l=>c.measureText(l).width))+fs*1.4);
-    const g=c.createLinearGradient((W-bw)/2,0,(W+bw)/2,0); g.addColorStop(0,'#7c3aed'); g.addColorStop(1,'#ec4899');
     const esc=0.85+0.15*ap; c.translate(W/2,by+bh/2); c.scale(esc,esc); c.translate(-W/2,-(by+bh/2));
-    c.fillStyle=g; c.shadowColor='#0006'; c.shadowBlur=24; arredondadoReel(c,(W-bw)/2,by,bw,bh,fs*0.6); c.fill(); c.shadowBlur=0;
-    c.fillStyle='#fff'; linhas.forEach((l,i)=>c.fillText(l,W/2,by+fs*0.45+lh*(i+0.5)));
+    const claro=(cor)=>['#ffffff','#facc15'].includes(cor);
+    if(o.estilo==='caixa'){
+      let fundo=o.cor; if(o.cor==='postou'){ fundo=c.createLinearGradient((W-bw)/2,0,(W+bw)/2,0); fundo.addColorStop(0,'#7c3aed'); fundo.addColorStop(1,'#ec4899'); }
+      c.fillStyle=fundo; c.shadowColor='#0006'; c.shadowBlur=24; arredondadoReel(c,(W-bw)/2,by,bw,bh,fs*0.6); c.fill(); c.shadowBlur=0;
+      c.fillStyle=claro(o.cor)?'#111':'#fff'; linhas.forEach((l,i)=>c.fillText(l,W/2,by+fs*0.45+lh*(i+0.5)));
+    } else {
+      const corTxt = o.cor==='postou' ? '#ffffff' : o.cor;
+      linhas.forEach((l,i)=>{ const y=by+fs*0.45+lh*(i+0.5);
+        if(o.estilo==='contorno'){ c.lineWidth=fs*0.16; c.strokeStyle= corTxt==='#000000' ? '#ffffff' : (o.cor==='postou'?'#7c3aed':'#000000'); c.strokeText(l,W/2,y); }
+        else { c.shadowColor='rgba(0,0,0,.85)'; c.shadowBlur=fs*0.5; c.shadowOffsetY=fs*0.06; }
+        c.fillStyle=corTxt; c.fillText(l,W/2,y); c.shadowBlur=0; c.shadowOffsetY=0; });
+    }
     c.restore();
   }
 }
@@ -5730,7 +5775,9 @@ async function gerarReelDasFotos(fotos, musica, seg, texto){
   btn.disabled=true; st.textContent='⏳ Preparando as fotos…';
   const imgs=await carregarImagensReel(fotos);
   if(!imgs.length){ st.textContent='⚠️ Não consegui abrir as fotos.'; btn.disabled=false; return; }
-  const dur=Math.max(3, imgs.length*seg);
+  let voz=null;
+  if(reelVozBlob){ try{ const cx=new (window.AudioContext||window.webkitAudioContext)(); voz=await cx.decodeAudioData(await reelVozBlob.arrayBuffer()); cx.close&&cx.close(); }catch(e){ voz=null; } }
+  const dur=Math.max(3, imgs.length*seg, voz? voz.duration+0.6 : 0);
   st.textContent='🎵 Preparando a música…';
   let buf=null; try{ buf=await audioDaMusica(musica, dur); }catch(e){ buf=null; }
   const tipos=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs=avc1.42E01E,opus','video/mp4;codecs="avc1,mp4a"','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
@@ -5739,12 +5786,15 @@ async function gerarReelDasFotos(fotos, musica, seg, texto){
   const destino=ctx.createMediaStreamDestination();
   const fps=30, stream=cv.captureStream(fps);
   let fonte=null;
-  if(buf){ fonte=ctx.createBufferSource(); fonte.buffer=buf; fonte.connect(destino); destino.stream.getAudioTracks().forEach(t=>stream.addTrack(t)); }
+  let fonteVoz=null;
+  if(buf){ fonte=ctx.createBufferSource(); fonte.buffer=buf; const gm=ctx.createGain(); gm.gain.value= voz?0.22:1; fonte.connect(gm); gm.connect(destino); }
+  if(voz){ fonteVoz=ctx.createBufferSource(); fonteVoz.buffer=voz; const gv=ctx.createGain(); gv.gain.value=1.4; fonteVoz.connect(gv); gv.connect(destino); }
+  if(buf||voz) destino.stream.getAudioTracks().forEach(t=>stream.addTrack(t));
   const rec=new MediaRecorder(stream, mime?{mimeType:mime, videoBitsPerSecond:6_000_000, audioBitsPerSecond:160_000}:undefined);
   const pedacos=[]; rec.ondataavailable=e=>{ if(e.data && e.data.size) pedacos.push(e.data); };
   const fim=new Promise(ok=>rec.onstop=ok);
   desenharQuadroReel(cv, imgs, 0, seg, texto);
-  rec.start(500); const inicio=ctx.currentTime+0.05; if(fonte) fonte.start(inicio);
+  rec.start(500); const inicio=ctx.currentTime+0.05; if(fonte) fonte.start(inicio); if(fonteVoz) fonteVoz.start(inicio+0.3);
   st.textContent='🎬 Gravando… deixe esta tela aberta (leva '+Math.round(dur)+'s)';
   await new Promise(ok=>{ const passo=()=>{ const t=ctx.currentTime-inicio; desenharQuadroReel(cv, imgs, Math.max(0,t), seg, texto);
       st.textContent='🎬 Gravando… '+Math.min(100,Math.round(t/dur*100))+'% — deixe esta tela aberta';
