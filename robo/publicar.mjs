@@ -554,7 +554,7 @@ async function prepararVideos(p, userId) {
     try { execFileSync('ffprobe', ['-version'], { stdio: 'ignore' }); }
     catch { log('   📦 instalando o ffmpeg (só quando precisa)…'); execFileSync('bash', ['-c', 'sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg'], { stdio: 'ignore' }); }
     const codecs = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', ent]).toString();
-    if (/h264/.test(codecs) && !/opus|vorbis/.test(codecs) && /\.mp4(\?|$)/i.test(m.url)) continue;
+    // sempre regrava: o Safari/iPad gera MP4 sem duração e o Instagram pode recusar
     log('   🎬 convertendo o Reels do Postou pra MP4 (' + codecs.replace(/\s+/g, ' ').trim() + ')');
     execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', ent, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-r', '30',
       '-c:a', 'aac', '-b:a', '160k', '-ar', '44100', '-movflags', '+faststart', sai]);
