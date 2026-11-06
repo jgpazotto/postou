@@ -325,6 +325,19 @@
     .contadores .cont{font-size:.82rem; padding:5px 10px;}
     .acoes .btn-mini,.cartao-ideia .btn-mini{border:1px solid var(--line); border-radius:9px; margin:2px 2px 0 0;}
   }
+  /* 📱 menu do celular: uma linha só, desliza pro lado (não cobre a lista) */
+  @media(max-width:720px){
+    header{padding:8px 12px;}
+    nav{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:4px; margin-top:8px;}
+    nav::-webkit-scrollbar{display:none;}
+    nav button{flex:0 0 auto;}
+    header .btn-claro{padding:7px 11px; font-size:.85rem;}
+    header .filtro{padding:7px 10px; font-size:.85rem;}
+  }
+  /* 🔠 tamanho dos botões do menu (⚙️ Conta) */
+  body.bt-p nav button{padding:6px 11px; font-size:.8rem;}
+  body.bt-m nav button{padding:8px 15px; font-size:.9rem;}
+  body.bt-g nav button{padding:12px 20px; font-size:1.05rem;}
 </style>
 <script>try{var _t=localStorage.getItem('postou_tema');if(_t&&_t!=='postou')document.documentElement.setAttribute('data-tema',_t);}catch(e){}</script>
 </head>
@@ -473,8 +486,8 @@
     <select class="filtro" id="filtroCliente" onchange="render()">
       <option value="todos">Todos os usuários</option>
     </select>
-    <span style="position:relative"><button class="btn-claro" onclick="abrirTemas(event)" title="Escolher a cor do painel">🎨 Cor</button><div id="temaPop" class="tema-pop" style="display:none"></div></span>
-    <button class="btn-claro" onclick="abrirConfig()" title="Minha conta e configurações">⚙️ Conta</button>
+    <div id="temaPop" class="tema-pop" style="display:none"></div>
+    <button class="btn-claro" onclick="abrirConfig()" title="Minha conta, cor do painel e botões">⚙️ Conta</button>
     <button class="btn-claro" onclick="exportar()" title="Baixar uma cópia de segurança">⬇ Backup</button>
     <button class="btn-claro" onclick="sair()">Sair</button>
   </div>
@@ -946,6 +959,8 @@ function aplicarTema(t){
   try{ localStorage.setItem('postou_tema',t); }catch(e){}
   const m=document.querySelector('meta[name="theme-color"]'); if(m) m.content=getComputedStyle(document.documentElement).getPropertyValue('--g1').trim()||'#7c3aed';
 }
+function tamanhoBotoes(){ const a=(typeof dados!=='undefined'&&dados&&dados.assinatura)||{}; return a.tamBotoes || (window.innerWidth<=720 ? 'p' : 'm'); }
+function aplicarTamanhoBotoes(){ const t=tamanhoBotoes(); document.body.classList.remove('bt-p','bt-m','bt-g'); document.body.classList.add('bt-'+t); }
 function abrirTemas(ev){
   if(ev) ev.stopPropagation();
   const p=document.getElementById('temaPop'); if(!p) return;
@@ -1080,7 +1095,8 @@ function aplicarPlano(){
   const bnc = document.getElementById('btnNovoCliente');
   if(bnc) bnc.style.display = (conf.umaPorRede || botOc.includes('cliente')) ? 'none' : '';
   const ocultas = (dados.assinatura&&dados.assinatura.abasOcultas)||[];
-  ['calendario','tarefas','ideias','quadro','caixa'].forEach(a=>{ const b=document.querySelector('nav button[data-aba="'+a+'"]'); if(b) b.style.display = ocultas.includes(a) ? 'none' : ''; });
+  ['robo','calendario','tarefas','ideias','quadro','caixa','ajuda'].forEach(a=>{ const b=document.querySelector('nav button[data-aba="'+a+'"]'); if(b) b.style.display = ocultas.includes(a) ? 'none' : ''; });
+  aplicarTamanhoBotoes();
   ['vendas','contatos'].forEach(a=>{ if(ocultas.includes(a)){ const b=document.querySelector('nav button[data-aba="'+a+'"]'); if(b) b.style.display='none'; } });
   if(ocultas.includes(abaAtual)) trocarAba('hoje');
 }
@@ -3394,9 +3410,9 @@ function abrirNovoAtendimento(iso, clienteId){
     <label>Cliente</label>
     ${cls.length ? `<select id="atCliente">${cls.map(c=>`<option value="${c.id}" ${String(c.id)===String(ultimoAtend.clienteId)?'selected':''}>${escapar(c.nome)}</option>`).join('')}</select>`
       : `<div class="vazio" style="margin-bottom:8px">Nenhuma cliente cadastrada ainda. Cadastre em 👥 Usuários → + Novo → 👤 Cliente. 💜</div>`}
-    <label>Serviço <a href="#" onclick="abrirCatalogo('atendimento');return false" style="font-weight:400;font-size:.8rem">✏️ editar lista</a></label>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 4px"><label style="margin:0">Serviço</label><button type="button" class="btn-claro" style="padding:5px 12px;font-size:.8rem" onclick="abrirCatalogo('atendimento')">✏️ Editar lista</button></div>
     ${servs.length ? `<select id="atServico">${servs.map(s=>`<option value="${s.id}">${escapar(rotuloServico(s))}</option>`).join('')}</select>`
-      : `<div class="vazio" style="margin-bottom:8px">Cadastre seus serviços primeiro: <a href="#" onclick="abrirCatalogo('atendimento');return false">✂️ Meus serviços</a></div>`}
+      : `<div class="vazio" style="margin-bottom:8px">Cadastre seus serviços primeiro:<br><button type="button" class="btn" style="margin-top:8px;padding:8px 16px;font-size:.9rem" onclick="abrirCatalogo('atendimento')">✂️ Meus serviços</button></div>`}
     <div class="linha-flex">
       <div style="flex:1"><label>Dia</label><input type="date" id="atData" value="${ultimoAtend.iso||hojeISO()}"></div>
       <div style="flex:1"><label>Hora</label><input type="time" id="atHora" value="09:00"></div>
@@ -3794,10 +3810,16 @@ function abrirConfig(){
     <div style="display:flex;gap:6px"><input id="cfgLoja" placeholder="Nome da loja / empresa" onkeydown="if(event.key==='Enter'){addLoja();event.preventDefault();}"><button class="btn-claro" style="white-space:nowrap" onclick="addLoja()">+ Add</button></div>
     <div id="cfgLojasLista" style="margin-top:8px"></div>`:''}
     <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <label>🎨 Cor do painel</label>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${TEMAS.map(t=>`<button type="button" class="btn-claro tema-cfg${t[0]===temaAtual()?' ativo':''}" style="display:flex;align-items:center;gap:6px;padding:6px 10px;font-size:.8rem${t[0]===temaAtual()?';outline:2px solid var(--g2)':''}" onclick="escolherTema('${t[0]}');document.querySelectorAll('.tema-cfg').forEach(b=>b.style.outline='');this.style.outline='2px solid var(--g2)'"><span class="tema-bola" style="background:${t[2]}"></span>${t[1]}</button>`).join('')}</div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
+    <label>🔠 Tamanho dos botões do menu</label>
+    <div style="display:flex;gap:14px;font-size:.88rem">${[['p','Pequeno'],['m','Médio'],['g','Grande']].map(([v,l])=>`<label style="display:flex;align-items:center;gap:5px;margin:0;cursor:pointer"><input type="radio" name="cfgTam" value="${v}" ${tamanhoBotoes()===v?'checked':''} style="width:16px;height:16px">${l}</label>`).join('')}</div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
     <label>🎛 Botões que aparecem pra você</label>
     <p style="font-size:.78rem;color:var(--muted);margin:2px 0 6px">Desmarque os que você não usa pra deixar o menu mais limpo. 💜</p>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 12px">
-      ${[['calendario','📅 Calendário'],['tarefas','✅ Tarefas'],['ideias','💡 Ideias'],['quadro','🗂 Status'],['vendas','💵 Vendas'],['caixa','💰 Caixa'],['contatos','📇 Contatos']].map(([k,lbl])=>`<label style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;margin:0"><input type="checkbox" id="abaChk_${k}" ${((dados.assinatura&&dados.assinatura.abasOcultas)||[]).includes(k)?'':'checked'} style="width:16px;height:16px">${lbl}</label>`).join('')}
+      ${[['robo','🤖 Robô'],['calendario','📅 Calendário'],['tarefas','✅ Tarefas'],['ideias','💡 Ideias'],['quadro','🗂 Status'],['vendas','💵 Vendas'],['caixa','💰 Caixa'],['contatos','📇 Contatos'],['ajuda','❓ Ajuda']].map(([k,lbl])=>`<label style="display:flex;align-items:center;gap:6px;font-size:.85rem;cursor:pointer;margin:0"><input type="checkbox" id="abaChk_${k}" ${((dados.assinatura&&dados.assinatura.abasOcultas)||[]).includes(k)?'':'checked'} style="width:16px;height:16px">${lbl}</label>`).join('')}
     </div>
     <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
     <label>➕ Botões de cadastro (aba 👥 Usuários)</label>
@@ -3825,7 +3847,8 @@ async function salvarConfig(){
   if(!nome){ if(msg){ msg.style.color='#b91c1c'; msg.textContent='Conta pra gente o seu nome. 😊'; } return; }
   dados.assinatura=dados.assinatura||{};
   dados.assinatura.nome=nome; dados.assinatura.zap=zap;
-  const opcionais=['calendario','tarefas','ideias','quadro','vendas','caixa','contatos'];
+  const opcionais=['robo','calendario','tarefas','ideias','quadro','vendas','caixa','contatos','ajuda'];
+  const tamEl=document.querySelector('input[name="cfgTam"]:checked'); if(tamEl){ dados.assinatura.tamBotoes=tamEl.value; aplicarTamanhoBotoes(); }
   dados.assinatura.abasOcultas=opcionais.filter(k=>{ const el=document.getElementById('abaChk_'+k); return el && !el.checked; });
   const botoesCad=['usuario','servico','cliente'];
   const botPrev=(dados.assinatura.botoesOcultos)||[];
