@@ -295,6 +295,10 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
       itens = itens.concat((st.data || []).map(x => ({ ...x, deStory: true })));
     } catch (e) { log('⚠️ espelho: não li os stories de', cli.nome, '—', e.message); }
     log(`🪞 espelho: ${cli.nome} — ${itens.filter(x => !x.deStory).length} post(s) e ${itens.filter(x => x.deStory).length} story(s) lidos`);
+    for (const x of itens.filter(x => x.deStory)) {
+      const t = new Date(x.timestamp).getTime();
+      log(`   🔎 story ${x.id} de ${x.timestamp} · tipo ${x.media_type} · ${x.media_url ? 'tem link' : 'SEM link (música/figurinha?)'} · ${t >= desde ? 'dentro do prazo' : 'antes do espelho ligar'} · ${doRobo.has(String(x.id)) ? 'foi o robô que postou' : 'postado pela pessoa'}`);
+    }
     itens = itens.filter(x => x.id && x.timestamp && new Date(x.timestamp).getTime() >= desde && !doRobo.has(String(x.id)))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     for (const it of itens) {
@@ -307,7 +311,7 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
           const f = (ch.data || [])[0]; if (f) { url = f.media_url; tipo = f.media_type === 'VIDEO' ? 'video' : 'imagem'; }
         } catch (e) { /* usa o que veio */ }
       }
-      if (!url) continue;
+      if (!url) { log(`   ⏭ espelho: ${it.deStory ? 'story' : 'post'} ${it.id} de ${cli.nome} veio sem link da mídia (o Instagram não entrega quando tem música/figurinha) — fica manual`); continue; }
       for (const cid of alvos) {
         const rede = 'espelho:' + cid;
         if (feito.has(`${row.user_id}|${it.id}|${rede}`)) continue;
