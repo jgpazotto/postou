@@ -424,6 +424,18 @@ async function esperarContainer(id, token, maxSeg = 300, base = '') {
   throw new Error('Instagram demorou demais para processar o vídeo');
 }
 
+// ⏳ o Instagram às vezes diz "Media ID is not available" logo depois de montar: espera e tenta de novo
+async function publicarContainer(ig, creation, tk) {
+  for (let t = 0; ; t++) {
+    try { return await graph('POST', ig + '/media_publish', { creation_id: creation, access_token: tk }); }
+    catch (e) {
+      if (t >= 3 || !/not available|not ready|try again/i.test(e.message)) throw e;
+      log(`   ⏳ Instagram ainda processando (${e.message}) — tento de novo em ${10 * (t + 1)}s`);
+      await new Promise(r => setTimeout(r, 10000 * (t + 1)));
+    }
+  }
+}
+
 async function publicarInstagram(p, pagina) {
   if (!pagina.ig_id) throw new Error('Essa página não tem Instagram profissional ligado');
   const tk = pagina.token, B = pagina.base || '', ig = B + '/' + pagina.ig_id;
@@ -438,7 +450,7 @@ async function publicarInstagram(p, pagina) {
         : { media_type: 'STORIES', image_url: m.url, access_token: tk };
       const id = (await graph('POST', ig + '/media', params)).id;
       await esperarContainer(id, tk, 300, B);
-      ultimo = (await graph('POST', ig + '/media_publish', { creation_id: id, access_token: tk })).id;
+      ultimo = (await publicarContainer(ig, id, tk)).id;
     }
     return { id: ultimo, story: true };
   }
@@ -473,7 +485,7 @@ async function publicarInstagram(p, pagina) {
     creation = (await criarComCollab({ media_type: 'CAROUSEL', children: filhos.join(','), caption, access_token: tk })).id;
     await esperarContainer(creation, tk, 300, B);
   }
-  const pub = await graph('POST', ig + '/media_publish', { creation_id: creation, access_token: tk });
+  const pub = await publicarContainer(ig, creation, tk);
   return { id: pub.id };
 }
 
