@@ -383,7 +383,7 @@
     <p class="lp-sub">Pare de se perder entre apps, blocos de notas e planilhas.</p>
     <div class="lp-grid lp-grid6">
       <div class="lp-card"><div class="lp-ic">🤖</div><div><h3>Robô que posta sozinho</h3><p>Instagram, Facebook, Threads e YouTube Shorts no dia e hora certos.</p></div></div>
-      <div class="lp-card"><div class="lp-ic">📲</div><div><h3>Stories em vários perfis</h3><p>Todo post vira story nos outros perfis — e o 🪞 Espelho repete até o que você postou direto no Insta.</p></div></div>
+      <div class="lp-card"><div class="lp-ic">📲</div><div><h3>Stories em vários perfis</h3><p>Todo post vira story nos outros perfis — e o 🪞 Espelho repete até o que você postou direto no Insta (menos story com música do Instagram — regra deles).</p></div></div>
       <div class="lp-card"><div class="lp-ic">💡</div><div><h3>Ideias prontas pro seu nicho</h3><p>Legendas e hashtags pra dezenas de profissões. Chega de bloqueio criativo.</p></div></div>
       <div class="lp-card"><div class="lp-ic">📅</div><div><h3>Calendário e lembretes</h3><p>Posts, atendimentos e compromissos num calendário só, por dia, semana ou mês.</p></div></div>
       <div class="lp-card"><div class="lp-ic">💰</div><div><h3>Clientes e cobrança</h3><p>Veja quem falta pagar e lembre no WhatsApp num toque.</p></div></div>
@@ -3912,7 +3912,7 @@ function renderStoryPadrao(){
   </div>
   <div class="cartao" style="margin-bottom:16px;border:1px solid #c7d2fe;background:#eef2ff">
     <h3 style="margin:0 0 4px">🪞 Espelho <span style="font-size:.72rem;background:var(--g1);color:#fff;border-radius:20px;padding:2px 8px;vertical-align:middle">NOVO</span></h3>
-    <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Postou direto pelo Instagram ou pelo Edits? O robô percebe sozinho (em até 15 min) e <b>repete nos stories</b> dos perfis escolhidos. Vale pra posts e Reels novos daqui pra frente. 💜 <span style="font-size:.78rem">(Música, figurinhas e textos do story original não vão junto — só a foto ou o vídeo.)</span></p>
+    <p style="font-size:.86rem;color:var(--muted);margin:0 0 10px">Postou direto pelo Instagram ou pelo Edits? O robô percebe sozinho (em até 15 min) e <b>repete nos stories</b> dos perfis escolhidos. Vale pra posts e Reels novos daqui pra frente. 💜 <span style="font-size:.78rem">(Figurinhas e textos do story original não vão junto — só a foto ou o vídeo. ⚠️ <b>Story com música do Instagram não dá pra espelhar</b>: o Instagram não libera esse vídeo pra nenhum app. Nesse caso, poste pelo Postou com "📲 story também em outro perfil", ou repita no app do Instagram.)</span></p>
     ${lig.map(c=>{ const esp=(c.espelhoPara||[]).map(String); const outros=lig.filter(o=>o.id!==c.id);
       return `<details style="background:#fff;border:1px solid #c7d2fe;border-radius:10px;padding:7px 11px;margin:6px 0" ${esp.length?'open':''}><summary style="cursor:pointer;font-size:.9rem"><span class="bolinha" style="background:${c.cor||'#a855f7'}"></span> <b>${escapar(c.nome)}</b> ${esp.length?`<span style="font-size:.76rem;color:#4338ca">→ espelha em ${esp.length} perfil(s)</span>`:'<span style="font-size:.76rem;color:var(--muted)">— toque pra escolher</span>'}</summary>
         <div style="font-size:.78rem;color:var(--muted);margin-top:4px">O que sair no Instagram de ${escapar(c.nome)} vai pros stories de:</div>
@@ -5533,28 +5533,29 @@ function verMidia(i){
   d.innerHTML = (m.tipo==='video'
      ? `<video src="${m.url}" controls autoplay playsinline style="max-width:100%;max-height:80vh;border-radius:12px;background:#000"></video>`
      : `<img src="${m.url}" style="max-width:100%;max-height:80vh;border-radius:12px">`)
-     + `<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="vm-status" style="border:none;border-radius:999px;padding:10px 18px;font-weight:700;background:#25d366;color:#fff;cursor:pointer">📲 Mandar pro Status</button><button class="vm-fechar" style="border:none;border-radius:999px;padding:10px 22px;font-weight:700;background:#fff;cursor:pointer">✓ É esse mesmo — fechar</button></div><div class="vm-dica" style="color:#fff;font-size:.8rem;margin-top:8px;text-align:center;max-width:420px"></div>`;
+     + `<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="vm-status" style="border:none;border-radius:999px;padding:10px 18px;font-weight:700;background:#25d366;color:#fff;cursor:pointer">📲 Mandar pro Status</button><button class="vm-tiktok" style="border:none;border-radius:999px;padding:10px 18px;font-weight:700;background:#111;color:#fff;cursor:pointer">🎵 Mandar pro TikTok</button><button class="vm-fechar" style="border:none;border-radius:999px;padding:10px 22px;font-weight:700;background:#fff;cursor:pointer">✓ É esse mesmo — fechar</button></div><div class="vm-dica" style="color:#fff;font-size:.8rem;margin-top:8px;text-align:center;max-width:420px"></div>`;
   /* 📲 já baixa o arquivo pra o "compartilhar" abrir na hora (o celular exige o toque direto) */
   let arquivo=null;
   fetch(m.url).then(r=>r.blob()).then(b=>{ const ext=(b.type.split('/')[1]||'jpg').split(';')[0].replace('quicktime','mov').replace('jpeg','jpg'); arquivo=new File([b],'postou-status.'+ext,{type:b.type}); }).catch(()=>{});
   d.addEventListener('click', e=>{
     const t=e.target;
     if(t.classList && t.classList.contains('vm-status')){ mandarProStatus(arquivo, m, d.querySelector('.vm-dica')); return; }
+    if(t.classList && t.classList.contains('vm-tiktok')){ mandarProStatus(arquivo, m, d.querySelector('.vm-dica'), 'tiktok'); return; }
     if(t===d || (t.classList && t.classList.contains('vm-fechar'))){ const v=d.querySelector('video'); if(v) v.pause(); d.remove(); }
   });
   document.body.appendChild(d);
 }
-function mandarProStatus(arquivo, m, dica){
+function mandarProStatus(arquivo, m, dica, destino){
   const leg=((document.getElementById('mLegenda')||{}).value||'').trim();
   if(leg && navigator.clipboard){ navigator.clipboard.writeText(leg).catch(()=>{}); }
   if(arquivo && navigator.canShare && navigator.canShare({files:[arquivo]})){
     navigator.share({files:[arquivo]}).catch(()=>{});
-    if(dica) dica.textContent = 'Escolha WhatsApp Business → Meu status.' + (leg?' A legenda já foi copiada: é só colar. 💜':'');
+    if(dica) dica.textContent = (destino==='tiktok' ? 'Escolha TikTok → no editor, toque em "Story" (ou em "Avançar" pra post).' : 'Escolha WhatsApp Business → Meu status.') + (leg?' A legenda já foi copiada: é só colar. 💜':'');
     return;
   }
   if(!arquivo){ if(dica) dica.textContent='Carregando o arquivo… toque de novo em 2 segundinhos.'; return; }
   const a=document.createElement('a'); a.href=URL.createObjectURL(arquivo); a.download=arquivo.name; document.body.appendChild(a); a.click(); a.remove();
-  if(dica) dica.textContent='Baixei o arquivo. No computador não dá pra pôr no Status: abra o Postou no celular e toque aqui de novo. 📱';
+  if(dica) dica.textContent='Baixei o arquivo. No computador não dá pra mandar direto: abra o Postou no celular e toque aqui de novo. 📱';
 }
 function trocarArte(){ midiasTemp = []; desenharMidias(); const i=document.getElementById('mMidia'); if(i) i.click(); }
 /* 📐 arte quadrada/deitada no feed: avisa e oferece ajustar pra 4:5 com fundo (sem cortar) */
