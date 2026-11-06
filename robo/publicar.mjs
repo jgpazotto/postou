@@ -293,7 +293,8 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
     try {
       const st = await graph('GET', B + '/' + fonte.ig_id + '/stories', { fields: 'id,media_type,media_url,timestamp', access_token: fonte.token });
       itens = itens.concat((st.data || []).map(x => ({ ...x, deStory: true })));
-    } catch (e) { /* stories pela API nem sempre liberado — segue só com os posts */ }
+    } catch (e) { log('⚠️ espelho: não li os stories de', cli.nome, '—', e.message); }
+    log(`🪞 espelho: ${cli.nome} — ${itens.filter(x => !x.deStory).length} post(s) e ${itens.filter(x => x.deStory).length} story(s) lidos`);
     itens = itens.filter(x => x.id && x.timestamp && new Date(x.timestamp).getTime() >= desde && !doRobo.has(String(x.id)))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     for (const it of itens) {
