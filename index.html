@@ -5535,13 +5535,15 @@ let reelMusicaArquivo = null, reelVozBlob = null;
 const REEL_CORES = ['postou','#000000','#ffffff','#ec4899','#facc15','#3b82f6','#22c55e','#f97316'];
 let reelOpc = { estilo:'contorno', cor:'postou', pos:'cima' };
 function abrirFotosReels(){
+  const st0=document.getElementById('mMidiaStatus');
+  if(st0 && /Enviando/.test(st0.textContent)){ st0.innerHTML='⏳ Espere as fotos terminarem de subir e toque em ✨ de novo. 💜'; return; }
   const fotos = midiasTemp.filter(m=>m.tipo==='imagem');
   if(!fotos.length){ alertaSuave('Coloque pelo menos 1 foto no post primeiro. 💜'); return; }
   const d = document.createElement('div'); d.id='reelEditor';
   d.style.cssText='position:fixed;inset:0;background:#000c;z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto';
   d.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:430px;width:100%;padding:16px 16px 14px;max-height:94vh;overflow:auto">
     <h3 style="margin:0 0 4px">✨ Transformar fotos em Reels</h3>
-    <p style="font-size:.8rem;color:var(--muted);margin:0 0 10px">${fotos.length} foto(s) · o vídeo é montado aqui mesmo no seu aparelho. 💜</p>
+    <p style="font-size:.8rem;color:var(--muted);margin:0 0 10px"><b id="reelQtd">${fotos.length}</b> foto(s) · o vídeo é montado aqui mesmo no seu aparelho. 💜 <span style="font-size:.74rem">(a ordem é a mesma do post)</span></p>
     <label style="font-size:.82rem;font-weight:700">🎵 Música</label>
     <div id="reelMus" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${REEL_MUSICAS.map((m,i)=>`<button type="button" data-m="${m[0]}" class="btn-claro" style="padding:6px 10px;font-size:.8rem${i===0?';outline:2px solid var(--g2)':''}">${m[1]}</button>`).join('')}</div>
     <input type="file" id="reelMusArq" accept="audio/*" style="display:none">
@@ -5605,7 +5607,7 @@ function abrirFotosReels(){
   d.querySelector('#reelVozOuvir').onclick=()=>{ if(!reelVozBlob) return; if(vozAudio){ vozAudio.pause(); vozAudio=null; return; } vozAudio=new Audio(URL.createObjectURL(reelVozBlob)); vozAudio.onended=()=>vozAudio=null; vozAudio.play(); };
   d.querySelector('#reelVozApagar').onclick=()=>{ reelVozBlob=null; vozInfo.textContent=''; d.querySelector('#reelVozOuvir').style.display='none'; d.querySelector('#reelVozApagar').style.display='none'; d.querySelector('#reelVoz').textContent='🎙 Gravar minha voz'; };
   d.querySelector('#reelFechar').onclick=()=>{ pararOuvir(); if(gravador) gravador.stop(); d.remove(); };
-  d.querySelector('#reelGerar').onclick=()=>{ pararOuvir(); gerarReelDasFotos(fotos, musica, +d.querySelector('#reelSeg').value, d.querySelector('#reelTexto').value.trim()); };
+  d.querySelector('#reelGerar').onclick=()=>{ pararOuvir(); const atuais=midiasTemp.filter(m=>m.tipo==='imagem'); const q=d.querySelector('#reelQtd'); if(q) q.textContent=atuais.length; gerarReelDasFotos(atuais.length?atuais:fotos, musica, +d.querySelector('#reelSeg').value, d.querySelector('#reelTexto').value.trim()); };
   reelVozBlob=null;
   carregarImagensReel(fotos).then(imgs=>{ imgsPrevia=imgs; if(!imgs.length){ d.querySelector('#reelStatus').textContent='⚠️ Não consegui abrir as fotos neste aparelho. Tente de novo ou pelo Chrome.'; return; } previa(); });
 }
@@ -5808,6 +5810,11 @@ async function gerarReelDasFotos(fotos, musica, seg, texto){
   const v=document.createElement('video'); v.src=url; v.controls=true; v.playsInline=true; v.style.cssText='width:100%;max-width:220px;display:block;margin:0 auto 8px;border-radius:12px;background:#000'; cv.after(v);
   st.innerHTML='✅ Pronto! Assista e, se gostou, toque em <b>Usar no post</b>.'+(ext==='webm'?'<br><span style="font-size:.74rem;color:var(--muted)">(o robô converte pro formato do Instagram na hora de postar)</span>':'');
   btn.disabled=false; btn.textContent='✅ Usar no post';
+  if(!document.getElementById('reelSalvar')){ const sv=document.createElement('button'); sv.type='button'; sv.id='reelSalvar'; sv.className='btn-claro'; sv.textContent='📥 Salvar no aparelho'; btn.before(sv);
+    sv.onclick=async()=>{ const f=sv._arquivo; if(!f) return;
+      if(navigator.canShare && navigator.canShare({files:[f]})){ try{ await navigator.share({files:[f]}); st.innerHTML='💜 Escolha <b>Salvar vídeo</b> pra guardar na galeria.'; return; }catch(e){ if(e && e.name==='AbortError') return; } }
+      const a=document.createElement('a'); a.href=URL.createObjectURL(f); a.download=f.name; document.body.appendChild(a); a.click(); a.remove(); st.textContent='📥 Vídeo baixado!'; }; }
+  document.getElementById('reelSalvar')._arquivo=arquivo;
   btn.onclick=async()=>{
     btn.disabled=true; st.textContent='⏳ Enviando o vídeo…';
     const antes=midiasTemp.length;
