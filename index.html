@@ -5533,7 +5533,7 @@ const REEL_MUSICAS = [
 ];
 let reelMusicaArquivo = null, reelVozBlob = null;
 const REEL_CORES = ['postou','#000000','#ffffff','#ec4899','#facc15','#3b82f6','#22c55e','#f97316'];
-let reelOpc = { estilo:'contorno', cor:'postou', pos:'cima' };
+let reelOpc = { estilo:'contorno', cor:'postou', pos:'cima', musica:'alegre', seg:'3', texto:'' };
 function abrirFotosReels(){
   const st0=document.getElementById('mMidiaStatus');
   if(st0 && /Enviando/.test(st0.textContent)){ st0.innerHTML='⏳ Espere as fotos terminarem de subir e toque em ✨ de novo. 💜'; return; }
@@ -5543,22 +5543,22 @@ function abrirFotosReels(){
   d.style.cssText='position:fixed;inset:0;background:#000c;z-index:9999;display:flex;align-items:center;justify-content:center;padding:14px;overflow:auto';
   d.innerHTML = `<div style="background:#fff;border-radius:16px;max-width:430px;width:100%;padding:16px 16px 14px;max-height:94vh;overflow:auto">
     <h3 style="margin:0 0 4px">✨ Transformar fotos em Reels</h3>
-    <p style="font-size:.8rem;color:var(--muted);margin:0 0 10px"><b id="reelQtd">${fotos.length}</b> foto(s) · o vídeo é montado aqui mesmo no seu aparelho. 💜 <span style="font-size:.74rem">(a ordem é a mesma do post)</span></p>
+    <p style="font-size:.8rem;color:var(--muted);margin:0 0 10px"><b id="reelQtd">${fotos.length}</b> foto(s) · o vídeo é montado aqui mesmo no seu aparelho. 💜 <span style="font-size:.74rem">(a ordem é a mesma do post)</span> <label class="btn-claro" style="display:inline-block;padding:4px 10px;font-size:.78rem;cursor:pointer;margin:4px 0 0">➕ Mais fotos<input type="file" id="reelMais" accept="image/*" multiple style="display:none"></label></p>
     <label style="font-size:.82rem;font-weight:700">🎵 Música</label>
-    <div id="reelMus" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${REEL_MUSICAS.map((m,i)=>`<button type="button" data-m="${m[0]}" class="btn-claro" style="padding:6px 10px;font-size:.8rem${i===0?';outline:2px solid var(--g2)':''}">${m[1]}</button>`).join('')}</div>
+    <div id="reelMus" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${REEL_MUSICAS.map((m,i)=>`<button type="button" data-m="${m[0]}" class="btn-claro" style="padding:6px 10px;font-size:.8rem${m[0]===reelOpc.musica?';outline:2px solid var(--g2)':''}">${m[1]}</button>`).join('')}</div>
     <input type="file" id="reelMusArq" accept="audio/*" style="display:none">
     <div id="reelMusInfo" style="font-size:.74rem;color:var(--muted);margin-bottom:8px">Músicas criadas pelo Postou (violão, piano elétrico e batida) — livres de direitos autorais. ▶ toque em "Ouvir" pra testar.</div>
     <button type="button" class="btn-claro" id="reelOuvir" style="padding:5px 12px;font-size:.8rem;margin-bottom:10px">▶ Ouvir</button>
     <label style="font-size:.82rem;font-weight:700;display:block">⏱ Tempo de cada foto</label>
-    <select id="reelSeg" style="margin:4px 0 10px;width:100%;padding:8px;border-radius:10px;border:1px solid var(--line)"><option value="2">2 segundos (rapidinho)</option><option value="3" selected>3 segundos</option><option value="4">4 segundos</option><option value="5">5 segundos (calminho)</option></select>
+    <select id="reelSeg" style="margin:4px 0 10px;width:100%;padding:8px;border-radius:10px;border:1px solid var(--line)">${[['2','2 segundos (rapidinho)'],['3','3 segundos'],['4','4 segundos'],['5','5 segundos (calminho)']].map(o=>`<option value="${o[0]}" ${o[0]===String(reelOpc.seg)?'selected':''}>${o[1]}</option>`).join('')}</select>
     <label style="font-size:.82rem;font-weight:700;display:block">✍️ Texto na tela <span style="font-weight:400;color:var(--muted)">(opcional, aparece no começo)</span></label>
-    <input id="reelTexto" maxlength="70" placeholder="Ex.: Semana de banho aqui em casa! 🫧" style="width:100%;margin:4px 0 6px;padding:9px;border-radius:10px;border:1px solid var(--line);box-sizing:border-box">
+    <input id="reelTexto" maxlength="70" value="${escapar(reelOpc.texto||'')}" placeholder="Ex.: Semana de banho aqui em casa! 🫧" style="width:100%;margin:4px 0 6px;padding:9px;border-radius:10px;border:1px solid var(--line);box-sizing:border-box">
     <div style="font-size:.78rem;font-weight:700;margin-top:2px">Estilo da letra</div>
-    <div id="reelEst" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${[['contorno','✏️ Contorno'],['caixa','🟪 Com caixa'],['sombra','🌫 Só sombra']].map((x,i)=>`<button type="button" data-v="${x[0]}" class="btn-claro" style="padding:5px 10px;font-size:.78rem${i===0?';outline:2px solid var(--g2)':''}">${x[1]}</button>`).join('')}</div>
+    <div id="reelEst" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${[['contorno','✏️ Contorno'],['caixa','🟪 Com caixa'],['sombra','🌫 Só sombra']].map((x,i)=>`<button type="button" data-v="${x[0]}" class="btn-claro" style="padding:5px 10px;font-size:.78rem${x[0]===reelOpc.estilo?';outline:2px solid var(--g2)':''}">${x[1]}</button>`).join('')}</div>
     <div style="font-size:.78rem;font-weight:700">Cor</div>
-    <div id="reelCor" style="display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 6px">${REEL_CORES.map((c,i)=>`<button type="button" data-v="${c}" title="${c}" style="width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 ${i===0?'2px var(--g2)':'1px #ccc'};background:${c==='postou'?'linear-gradient(135deg,#7c3aed,#ec4899)':c}"></button>`).join('')}</div>
+    <div id="reelCor" style="display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 6px">${REEL_CORES.map((c,i)=>`<button type="button" data-v="${c}" title="${c}" style="width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 ${c===reelOpc.cor?'3px var(--g2)':'1px #ccc'};background:${c==='postou'?'linear-gradient(135deg,#7c3aed,#ec4899)':c}"></button>`).join('')}</div>
     <div style="font-size:.78rem;font-weight:700">Posição</div>
-    <div id="reelPos" style="display:flex;gap:6px;margin:4px 0 10px">${[['cima','⬆️ Em cima'],['meio','↔️ No meio'],['baixo','⬇️ Embaixo']].map((x,i)=>`<button type="button" data-v="${x[0]}" class="btn-claro" style="padding:5px 10px;font-size:.78rem${i===0?';outline:2px solid var(--g2)':''}">${x[1]}</button>`).join('')}</div>
+    <div id="reelPos" style="display:flex;gap:6px;margin:4px 0 10px">${[['cima','⬆️ Em cima'],['meio','↔️ No meio'],['baixo','⬇️ Embaixo']].map((x,i)=>`<button type="button" data-v="${x[0]}" class="btn-claro" style="padding:5px 10px;font-size:.78rem${x[0]===reelOpc.pos?';outline:2px solid var(--g2)':''}">${x[1]}</button>`).join('')}</div>
     <label style="font-size:.82rem;font-weight:700;display:block">🎙 Sua voz <span style="font-weight:400;color:var(--muted)">(opcional — a música abaixa sozinha)</span></label>
     <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0 10px"><button type="button" class="btn-claro" id="reelVoz" style="padding:6px 12px;font-size:.82rem">🎙 Gravar minha voz</button><button type="button" class="btn-claro" id="reelVozOuvir" style="padding:6px 10px;font-size:.8rem;display:none">▶ Ouvir</button><button type="button" class="btn-claro" id="reelVozApagar" style="padding:6px 10px;font-size:.8rem;display:none">🗑</button><span id="reelVozInfo" style="font-size:.76rem;color:var(--muted)"></span></div>
     <canvas id="reelCanvas" width="720" height="1280" style="width:100%;max-width:220px;display:block;margin:0 auto 8px;border-radius:12px;background:#111"></canvas>
@@ -5568,9 +5568,9 @@ function abrirFotosReels(){
       <button type="button" class="btn" id="reelGerar">🎬 Gerar vídeo</button>
     </div></div>`;
   document.body.appendChild(d);
-  let musica='alegre', ouvindo=null;
+  let musica=reelOpc.musica||'alegre', ouvindo=null;
   const pararOuvir=()=>{ if(ouvindo){ try{ouvindo.stop();}catch(e){} ouvindo=null; const b=document.getElementById('reelOuvir'); if(b) b.textContent='▶ Ouvir'; } };
-  d.querySelector('#reelMus').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; pararOuvir(); musica=b.dataset.m;
+  d.querySelector('#reelMus').onclick=e=>{ const b=e.target.closest('button'); if(!b) return; pararOuvir(); musica=b.dataset.m; reelOpc.musica=musica;
     d.querySelectorAll('#reelMus button').forEach(x=>x.style.outline=''); b.style.outline='2px solid var(--g2)';
     const info=d.querySelector('#reelMusInfo');
     if(musica==='minha'){ d.querySelector('#reelMusArq').click(); info.textContent='Escolha um áudio sem direitos autorais (ex.: exportado do CapCut/Edits). Você é responsável pela música que escolher. 💜'; }
@@ -5588,7 +5588,11 @@ function abrirFotosReels(){
       if(sel==='#reelCor') b.style.boxShadow='0 0 0 3px var(--g2)'; else b.style.outline='2px solid var(--g2)'; previa(); }; };
   marcar('#reelEst','estilo'); marcar('#reelCor','cor'); marcar('#reelPos','pos');
   let imgsPrevia=[]; const previa=()=>{ if(imgsPrevia.length && document.getElementById('reelCanvas')) desenharQuadroReel(document.getElementById('reelCanvas'), imgsPrevia, 0.6, 3, d.querySelector('#reelTexto').value||'Seu texto aqui'); };
-  d.querySelector('#reelTexto').oninput=previa;
+  d.querySelector('#reelTexto').oninput=e=>{ reelOpc.texto=e.target.value; previa(); };
+  // ➕ mais fotos sem sair do editor
+  d.querySelector('#reelMais').onchange=async e=>{ const st=d.querySelector('#reelStatus'); st.textContent='⏳ Subindo as fotos…';
+    await enviarMidias(e.target); const atuais=midiasTemp.filter(m=>m.tipo==='imagem'); d.querySelector('#reelQtd').textContent=atuais.length;
+    imgsPrevia=await carregarImagensReel(atuais); previa(); st.textContent='✅ '+atuais.length+' foto(s) prontas.'; };
   // 🎙 gravar voz
   let gravador=null, vozAudio=null;
   const vozInfo=d.querySelector('#reelVozInfo');
@@ -5608,7 +5612,8 @@ function abrirFotosReels(){
   d.querySelector('#reelVozApagar').onclick=()=>{ reelVozBlob=null; vozInfo.textContent=''; d.querySelector('#reelVozOuvir').style.display='none'; d.querySelector('#reelVozApagar').style.display='none'; d.querySelector('#reelVoz').textContent='🎙 Gravar minha voz'; };
   d.querySelector('#reelFechar').onclick=()=>{ pararOuvir(); if(gravador) gravador.stop(); d.remove(); };
   d.querySelector('#reelGerar').onclick=()=>{ pararOuvir(); const atuais=midiasTemp.filter(m=>m.tipo==='imagem'); const q=d.querySelector('#reelQtd'); if(q) q.textContent=atuais.length; gerarReelDasFotos(atuais.length?atuais:fotos, musica, +d.querySelector('#reelSeg').value, d.querySelector('#reelTexto').value.trim()); };
-  reelVozBlob=null;
+  if(reelVozBlob){ vozInfo.textContent='✅ Voz gravada (da última vez)'; d.querySelector('#reelVozOuvir').style.display=''; d.querySelector('#reelVozApagar').style.display=''; d.querySelector('#reelVoz').textContent='🎙 Gravar de novo'; }
+  d.querySelector('#reelSeg').onchange=e=>{ reelOpc.seg=e.target.value; };
   carregarImagensReel(fotos).then(imgs=>{ imgsPrevia=imgs; if(!imgs.length){ d.querySelector('#reelStatus').textContent='⚠️ Não consegui abrir as fotos neste aparelho. Tente de novo ou pelo Chrome.'; return; } previa(); });
 }
 function alertaSuave(t){ const st=document.getElementById('mMidiaStatus'); if(st) st.textContent=t; }
