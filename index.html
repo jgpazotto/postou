@@ -5842,13 +5842,14 @@ function verMidia(i){
   d.innerHTML = (m.tipo==='video'
      ? `<video src="${m.url}" controls autoplay playsinline style="max-width:100%;max-height:80vh;border-radius:12px;background:#000"></video>`
      : `<img src="${m.url}" style="max-width:100%;max-height:80vh;border-radius:12px">`)
-     + `<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="vm-status" style="border:none;border-radius:999px;padding:10px 18px;font-weight:700;background:#25d366;color:#fff;cursor:pointer">📲 Mandar pro Status</button><button class="vm-tiktok" style="border:none;border-radius:999px;padding:10px 18px;font-weight:700;background:#111;color:#fff;cursor:pointer">🎵 Mandar pro TikTok</button><button class="vm-fechar" style="border:none;border-radius:999px;padding:10px 22px;font-weight:700;background:#fff;cursor:pointer">✓ É esse mesmo — fechar</button></div><div class="vm-dica" style="color:#fff;font-size:.8rem;margin-top:8px;text-align:center;max-width:420px"></div>`;
+     + `<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:14px"><button class="vm-status" style="border:none;border-radius:999px;padding:10px 18px;font-weight:700;background:#25d366;color:#fff;cursor:pointer">📲 Mandar pro Status</button><button class="vm-insta" style="border:none;border-radius:999px;padding:10px 18px;font-weight:700;background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af);color:#fff;cursor:pointer">📸 Abrir no Instagram</button><button class="vm-tiktok" style="border:none;border-radius:999px;padding:10px 18px;font-weight:700;background:#111;color:#fff;cursor:pointer">🎵 Mandar pro TikTok</button><button class="vm-fechar" style="border:none;border-radius:999px;padding:10px 22px;font-weight:700;background:#fff;cursor:pointer">✓ É esse mesmo — fechar</button></div><div class="vm-dica" style="color:#fff;font-size:.8rem;margin-top:8px;text-align:center;max-width:420px"></div>`;
   /* 📲 já baixa o arquivo pra o "compartilhar" abrir na hora (o celular exige o toque direto) */
   let arquivo=null;
   fetch(m.url).then(r=>r.blob()).then(b=>{ const ext=(b.type.split('/')[1]||'jpg').split(';')[0].replace('quicktime','mov').replace('jpeg','jpg'); arquivo=new File([b],'postou-status.'+ext,{type:b.type}); }).catch(()=>{});
   d.addEventListener('click', e=>{
     const t=e.target;
     if(t.classList && t.classList.contains('vm-status')){ mandarProStatus(arquivo, m, d.querySelector('.vm-dica')); return; }
+    if(t.classList && t.classList.contains('vm-insta')){ mandarProStatus(arquivo, m, d.querySelector('.vm-dica'), 'instagram'); return; }
     if(t.classList && t.classList.contains('vm-tiktok')){ mandarProStatus(arquivo, m, d.querySelector('.vm-dica'), 'tiktok'); return; }
     if(t===d || (t.classList && t.classList.contains('vm-fechar'))){ const v=d.querySelector('video'); if(v) v.pause(); d.remove(); }
   });
@@ -5859,7 +5860,7 @@ function mandarProStatus(arquivo, m, dica, destino){
   if(leg && navigator.clipboard){ navigator.clipboard.writeText(leg).catch(()=>{}); }
   if(arquivo && navigator.canShare && navigator.canShare({files:[arquivo]})){
     navigator.share({files:[arquivo]}).catch(()=>{});
-    if(dica) dica.textContent = (destino==='tiktok' ? 'Escolha TikTok → no editor, toque em "Story" (ou em "Avançar" pra post).' : 'Escolha WhatsApp Business → Meu status.') + (leg?' A legenda já foi copiada: é só colar. 💜':'');
+    if(dica) dica.textContent = (destino==='tiktok' ? 'Escolha TikTok → no editor, toque em "Story" (ou em "Avançar" pra post).' : destino==='instagram' ? 'Escolha Instagram → Stories (ou Reels). Lá dá pra pôr @, localização, música e enquete. 📍' : 'Escolha WhatsApp Business → Meu status.') + (leg?' A legenda já foi copiada: é só colar. 💜':'');
     return;
   }
   if(!arquivo){ if(dica) dica.textContent='Carregando o arquivo… toque de novo em 2 segundinhos.'; return; }
@@ -5916,17 +5917,55 @@ function paraJpeg(f){
     img.src=url;
   });
 }
+/* 🎬 Vídeo grande (Edits, câmera 4K…): o servidor aceita até 50 MB → o Postou regrava menor aqui mesmo */
+const LIMITE_MIDIA = 48*1024*1024;
+async function comprimirVideo(f, st){
+  if(typeof MediaRecorder==='undefined') return f;
+  const url=URL.createObjectURL(f);
+  const v=document.createElement('video'); v.src=url; v.playsInline=true; v.preload='auto';
+  v.style.cssText='position:fixed;left:-9999px;top:0;width:2px;height:2px;opacity:0';
+  document.body.appendChild(v);
+  try{
+    await new Promise((ok,erro)=>{ v.onloadedmetadata=ok; v.onerror=()=>erro(new Error('não abriu')); setTimeout(()=>erro(new Error('demorou')),20000); });
+    const dur=v.duration||0; if(!dur || !isFinite(dur)) throw new Error('sem duração');
+    let w=v.videoWidth||720, h=v.videoHeight||1280; const max=1280;
+    if(Math.max(w,h)>max){ const k=max/Math.max(w,h); w=Math.round(w*k/2)*2; h=Math.round(h*k/2)*2; }
+    const cv=document.createElement('canvas'); cv.width=w; cv.height=h; const cx=cv.getContext('2d');
+    if(!cv.captureStream) throw new Error('sem captureStream');
+    const stream=cv.captureStream(30);
+    let ctx=null;
+    try{ ctx=new (window.AudioContext||window.webkitAudioContext)(); if(ctx.state==='suspended') await ctx.resume();
+      const src=ctx.createMediaElementSource(v), dest=ctx.createMediaStreamDestination(); src.connect(dest);
+      dest.stream.getAudioTracks().forEach(t=>stream.addTrack(t)); }catch(e){}
+    const tipos=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4;codecs="avc1,mp4a"','video/mp4','video/webm;codecs=vp9,opus','video/webm'];
+    const mime=tipos.find(t=>{ try{ return MediaRecorder.isTypeSupported(t); }catch(e){ return false; } })||'';
+    const bps=Math.max(1_200_000, Math.min(5_000_000, Math.floor((40*1024*1024*8)/dur) - 160_000));
+    const rec=new MediaRecorder(stream, mime?{mimeType:mime, videoBitsPerSecond:bps, audioBitsPerSecond:128_000}:undefined);
+    const pedacos=[]; rec.ondataavailable=e=>{ if(e.data&&e.data.size) pedacos.push(e.data); };
+    const fim=new Promise(ok=>rec.onstop=ok);
+    rec.start(500); await v.play();
+    await new Promise(ok=>{ const passo=()=>{ cx.drawImage(v,0,0,w,h);
+      if(st) st.textContent='🎬 Deixando o vídeo mais leve… '+Math.min(100,Math.round(v.currentTime/dur*100))+'% (deixe esta tela aberta)';
+      if(v.ended || v.currentTime>=dur-0.05){ ok(); return; } requestAnimationFrame(passo); }; requestAnimationFrame(passo); });
+    rec.stop(); await fim; try{ ctx&&ctx.close(); }catch(e){}
+    const tipo=(mime||'video/webm').split(';')[0], ext=tipo.includes('mp4')?'mp4':'webm';
+    const novo=new File(pedacos,'postou-reels-'+Date.now()+'.'+ext,{type:tipo});
+    return novo.size && novo.size < f.size ? novo : f;
+  }catch(e){ return f; }
+  finally{ try{ v.pause(); }catch(e){} v.remove(); URL.revokeObjectURL(url); }
+}
 async function enviarMidias(input){
   const arquivos = [...(input.files||[])]; if(!arquivos.length) return;
   const st = document.getElementById('mMidiaStatus');
   for(let [i,f] of arquivos.entries()){
     f = await paraJpeg(f);
-    if(f.size > 95*1024*1024){ if(st) st.textContent='⚠️ "'+f.name+'" é grande demais (máx. 95 MB).'; continue; }
+    if((f.type||'').startsWith('video') && f.size > LIMITE_MIDIA) f = await comprimirVideo(f, st);
+    if(f.size > LIMITE_MIDIA){ if(st) st.innerHTML='⚠️ "'+f.name+'" ficou grande demais pra subir ('+Math.round(f.size/1048576)+' MB, máx. 48 MB).<br>Dica: no Edits/CapCut, exporte em <b>1080p</b> (não 4K) ou corte um pedacinho. 💜'; continue; }
     if(st) st.textContent = '⏳ Enviando '+(i+1)+' de '+arquivos.length+'…';
     const ext = (f.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
     const caminho = usuarioId+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.'+ext;
     const { error } = await sb.storage.from('midias').upload(caminho, f, { contentType: f.type, upsert:false });
-    if(error){ if(st) st.textContent='⚠️ Não consegui enviar: '+error.message; continue; }
+    if(error){ if(st) st.textContent='⚠️ Não consegui enviar: '+(/exceeded|maximum|size/i.test(error.message)?'o arquivo é grande demais (máx. 48 MB). Exporte em 1080p e tente de novo 💜':error.message); continue; }
     const { data } = sb.storage.from('midias').getPublicUrl(caminho);
     midiasTemp.push({ url:data.publicUrl, tipo: (f.type||'').startsWith('video')?'video':'imagem', nome:f.name });
     desenharMidias();
