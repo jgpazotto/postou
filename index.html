@@ -5517,8 +5517,8 @@ function ehPerfilSocial(c){ return c && !c.arquivado && c.tipo!=='cliente' && c.
 /* ---------- mídias do post (arte / vídeo) ---------- */
 function desenharMidias(){
   const el = document.getElementById('mMidiasPrev'); if(!el) return;
-  el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:110px;height:110px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
-      ${m.tipo==='video'?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,var(--g1),var(--g2))">🎬</div><video src="${m.url}#t=0.5" muted playsinline preload="metadata" onerror="this.remove()" style="position:relative;width:100%;height:100%;object-fit:cover;pointer-events:none"></video><span onclick="verMidia(${i})" title="Toque pra assistir" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-size:1.4rem;background:#0009;color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center">▶</span></span>`
+  el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:${m.tipo==='video'?'112px':'110px'};height:${m.tipo==='video'?'190px':'110px'};border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
+      ${m.tipo==='video'?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,var(--g1),var(--g2))">🎬</div><video src="${m.url}#t=0.5" muted playsinline preload="metadata" onerror="this.remove()" style="position:relative;width:100%;height:100%;object-fit:cover;pointer-events:none"></video><span onclick="verMidia(${i})" title="Toque pra assistir" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-size:1.4rem;background:#0009;color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center">▶</span></span><span onclick="verMidia(${i})" style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,#000c);color:#fff;font-size:.72rem;font-weight:700;text-align:center;padding:14px 4px 6px;cursor:pointer">✅ Vídeo pronto<br>▶ toque pra assistir</span>`
         :`<img src="${m.url}" title="Toque pra ver grande" onclick="verMidia(${i})" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in">`}
       <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
     </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
@@ -5961,10 +5961,13 @@ async function enviarMidias(input){
     f = await paraJpeg(f);
     if((f.type||'').startsWith('video') && f.size > LIMITE_MIDIA) f = await comprimirVideo(f, st);
     if(f.size > LIMITE_MIDIA){ if(st) st.innerHTML='⚠️ "'+f.name+'" ficou grande demais pra subir ('+Math.round(f.size/1048576)+' MB, máx. 48 MB).<br>Dica: no Edits/CapCut, exporte em <b>1080p</b> (não 4K) ou corte um pedacinho. 💜'; continue; }
-    if(st) st.textContent = '⏳ Enviando '+(i+1)+' de '+arquivos.length+'…';
+    if(st) st.textContent = '⏳ Enviando '+(i+1)+' de '+arquivos.length+'… (vídeo pode levar 1 minutinho)';
+    const prev=document.getElementById('mMidiasPrev'); let ph=null;
+    if(prev){ ph=document.createElement('div'); ph.style.cssText='width:112px;height:'+((f.type||'').startsWith('video')?'190px':'110px')+';border-radius:10px;border:2px dashed var(--line);display:flex;align-items:center;justify-content:center;text-align:center;font-size:.75rem;color:var(--muted);padding:6px'; ph.innerHTML='⏳<br>Enviando…'; prev.appendChild(ph); }
     const ext = (f.name.split('.').pop()||'bin').toLowerCase().replace(/[^a-z0-9]/g,'');
     const caminho = usuarioId+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'.'+ext;
     const { error } = await sb.storage.from('midias').upload(caminho, f, { contentType: f.type, upsert:false });
+    if(ph) ph.remove();
     if(error){ if(st) st.textContent='⚠️ Não consegui enviar: '+(/exceeded|maximum|size/i.test(error.message)?'o arquivo é grande demais (máx. 48 MB). Exporte em 1080p e tente de novo 💜':error.message); continue; }
     const { data } = sb.storage.from('midias').getPublicUrl(caminho);
     midiasTemp.push({ url:data.publicUrl, tipo: (f.type||'').startsWith('video')?'video':'imagem', nome:f.name });
