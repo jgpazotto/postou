@@ -312,6 +312,8 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
         } catch (e) { /* usa o que veio */ }
       }
       if (!url) { log(`   ⏭ espelho: ${it.deStory ? 'story' : 'post'} ${it.id} de ${cli.nome} veio sem link da mídia (o Instagram não entrega quando tem música/figurinha) — fica manual`); continue; }
+      // 🎬 vídeo do Instagram às vezes volta recusado (erro 2207076) → regrava em MP4 H.264/AAC antes, igual ao Reels do Postou
+      let mp4Pronto = false;
       for (const cid of alvos) {
         const rede = 'espelho:' + cid;
         if (feito.has(`${row.user_id}|${it.id}|${rede}`)) continue;
@@ -327,6 +329,11 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
         if (!trava.ok) { log('   já feito/trava:', trava.status); continue; }
         let status = 'ok', resultado;
         try {
+          if (tipo === 'video' && !mp4Pronto) {
+            const tmp = { midias: [{ url, tipo: 'video', nome: 'postou-reels-espelho' }] };
+            try { await prepararVideos(tmp, row.user_id); url = tmp.midias[0].url; } catch (e) { log('   ⚠️ não converti o vídeo do espelho (vai o original):', e.message); }
+            mp4Pronto = true;
+          }
           resultado = await publicarInstagram({ tipo: 'story', midias: [{ url, tipo }] }, alvo);
           resultado.de = cli.nome;
           log('   ✅ espelhado', resultado.id); if (resultado.id) doRobo.add(String(resultado.id));
