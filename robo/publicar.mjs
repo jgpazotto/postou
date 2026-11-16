@@ -277,6 +277,7 @@ function contaDoPerfil(cli, con, igs) {
 }
 async function espelhar(row, dados, con, igs, feito, doRobo) {
   let n = 0;
+  const storiesDoAlvo = new Map(); // horários dos stories que o próprio perfil-alvo já postou
   const clientes = dados.clientes || [];
   for (const cli of clientes) {
     const alvos = (Array.isArray(cli.espelhoPara) ? cli.espelhoPara : []).map(String).filter(x => x !== String(cli.id));
@@ -320,6 +321,25 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
         const alvoCli = clientes.find(c => String(c.id) === cid);
         const alvo = alvoCli && contaDoPerfil(alvoCli, con, igs);
         if (!alvo || alvo.ig_id === fonte.ig_id) continue;
+        // 🔁 se o perfil-alvo já postou um story na mesma hora (ex.: a pessoa repostou o mesmo post nos dois perfis), não espelha → evita story duplicado
+        if (it.deStory) {
+          if (!storiesDoAlvo.has(alvo.ig_id)) {
+            let hs = [];
+            try {
+              const sa = await graph('GET', (alvo.base || GRAPH) + '/' + alvo.ig_id + '/stories', { fields: 'id,timestamp', access_token: alvo.token });
+              hs = (sa.data || []).filter(z => !doRobo.has(String(z.id))).map(z => new Date(z.timestamp).getTime());
+            } catch (e) { log('   ⚠️ espelho: não li os stories de', alvoCli.nome, '—', e.message); }
+            storiesDoAlvo.set(alvo.ig_id, hs);
+          }
+          const tFonte = new Date(it.timestamp).getTime();
+          if (storiesDoAlvo.get(alvo.ig_id).some(t => Math.abs(t - tFonte) < 45 * 60e3)) {
+            log(`   ⏭ espelho: ${alvoCli.nome} já postou story perto desse horário — deve ser o mesmo, não repito`);
+            if (!SECO) await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
+              body: JSON.stringify({ user_id: row.user_id, post_id: String(it.id), rede, status: 'pulado', resultado: { repetido: true, de: cli.nome } }) });
+            feito.add(`${row.user_id}|${it.id}|${rede}`);
+            continue;
+          }
+        }
         if (n >= 6) return n; // no máximo 6 por rodada
         log(`🪞 espelho: ${cli.nome} → story de ${alvoCli.nome} (${it.deStory ? 'story' : it.media_type})`);
         if (SECO) { n++; continue; }
