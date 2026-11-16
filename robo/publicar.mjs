@@ -600,6 +600,16 @@ async function main() {
     const con = conexoes.get(row.user_id) || { paginas: [] };
     const igsDoUsuario = contasIG.get(row.user_id) || [];
     const fuso = dados.fuso || FUSO_PADRAO;
+    // 🔁 o mesmo vídeo/foto vai no story de um perfil só UMA vez no dia
+    // (ex.: 4 posts iguais, cada um com "story também em outro perfil" → antes saía 4x no mesmo story)
+    const storyDono = new Map();
+    for (const q of dados.posts || []) {
+      const u = ((midiasDoPost(q)[0] || {}).url) || ''; if (!u) continue;
+      const alvos = [];
+      if (q.tipo === 'story' || q.virarStory) alvos.push(String(q.clienteId));
+      for (const cid of (Array.isArray(q.storyEm) ? q.storyEm : [])) alvos.push(String(cid));
+      for (const a of alvos) { const k = a + '|' + u + '|' + (q.data || ''); if (!storyDono.has(k)) storyDono.set(k, q.id); }
+    }
     for (const p of dados.posts || []) {
       if (!p.autoPublicar || p.status === 'publicado') continue;
       const quando = horarioDoPost(p.data, p.hora, fuso);
@@ -610,12 +620,22 @@ async function main() {
       if (p.virarStory && p.tipo !== 'story' && redesDoPost.includes('instagram')) redesDoPost.push('instagram_story');
       // 📲 "story também em outro perfil": repete a arte nos stories de outros perfis (ex.: @jgpazotto)
       for (const cid of (Array.isArray(p.storyEm) ? p.storyEm : [])) if (String(cid) !== String(p.clienteId)) redesDoPost.push('story:' + cid);
+      const urlStory = ((midiasDoPost(p)[0] || {}).url) || '';
       for (const rede of redesDoPost) {
         const chave = `${row.user_id}|${p.id}|${rede}`;
         if (feito.has(chave)) continue;
         const storyOutro = rede.startsWith('story:');
         const cliR = storyOutro ? (dados.clientes || []).find(c => String(c.id) === rede.slice(6)) : cli;
         if (!cliR) continue; // perfil do story extra foi apagado
+        if (urlStory && (storyOutro || rede === 'instagram_story' || (p.tipo === 'story' && rede === 'instagram'))) {
+          const dono = storyDono.get(String(cliR.id) + '|' + urlStory + '|' + (p.data || ''));
+          if (dono !== undefined && String(dono) !== String(p.id)) {
+            log(`   ⏭ ${cliR.nome}: esse mesmo vídeo/foto já vai no story dele pelo post ${dono} — não repito`);
+            if (!SECO) await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
+              body: JSON.stringify({ user_id: row.user_id, post_id: p.id, rede, status: 'pulado', resultado: { repetido: true, mesmoQue: dono } }) });
+            feito.add(chave); continue;
+          }
+        }
         const contaTH = rede === 'threads' ? igsDoUsuario.find(a => a.api === 'threads' && a.ig_id === cliR.thConta) : null;
         if (rede === 'threads' && !contaTH) { continue; } // perfil sem Threads ligado: fica manual
         const contaYT = rede === 'youtube' ? igsDoUsuario.find(a => a.api === 'youtube' && a.ig_id === cliR.ytConta) : null;
