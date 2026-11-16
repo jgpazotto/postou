@@ -447,6 +447,7 @@
       <input type="email" id="loginEmail" placeholder="Seu e-mail" autocomplete="username">
       <input type="password" id="loginSenha" placeholder="Sua senha" autocomplete="current-password" onkeydown="if(event.key==='Enter')fazerLogin()">
       <button class="btn" id="btnEntrar" onclick="fazerLogin()">Entrar</button>
+      <p style="margin-top:10px;font-size:.85rem"><a href="#" onclick="recuperarSenha();return false" style="color:var(--g1);font-weight:700">🔑 Esqueci minha senha</a></p>
       <p style="margin-top:14px;font-size:.85rem">Ainda não tem conta?<br><a href="#" onclick="mostrarCadastro();return false" style="color:var(--g1);font-weight:700">🎁 Teste 15 dias grátis</a></p>
     </div>
     <div id="formCadastro" style="display:none">
@@ -1000,6 +1001,7 @@ async function entrarNoApp(){
   render();
   procurarEmpresas();
   carregarConexao(); carregarPublicacoes(); sincronizarMetricasAuto();
+  verificarNovasContas(); if(timerNovas) clearInterval(timerNovas); timerNovas=setInterval(()=>{ if(!document.hidden) verificarNovasContas(); }, 300000);
   verificarExpiracao();
   if(planoAtual()!=='expirado' && !(dados.assinatura && dados.assinatura.tourVisto)){ setTimeout(iniciarTour, 550); }
 }
@@ -1191,6 +1193,36 @@ function avisarZap(zapEnc, nomeEnc, ddiId){
   window.open('https://wa.me/'+num+'?text='+encodeURIComponent(msg),'_blank');
 }
 function diasDesde(iso){ if(!iso) return 0; const d0=new Date(parseInt(iso.slice(0,4)),parseInt(iso.slice(5,7))-1,parseInt(iso.slice(8,10))); const hj=new Date(); hj.setHours(0,0,0,0); return Math.round((hj-d0)/864e5); }
+/* 🔔 aviso de conta nova pra dona: bolinha no 👑 Dono */
+let novasContas=[], timerNovas=null;
+async function verificarNovasContas(){
+  try{
+    if(!ehDono() || contaEmpresaId) return;
+    const { data, error } = await sb.from('organizador').select('user_id,assinatura:conteudo->assinatura');
+    if(error || !data) return;
+    const ids=data.map(r=>r.user_id);
+    dados.assinatura = dados.assinatura || {};
+    const conhecidas = dados.assinatura.donoConhecidas;
+    if(!Array.isArray(conhecidas)){ dados.assinatura.donoConhecidas = ids; agendarSalvar(); novasContas=[]; }
+    else novasContas = data.filter(r=>!conhecidas.includes(r.user_id)).map(r=>{ const a=r.assinatura||{}; return { id:r.user_id, nome:a.nome||a.email||'(sem nome)', email:a.email||'', interesse:a.interesse||'' }; });
+    pintarBolinhaDono();
+  }catch(e){}
+}
+function pintarBolinhaDono(){
+  const b=document.querySelector('nav button[data-aba="dono"]'); if(!b) return;
+  const n=novasContas.length;
+  b.innerHTML='👑 Dono'+(n?` <span title="Contas novas" style="display:inline-block;min-width:18px;padding:0 5px;border-radius:9px;background:#ef4444;color:#fff;font-size:.72rem;font-weight:800;line-height:18px;text-align:center;margin-left:2px">${n}</span>`:'');
+  try{ const t=document.title.replace(/^\(\d+\) /,''); document.title = n ? '('+n+') '+t : t; }catch(e){}
+}
+function bannerNovasContas(){
+  if(!novasContas.length) return '';
+  const lista=novasContas.map(c=>`<b>${escapar(c.nome)}</b>${c.email?' <span style="color:var(--muted);font-size:.8rem">'+escapar(c.email)+'</span>':''}`).join(' · ');
+  const html=`<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:10px 14px;margin-bottom:12px">🔔 <b>${novasContas.length} conta(s) nova(s)</b> desde a última vez: ${lista}<br><span style="font-size:.8rem;color:var(--muted)">Que tal mandar um oi de boas-vindas? 💜</span></div>`;
+  dados.assinatura = dados.assinatura || {};
+  dados.assinatura.donoConhecidas = [...new Set([...(dados.assinatura.donoConhecidas||[]), ...novasContas.map(c=>c.id)])];
+  novasContas=[]; agendarSalvar(); setTimeout(pintarBolinhaDono, 50);
+  return html;
+}
 async function carregarDono(){
   const cont=document.getElementById('listaDono'); if(!cont) return;
   if(!ehDono()){ cont.innerHTML='<div class="vazio">Área exclusiva da dona. 💜</div>'; return; }
@@ -1226,6 +1258,7 @@ async function carregarDono(){
   let html='';
   if(lista.length<=1){ html+=`<div class="vazio" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">⚠️ O painel está vendo só a sua conta. Falta ativar a <b>permissão de dona</b> no Supabase — o comando que a gente vai rodar juntas. Depois disso, todos os assinantes aparecem aqui.</div>`; }
   html+=`<div class="tiles"><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.length}</div><div class="rot">contas no Postou</div></div><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.filter(u=>u.expirado).length}</div><div class="rot">testes expirados</div></div></div>`;
+  if(!contaEmpresaId){ html+=bannerNovasContas(); }
   if(avisoDono){ html+=`<div class="vazio" style="border:1px solid #0a8a4a;color:#0a8a4a;border-radius:10px;padding:10px;margin-bottom:12px">${avisoDono}</div>`; avisoDono=''; }
   // 💬 dúvidas que o assistente não soube responder (de todas as contas)
   const duvidas = [];
@@ -3875,6 +3908,7 @@ function abrirConfig(){
     <label>Seu e-mail (login)</label>
     <input id="cfgEmail" value="${escapar(email)}" disabled style="opacity:.7">
     <p style="font-size:.75rem;color:var(--muted)">O e-mail é o seu login e não muda por aqui. Se precisar trocar, fale com a Joice. 💜</p>
+    <button type="button" class="btn-claro" style="margin-top:4px" onclick="abrirNovaSenha()">🔑 Trocar minha senha</button>
     ${!planoConfig().umaPorRede?`
     <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
     <label>🏬 Minhas lojas / empresas</label>
