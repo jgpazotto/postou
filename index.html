@@ -592,7 +592,7 @@
     <div id="listaCaixa"></div>
   </section>
   <section id="aba-equipe" style="display:none">
-    <div class="secao-topo"><h2>🏢 Equipe</h2><button class="btn-claro" onclick="carregarEquipe()">🔄 Atualizar</button></div>
+    <div class="secao-topo"><h2>🏢 Equipe</h2><button class="btn-claro" onclick="carregarEquipe();carregarSalas()">🔄 Atualizar</button></div>
     <div class="cartao" style="margin-bottom:14px">
       <h3 style="margin-bottom:4px">👥 Minha equipe (funcionários)</h3>
       <p style="font-size:.85rem;color:var(--muted);margin-bottom:8px">Cadastre cada pessoa da sua equipe pelo <b>e-mail</b>. <span id="equipeAssentos" style="font-weight:700"></span></p>
@@ -612,6 +612,17 @@
       <div id="listaFuncionarios"><div class="vazio">Carregando…</div></div>
       <div id="equipeTotal" style="font-weight:800;margin-top:10px;color:var(--g1)"></div>
       <p style="font-size:.78rem;color:var(--muted);margin-top:4px">Cada pessoa que você adiciona sai com <b>50% de desconto</b> sobre o plano dela. 💜</p>
+    </div>
+    <div class="cartao" id="cartaoSalas" style="margin-bottom:14px">
+      <h3 style="margin-bottom:4px">💬 Salas de reunião</h3>
+      <p style="font-size:.85rem;color:var(--muted);margin-bottom:8px">Uma sala para cada projeto. Só você e quem está na sua equipe enxergam. Ninguém apaga mensagem. 💜</p>
+      <div id="salasLista" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+      <div id="salasMsgs" style="border:1px solid var(--line);border-radius:12px;padding:10px;max-height:340px;overflow-y:auto;background:var(--t1,#faf7ff);margin-bottom:8px"><div class="vazio">Escolha uma sala. 💬</div></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <textarea id="salasTexto" placeholder="Escreva sua mensagem…" maxlength="4000" style="flex:1;min-width:200px;min-height:54px;padding:10px;border:1px solid var(--line);border-radius:10px;font-family:inherit" onkeydown="if(event.key==='Enter'&&(event.metaKey||event.ctrlKey)){event.preventDefault();enviarMsgSala();}"></textarea>
+        <button class="btn" onclick="enviarMsgSala()">Enviar</button>
+      </div>
+      <div id="salasAviso" style="font-size:.8rem;margin-top:6px;color:var(--muted)"></div>
     </div>
     <details class="cartao" style="margin-bottom:14px">
       <summary style="cursor:pointer;font-weight:700">Sou funcionário de uma empresa</summary>
@@ -1411,6 +1422,67 @@ async function carregarEquipe(){
   const totEl=document.getElementById('equipeTotal');
   if(totEl) totEl.textContent = total>0 ? ('Total da equipe: +'+dinheiro(total)+'/mês') : '';
 }
+/* ---------- 💬 SALAS DE REUNIÃO (uma por projeto) ---------- */
+const SALAS_PADRAO=['Geral','App do Postou','Divulgação','Redes da Família','JG Pazotto','Pessoal'];
+let salaAtual='Geral', salasExtras=[], salasTimer=null, salasOk=true;
+function salaDono(){ return contaEmpresaId || usuarioId; }
+function meuNomeSala(){ const a=(dados&&dados.assinatura)||{}; return ((usuarioMeta&&usuarioMeta.nome)||a.nome||(usuarioMeta&&usuarioMeta.email)||'Equipe').toString().slice(0,80); }
+function desenharSalas(){
+  const el=document.getElementById('salasLista'); if(!el) return;
+  const todas=[...SALAS_PADRAO, ...salasExtras.filter(x=>!SALAS_PADRAO.includes(x))];
+  el.innerHTML=todas.map(n=>`<button class="${n===salaAtual?'btn':'btn-claro'}" style="padding:6px 12px;font-size:.82rem" onclick="abrirSala(this.dataset.s)" data-s="${escapar(n)}">${escapar(n)}</button>`).join('')
+    +`<button class="btn-claro" style="padding:6px 12px;font-size:.82rem" onclick="novaSala()">➕ Nova sala</button>`;
+}
+function novaSala(){
+  const n=(prompt('Nome da nova sala (ex.: nome do projeto):')||'').trim().slice(0,60);
+  if(!n) return;
+  if(!salasExtras.includes(n) && !SALAS_PADRAO.includes(n)) salasExtras.push(n);
+  abrirSala(n);
+}
+async function abrirSala(n){ salaAtual=n||'Geral'; desenharSalas(); await carregarMsgsSala(true); }
+async function carregarSalas(){
+  const box=document.getElementById('salasMsgs'); if(!box||!usuarioId) return;
+  try{
+    const { data, error } = await sb.from('salas_mensagens').select('sala').eq('dono', salaDono()).limit(1000);
+    if(error) throw error;
+    salasOk=true;
+    salasExtras=[...new Set((data||[]).map(r=>r.sala))].filter(x=>!SALAS_PADRAO.includes(x));
+  }catch(e){ salasOk=false; }
+  desenharSalas();
+  if(!salasOk){ box.innerHTML='<div class="vazio">🔧 As salas estão quase prontas — falta só ativar no servidor. Logo, logo funcionam! 💜</div>'; return; }
+  await carregarMsgsSala(true);
+  if(salasTimer) clearInterval(salasTimer);
+  salasTimer=setInterval(()=>{ const ab=document.getElementById('aba-equipe'); if(ab && ab.style.display!=='none' && !document.hidden) carregarMsgsSala(false); }, 20000);
+}
+async function carregarMsgsSala(rolar){
+  const box=document.getElementById('salasMsgs'); if(!box||!salasOk) return;
+  try{
+    const { data, error } = await sb.from('salas_mensagens').select('id,autor_id,autor_nome,texto,criado').eq('dono', salaDono()).eq('sala', salaAtual).order('criado',{ascending:false}).limit(200);
+    if(error) throw error;
+    const msgs=(data||[]).reverse();
+    const perto = box.scrollHeight-box.scrollTop-box.clientHeight < 60;
+    if(!msgs.length){ box.innerHTML='<div class="vazio">Sala <b>'+escapar(salaAtual)+'</b> ainda sem mensagens. Escreva a primeira! ✍️</div>'; return; }
+    box.innerHTML=msgs.map(m=>{
+      const minha=m.autor_id===usuarioId;
+      const q=new Date(m.criado); const quando=q.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+' '+q.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+      return `<div style="display:flex;justify-content:${minha?'flex-end':'flex-start'};margin-bottom:8px"><div style="max-width:85%;background:${minha?'#ede9fe':'#fff'};border:1px solid var(--line);border-radius:12px;padding:8px 10px"><div style="font-size:.72rem;color:var(--muted);margin-bottom:2px"><b>${escapar(m.autor_nome||'Equipe')}</b> · ${quando}</div><div style="white-space:pre-wrap;word-break:break-word;font-size:.9rem">${escapar(m.texto)}</div></div></div>`;
+    }).join('');
+    if(rolar||perto) box.scrollTop=box.scrollHeight;
+  }catch(e){ box.innerHTML='<div class="vazio">Não consegui carregar a sala agora. Tente 🔄 Atualizar.</div>'; }
+}
+async function enviarMsgSala(){
+  const ta=document.getElementById('salasTexto'), av=document.getElementById('salasAviso'); if(!ta) return;
+  const texto=ta.value.trim(); if(!texto) return;
+  if(!salasOk){ if(av){ av.style.color='#b91c1c'; av.textContent='As salas ainda não foram ativadas no servidor.'; } return; }
+  ta.disabled=true;
+  try{
+    const { error } = await sb.from('salas_mensagens').insert({ dono:salaDono(), sala:salaAtual, autor_nome:meuNomeSala(), texto:texto.slice(0,4000) });
+    if(error) throw error;
+    ta.value=''; if(av){ av.style.color='var(--muted)'; av.textContent=''; }
+    await carregarMsgsSala(true);
+  }catch(e){ if(av){ av.style.color='#b91c1c'; av.textContent='Não consegui enviar: '+(e.message||e); } }
+  ta.disabled=false; ta.focus();
+}
 /* ---------- CENTRAL DE CONTATOS (Pro+) ---------- */
 function carregarContatos(){
   const cont=document.getElementById('listaContatos'); if(!cont) return;
@@ -1541,7 +1613,7 @@ function trocarAba(aba){
   render();
   if(aba==='dono') carregarDono();
   if(aba==='robo'){ renderConexoes(); renderStoryPadrao(); }
-  if(aba==='equipe') carregarEquipe();
+  if(aba==='equipe'){ carregarEquipe(); carregarSalas(); }
   if(aba==='contatos') carregarContatos();
 }
 
