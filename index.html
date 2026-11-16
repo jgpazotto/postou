@@ -453,6 +453,8 @@
     <div id="formCadastro" style="display:none">
       <input type="text" id="cadNome" placeholder="Seu nome">
       <input type="text" id="cadZap" placeholder="Seu WhatsApp (com código do país, ex.: +1 ou +55)">
+      <label style="display:block;text-align:left;font-size:.85rem;color:var(--ink);font-weight:700;margin:2px 2px 5px">🎂 Seu aniversário <span style="font-weight:400;color:var(--muted)">(opcional — no mês do seu niver tem presente! 🎁)</span></label>
+      <div style="display:flex;gap:8px;margin-bottom:10px"><select id="cadNivDia" style="flex:1;padding:11px 10px;border:1px solid var(--line);border-radius:10px"><option value="">dia</option><option value="01">1</option><option value="02">2</option><option value="03">3</option><option value="04">4</option><option value="05">5</option><option value="06">6</option><option value="07">7</option><option value="08">8</option><option value="09">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option><option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option><option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option><option value="31">31</option></select><select id="cadNivMes" style="flex:1;padding:11px 10px;border:1px solid var(--line);border-radius:10px"><option value="">mês</option><option value="01">jan</option><option value="02">fev</option><option value="03">mar</option><option value="04">abr</option><option value="05">mai</option><option value="06">jun</option><option value="07">jul</option><option value="08">ago</option><option value="09">set</option><option value="10">out</option><option value="11">nov</option><option value="12">dez</option></select></div>
       <label style="display:block;text-align:left;font-size:.85rem;color:var(--ink);font-weight:700;margin:6px 2px 5px">Escolha o seu plano <span style="font-weight:400;color:var(--muted)">(no teste grátis você experimenta tudo):</span></label>
       <select id="cadInteresse" style="width:100%;padding:11px 14px;border:1.5px solid var(--g1);border-radius:10px;margin-bottom:10px;color:var(--ink);font-weight:600">
         <option value="pessoal">🌱 Postou Pessoal — só o meu perfil</option>
@@ -882,6 +884,8 @@ async function fazerCadastro(){
   const nome = document.getElementById('cadNome').value.trim();
   const zap = document.getElementById('cadZap').value.replace(/[^\d+]/g,'');
   const interesse = document.getElementById('cadInteresse').value;
+  const _nd=(document.getElementById('cadNivDia')||{}).value||'', _nm=(document.getElementById('cadNivMes')||{}).value||'';
+  const niver = (_nd && _nm) ? (_nm+'-'+_nd) : '';
   const email = document.getElementById('cadEmail').value.trim();
   const senha = document.getElementById('cadSenha').value;
   const indicadoPor = (document.getElementById('cadIndicacao') ? document.getElementById('cadIndicacao').value.trim().toUpperCase() : '');
@@ -889,7 +893,7 @@ async function fazerCadastro(){
   if(!nome){ msg.textContent='Conta pra gente seu nome! 😊'; return; }
   if(!email || senha.length<6){ msg.textContent='Preencha o e-mail e uma senha com pelo menos 6 caracteres.'; return; }
   document.getElementById('btnCadastrar').textContent = 'Criando sua conta…';
-  const { data, error } = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: 'https://postou.app.br/', data: { nome, zap, interesse, indicadoPor } } });
+  const { data, error } = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: 'https://postou.app.br/', data: { nome, zap, interesse, indicadoPor, niver } } });
   document.getElementById('btnCadastrar').textContent = '🎁 Começar meus 15 dias grátis';
   if(error){ msg.textContent = 'Erro ao criar conta: '+error.message; return; }
   if(data && data.session){ msg.textContent=''; await entrarNoApp(); }
@@ -1223,6 +1227,23 @@ function bannerNovasContas(){
   novasContas=[]; agendarSalvar(); setTimeout(pintarBolinhaDono, 50);
   return html;
 }
+/* 🎂 aniversariantes do mês (dona manda parabéns + presente de 1 mês) */
+function bannerNiver(lista){
+  const mes=hojeISO().slice(5,7), hojeMD=hojeISO().slice(5,10);
+  const M=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const ani=(lista||[]).filter(u=>u.niver && u.niver.slice(0,2)===mes).sort((x,y)=>x.niver.localeCompare(y.niver));
+  const semData=(lista||[]).filter(u=>!u.niver && !u.ehEu).length;
+  if(!ani.length) return semData?`<div style="font-size:.8rem;color:var(--muted);margin-bottom:10px">🎂 Nenhum aniversariante este mês. (${semData} conta(s) ainda sem data de aniversário — cada pessoa pode pôr em ⚙️ Conta.)</div>`:'';
+  const linhas=ani.map(u=>{
+    const dd=u.niver.slice(3,5), mm=u.niver.slice(0,2); const primeiro=(u.nome||'').split(' ')[0];
+    const ehHoje=u.niver===hojeMD;
+    const txt=encodeURIComponent('Feliz aniversário, '+primeiro+'! 🎂💜 Que seu novo ciclo seja lindo! De presente, o Postou te dá 1 mês grátis! 🎁');
+    const num=(u.zap||'').replace(/\D/g,'');
+    const bt=num?` <a class="btn-claro" style="padding:3px 9px;font-size:.75rem;text-decoration:none" href="https://wa.me/${num}?text=${txt}" target="_blank" rel="noopener">📱 Parabéns</a>`:'';
+    return `<div style="margin:4px 0">${ehHoje?'🥳 <b>HOJE</b> · ':''}<b>${escapar(u.nome)}</b> · ${parseInt(dd,10)}/${M[parseInt(mm,10)-1]}${bt}</div>`;
+  }).join('');
+  return `<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:10px 14px;margin-bottom:12px">🎂 <b>Aniversariantes do mês</b> — presente: 1 mês grátis 🎁 (dê pelos botões da pessoa aqui embaixo)${linhas}</div>`;
+}
 async function carregarDono(){
   const cont=document.getElementById('listaDono'); if(!cont) return;
   if(!ehDono()){ cont.innerHTML='<div class="vazio">Área exclusiva da dona. 💜</div>'; return; }
@@ -1250,7 +1271,7 @@ async function carregarDono(){
     else if(a.liberadoAte){ badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo')+' · até '+dataBRcompleta(a.liberadoAte); }
     else if(a.liberadoPor==='dono'){ badge='♾️ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo')+' · liberado pra sempre'; }
     else { badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo'); }
-    return {userId:row.user_id, nome, badge, cor, expirado, plano:(a.plano||''), liberadoAte:(a.liberadoAte||''), liberadoPor:(a.liberadoPor||''), zap:a.zap||'', email:a.email||'', interesse:a.interesse||'pessoal', codigo:codigoIndicacao(a.email||'',nome), indicadoPor:(a.indicadoPor||'').toUpperCase(), ehEu:row.user_id===usuarioId};
+    return {userId:row.user_id, nome, badge, cor, expirado, plano:(a.plano||''), liberadoAte:(a.liberadoAte||''), liberadoPor:(a.liberadoPor||''), zap:a.zap||'', niver:a.niver||'', email:a.email||'', interesse:a.interesse||'pessoal', codigo:codigoIndicacao(a.email||'',nome), indicadoPor:(a.indicadoPor||'').toUpperCase(), ehEu:row.user_id===usuarioId};
   }).sort((x,y)=>(y.expirado?1:0)-(x.expirado?1:0));
   const nomePorCodigo = {}, codigoParaUserId = {}; lista.forEach(u=>{ nomePorCodigo[u.codigo]=u.nome; codigoParaUserId[u.codigo]=u.userId; });
   dados.premiosTratados = dados.premiosTratados || [];
@@ -1258,7 +1279,7 @@ async function carregarDono(){
   let html='';
   if(lista.length<=1){ html+=`<div class="vazio" style="border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px">⚠️ O painel está vendo só a sua conta. Falta ativar a <b>permissão de dona</b> no Supabase — o comando que a gente vai rodar juntas. Depois disso, todos os assinantes aparecem aqui.</div>`; }
   html+=`<div class="tiles"><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.length}</div><div class="rot">contas no Postou</div></div><div class="tile"><div class="num" style="font-size:1.3rem;line-height:2.2">${lista.filter(u=>u.expirado).length}</div><div class="rot">testes expirados</div></div></div>`;
-  if(!contaEmpresaId){ html+=bannerNovasContas(); }
+  if(!contaEmpresaId){ html+=bannerNovasContas(); html+=bannerNiver(lista); }
   if(avisoDono){ html+=`<div class="vazio" style="border:1px solid #0a8a4a;color:#0a8a4a;border-radius:10px;padding:10px;margin-bottom:12px">${avisoDono}</div>`; avisoDono=''; }
   // 💬 dúvidas que o assistente não soube responder (de todas as contas)
   const duvidas = [];
@@ -1603,7 +1624,7 @@ async function carregarDados(){
     if(mudou) await salvarAgora();
   } else {
     dados = JSON.parse(JSON.stringify(DADOS_INICIAIS));
-    dados.assinatura = { plano:'trial', inicio:hojeISO(), nome:usuarioMeta.nome||'', zap:usuarioMeta.zap||'', email:usuarioMeta.email||'', interesse:usuarioMeta.interesse||'', indicadoPor:usuarioMeta.indicadoPor||'' };
+    dados.assinatura = { plano:'trial', inicio:hojeISO(), niver:usuarioMeta.niver||'', nome:usuarioMeta.nome||'', zap:usuarioMeta.zap||'', email:usuarioMeta.email||'', interesse:usuarioMeta.interesse||'', indicadoPor:usuarioMeta.indicadoPor||'' };
     await salvarAgora();
   }
 }
@@ -3909,6 +3930,8 @@ function abrirConfig(){
     <input id="cfgEmail" value="${escapar(email)}" disabled style="opacity:.7">
     <p style="font-size:.75rem;color:var(--muted)">O e-mail é o seu login e não muda por aqui. Se precisar trocar, fale com a Joice. 💜</p>
     <button type="button" class="btn-claro" style="margin-top:4px" onclick="abrirNovaSenha()">🔑 Trocar minha senha</button>
+    <label style="margin-top:10px">🎂 Seu aniversário <span style="font-weight:400;color:var(--muted);font-size:.8rem">(no mês do seu niver tem presente! 🎁)</span></label>
+    <div style="display:flex;gap:8px">${(function(){ const nv=(a.niver||usuarioMeta.niver||'').split('-'); const mm=nv[0]||'', dd=nv[1]||''; const M=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez']; let d='<select id="cfgNivDia" style="flex:1"><option value="">dia</option>'; for(let i=1;i<=31;i++){ const v=String(i).padStart(2,'0'); d+='<option value="'+v+'"'+(v===dd?' selected':'')+'>'+i+'</option>'; } d+='</select><select id="cfgNivMes" style="flex:1"><option value="">mês</option>'; M.forEach((m,i)=>{ const v=String(i+1).padStart(2,'0'); d+='<option value="'+v+'"'+(v===mm?' selected':'')+'>'+m+'</option>'; }); return d+'</select>'; })()}</div>
     ${!planoConfig().umaPorRede?`
     <hr style="border:none;border-top:1px solid var(--line);margin:14px 0">
     <label>🏬 Minhas lojas / empresas</label>
@@ -3953,14 +3976,16 @@ async function salvarConfig(){
   if(!nome){ if(msg){ msg.style.color='#b91c1c'; msg.textContent='Conta pra gente o seu nome. 😊'; } return; }
   dados.assinatura=dados.assinatura||{};
   dados.assinatura.nome=nome; dados.assinatura.zap=zap;
+  const _cd=(document.getElementById('cfgNivDia')||{}).value||'', _cm=(document.getElementById('cfgNivMes')||{}).value||'';
+  const niver=(_cd&&_cm)?(_cm+'-'+_cd):''; dados.assinatura.niver=niver;
   const opcionais=['robo','calendario','tarefas','ideias','quadro','vendas','caixa','contatos','ajuda'];
   const tamEl=document.querySelector('input[name="cfgTam"]:checked'); if(tamEl){ dados.assinatura.tamBotoes=tamEl.value; aplicarTamanhoBotoes(); }
   dados.assinatura.abasOcultas=opcionais.filter(k=>{ const el=document.getElementById('abaChk_'+k); return el && !el.checked; });
   const botoesCad=['usuario','servico','cliente'];
   const botPrev=(dados.assinatura.botoesOcultos)||[];
   dados.assinatura.botoesOcultos=botoesCad.filter(k=>{ const el=document.getElementById('botChk_'+k); if(!el) return botPrev.includes(k); return !el.checked; });
-  if(usuarioMeta){ usuarioMeta.nome=nome; usuarioMeta.zap=zap; }
-  try{ await sb.auth.updateUser({ data:{ nome, zap } }); }catch(e){}
+  if(usuarioMeta){ usuarioMeta.nome=nome; usuarioMeta.zap=zap; usuarioMeta.niver=niver; }
+  try{ await sb.auth.updateUser({ data:{ nome, zap, niver } }); }catch(e){}
   await salvarAgora();
   if(typeof aplicarPlano==='function') aplicarPlano();
   if(msg){ msg.style.color='#0a8a4a'; msg.textContent='✅ Salvo! Seus dados estão atualizados. 💜'; }
