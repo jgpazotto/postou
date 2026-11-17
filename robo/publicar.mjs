@@ -600,6 +600,7 @@ async function prepararVideos(p, userId) {
 const RESEND_KEY = process.env.RESEND_API_KEY || '';
 const DONO_UID = process.env.DONO_UID || '9fb4d7c0-7e3d-4d9f-942e-7476f76f02b0';
 const AVISO_PARA = (process.env.AVISO_EMAILS || 'jgpazotto@gmail.com,postouapp@gmail.com').split(',').map(s => s.trim()).filter(Boolean);
+const idAviso = uid => parseInt(String(uid).replace(/-/g, '').slice(0, 13), 16); // publicacoes.post_id é número: vira número a partir do uid
 const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 async function avisarCadastros() {
   if (!RESEND_KEY) { log('🔔 aviso de cadastro: falta o segredo RESEND_API_KEY (pulando)'); return 0; }
@@ -615,13 +616,14 @@ async function avisarCadastros() {
   const agora = Date.now();
   let n = 0;
   for (const u of users) {
-    if (!u || !u.id || conhecidos.has(String(u.id)) || u.id === DONO_UID) continue;
+    if (!u || !u.id || conhecidos.has(String(idAviso(u.id))) || u.id === DONO_UID) continue;
     const criado = new Date(u.created_at || 0).getTime();
     const antigo = agora - criado > 24 * 36e5;
     // 1ª vez: as contas antigas só ficam marcadas como conhecidas (sem e-mail)
     if (primeiraVez && antigo) {
-      if (!SECO) await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify({ user_id: DONO_UID, post_id: String(u.id), rede: 'aviso:cadastro', status: 'conhecida' }) });
+      if (!SECO) { const k = await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ user_id: DONO_UID, post_id: idAviso(u.id), rede: 'aviso:cadastro', status: 'conhecida', resultado: { uid: u.id } }) });
+        if (!k.ok) log('🔔 não consegui marcar conta conhecida:', k.status, JSON.stringify(k.body).slice(0, 160)); }
       continue;
     }
     if (antigo && agora - criado > 7 * 864e5) continue; // segurança: não avisa conta velha
@@ -641,8 +643,8 @@ async function avisarCadastros() {
     log(`🔔 cadastro novo: ${nome}`);
     if (SECO) { n++; continue; }
     const trava = await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({ user_id: DONO_UID, post_id: String(u.id), rede: 'aviso:cadastro', status: 'enviando' }) });
-    if (!trava.ok) continue; // outro robô já está avisando
+      body: JSON.stringify({ user_id: DONO_UID, post_id: idAviso(u.id), rede: 'aviso:cadastro', status: 'enviando', resultado: { uid: u.id } }) });
+    if (!trava.ok) { log('🔔 trava do aviso não gravou (já avisado ou erro):', trava.status); continue; }
     let status = 'ok', resultado;
     try {
       const e = await fetch('https://api.resend.com/emails', { method: 'POST',
@@ -652,9 +654,10 @@ async function avisarCadastros() {
       if (!e.ok) throw new Error('Resend ' + e.status + ' ' + JSON.stringify(resultado).slice(0, 200));
       log('   ✅ e-mail enviado');
     } catch (e) { status = 'erro'; resultado = { erro: e.message }; log('   ❌', e.message); }
-    await sb(`publicacoes?user_id=eq.${DONO_UID}&post_id=eq.${u.id}&rede=eq.aviso:cadastro`, { method: 'PATCH', body: JSON.stringify({ status, resultado }) });
+    await sb(`publicacoes?user_id=eq.${DONO_UID}&post_id=eq.${idAviso(u.id)}&rede=eq.aviso:cadastro`, { method: 'PATCH', body: JSON.stringify({ status, resultado: { uid: u.id, ...(resultado || {}) } }) });
     n++;
   }
+  if (primeiraVez) log('🔔 aviso de cadastro: ' + users.length + ' conta(s) lidas; antigas marcadas como conhecidas');
   return n;
 }
 
