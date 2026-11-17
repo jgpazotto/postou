@@ -4424,7 +4424,14 @@ function legendaMagica(){
   const Assunto=base.charAt(0).toUpperCase()+base.slice(1);
   const ctas=CTA_MAGICA[NICHO_CTA[nicho]||'conteudo'];
   const verbo=(tipo==='reel'||tipo==='video') ? 'Assiste até o final' : (tipo==='carrossel' ? 'Arrasta pro lado' : 'Olha só');
-  const modelos=embaralhar([
+  const pessoal=['lifestyle','motivacional','imigrantes'].includes(nicho);
+  const modelos=embaralhar(pessoal ? [
+    `${emo} ${Assunto}!\n\n${verbo} 👉 que esse momento foi especial demais. Quem aí também ama?\n\n${ctas[2]}`,
+    `Hoje foi dia de ${assunto} ${emo}\n\nTem coisa melhor do que viver momentos assim com quem a gente ama? 💜\n\nMe conta nos comentários 👇`,
+    `Se você nunca foi, anota aí: ${assunto} ${emo}\n\n${verbo} e me diz se não dá vontade de ir agora! 😍\n\n${ctas[1]}`,
+    `Pequenos momentos, grandes memórias ${emo}\n\n${Assunto} entrou pra lista dos favoritos. ✨\n\n${ctas[0]}`,
+    `Para tudo! ${emo} ${Assunto} — eu precisava dividir isso com vocês.\n\nQuem vai na próxima com a gente? 🙋‍♀️👇`
+  ] : [
     `${emo} Você já conhecia ${assunto}?\n\n${verbo} 👉 e descobre por que tanta gente está amando. Aqui cada detalhe é pensado com carinho pra você.\n\n${ctas[0]}`,
     `${Assunto} ${emo}\n\n3 motivos pra você não ficar de fora:\n✅ Qualidade de verdade\n✅ Atendimento com carinho\n✅ Resultado que aparece\n\n${ctas[1]}`,
     `Bastidores ${emo} Hoje quero te mostrar um pouquinho de ${assunto}.\n\nÉ isso que a gente faz todo dia: trabalho feito com amor e dedicação. 💜\n\n${ctas[2]}`,
