@@ -4249,14 +4249,34 @@ function salvarPost(id){
   { const ci=document.getElementById('mCollabIG'); const lista=ci?(ci.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()).slice(0,3):[]; novo.collabIG = lista.length ? lista : undefined; }
   if(novo.autoPublicar && novo.status!=='publicado') novo.status = 'agendado';
   const salvos = [];
-  if(id){ const p0=dados.posts.find(x=>x.id===id); Object.assign(p0, novo); salvos.push(p0); }
+  let irmaos = [];
+  if(id){ const p0=dados.posts.find(x=>x.id===id); Object.assign(p0, novo); salvos.push(p0);
+    if(p0.grupo) irmaos = dados.posts.filter(x=>x.grupo===p0.grupo && x.id!==p0.id && x.status!=='publicado'); }
   else {
     const collab = [...document.querySelectorAll('.chk-collab:checked')].map(c=>parseInt(c.value));
     const ids = [...new Set([novo.clienteId, ...collab])];
-    ids.forEach(cid => { const np=Object.assign({id:novoId()}, novo, {clienteId:cid}); dados.posts.push(np); salvos.push(np); });
+    const grupo = ids.length>1 ? 'g'+Date.now().toString(36) : undefined;
+    /* 📲 story em outro perfil: só no post principal e sem os perfis que já ganharam a própria cópia (evita story repetido) */
+    const storyPrincipal = novo.storyEm ? novo.storyEm.filter(v=>!ids.map(String).includes(String(v))) : [];
+    ids.forEach((cid,i) => { const np=Object.assign({id:novoId()}, novo, {clienteId:cid, grupo, storyEm:(i===0 && storyPrincipal.length) ? storyPrincipal : undefined}); dados.posts.push(np); salvos.push(np); });
   }
   fecharModal(); tocar();
   salvos.forEach(p=>{ prepararArteStory(p); });
+  if(irmaos.length) setTimeout(()=>perguntarAplicarGrupo(id, irmaos.map(x=>x.id)), 80);
+}
+/* 📋 posts copiados pra vários perfis ficam ligados (grupo): ao editar um, pergunta se aplica nos outros */
+const CAMPOS_GRUPO=['titulo','data','hora','tipo','legenda','legendas','midias','autoPublicar','virarStory','obs','collabIG'];
+function perguntarAplicarGrupo(id, ids){
+  const nomes = ids.map(i=>{ const q=dados.posts.find(x=>x.id===i); const c=q&&clientePorId(q.clienteId); return c?escapar(c.nome):''; }).filter(Boolean).join(', ');
+  abrirModal(`<h3>📋 Aplicar nos outros perfis?</h3><p>Este post também foi feito pra <b>${ids.length}</b> outro(s) perfil(is): ${nomes}.</p><p style="font-size:.88rem;color:var(--muted)">Quer que a mudança (título, legenda, data, hora, arte…) vá pra eles também? Posts já publicados não mudam.</p><div class="rodape"><button class="btn-claro" onclick="fecharModal()">Não, só este</button><button class="btn" onclick="aplicarNoGrupo(${Number(id)},[${ids.map(Number).join(',')}])">✅ Sim, em todos</button></div>`);
+}
+function aplicarNoGrupo(id, ids){
+  const p0=dados.posts.find(x=>x.id===id); if(!p0){ fecharModal(); return; }
+  ids.forEach(i=>{ const q=dados.posts.find(x=>x.id===i); if(!q || q.status==='publicado') return;
+    CAMPOS_GRUPO.forEach(k=>{ if(p0[k]===undefined) delete q[k]; else q[k]=JSON.parse(JSON.stringify(p0[k])); });
+    if(q.autoPublicar) q.status='agendado';
+    prepararArteStory(q); });
+  fecharModal(); tocar();
 }
 /* 📱 Story sem corte: se a arte não for em pé (9:16), monta uma versão 1080x1920 com a arte inteira no meio e fundo desfocado */
 async function prepararArteStory(p){
