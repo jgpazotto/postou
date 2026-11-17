@@ -595,11 +595,75 @@ async function prepararVideos(p, userId) {
 }
 
 // ---------------------------------------------------------------- Principal
+// ---------------------------------------------------------------- 🔔 aviso de cadastro novo (e-mail pra dona + Divulgação)
+// Precisa do segredo RESEND_API_KEY no GitHub. Sem ele, não faz nada.
+const RESEND_KEY = process.env.RESEND_API_KEY || '';
+const DONO_UID = process.env.DONO_UID || '9fb4d7c0-7e3d-4d9f-942e-7476f76f02b0';
+const AVISO_PARA = (process.env.AVISO_EMAILS || 'jgpazotto@gmail.com,postouapp@gmail.com').split(',').map(s => s.trim()).filter(Boolean);
+const escH = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+async function avisarCadastros() {
+  if (!RESEND_KEY) { log('🔔 aviso de cadastro: falta o segredo RESEND_API_KEY (pulando)'); return 0; }
+  // contas do Supabase Auth (pega até quem ainda não confirmou o e-mail)
+  const r = await fetch(SB_URL + '/auth/v1/admin/users?page=1&per_page=1000', { headers: sbHeaders() });
+  if (!r.ok) { log('🔔 não consegui ler as contas:', r.status); return 0; }
+  const j = await r.json().catch(() => ({}));
+  const users = Array.isArray(j) ? j : (j.users || []);
+  const ja = await sb(`publicacoes?select=post_id&user_id=eq.${DONO_UID}&rede=eq.aviso:cadastro`);
+  if (!ja.ok) { log('🔔 não consegui ler os avisos já feitos:', ja.status); return 0; }
+  const conhecidos = new Set((ja.body || []).map(x => String(x.post_id)));
+  const primeiraVez = conhecidos.size === 0;
+  const agora = Date.now();
+  let n = 0;
+  for (const u of users) {
+    if (!u || !u.id || conhecidos.has(String(u.id)) || u.id === DONO_UID) continue;
+    const criado = new Date(u.created_at || 0).getTime();
+    const antigo = agora - criado > 24 * 36e5;
+    // 1ª vez: as contas antigas só ficam marcadas como conhecidas (sem e-mail)
+    if (primeiraVez && antigo) {
+      if (!SECO) await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify({ user_id: DONO_UID, post_id: String(u.id), rede: 'aviso:cadastro', status: 'conhecida' }) });
+      continue;
+    }
+    if (antigo && agora - criado > 7 * 864e5) continue; // segurança: não avisa conta velha
+    const m = u.user_metadata || {};
+    const nome = m.nome || (u.email || '').split('@')[0];
+    const dias = Math.max(0, 15 - Math.floor((agora - criado) / 864e5));
+    const linhas = [
+      ['👤 Nome', nome], ['📧 E-mail', u.email], ['📱 WhatsApp', m.zap], ['🎯 Nicho/interesse', m.interesse],
+      ['🎁 Indicada por (código)', m.indicadoPor], ['🎂 Aniversário', m.niver],
+      ['⏳ Teste', dias + ' dia(s) restantes de 15'],
+      ['✉️ Confirmou o e-mail?', u.email_confirmed_at ? 'Sim ✅' : 'Ainda não ⏳'],
+      ['🕐 Cadastro', new Date(criado).toLocaleString('pt-BR', { timeZone: 'America/Chicago' }) + ' (Texas)'],
+    ].filter(([, v]) => v);
+    const html = `<div style="font-family:Arial,sans-serif;max-width:520px"><h2 style="color:#7c3aed">🆕 Cadastro novo no Postou 💜</h2>`
+      + `<table style="border-collapse:collapse">${linhas.map(([k, v]) => `<tr><td style="padding:4px 10px 4px 0;color:#555">${escH(k)}</td><td style="padding:4px 0"><b>${escH(v)}</b></td></tr>`).join('')}</table>`
+      + `<p style="margin-top:14px">👉 Dá as boas-vindas hoje e pergunta o aniversário! Painel: <a href="https://postou.app.br/">postou.app.br</a> → 👑 Dono</p></div>`;
+    log(`🔔 cadastro novo: ${nome}`);
+    if (SECO) { n++; continue; }
+    const trava = await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ user_id: DONO_UID, post_id: String(u.id), rede: 'aviso:cadastro', status: 'enviando' }) });
+    if (!trava.ok) continue; // outro robô já está avisando
+    let status = 'ok', resultado;
+    try {
+      const e = await fetch('https://api.resend.com/emails', { method: 'POST',
+        headers: { Authorization: 'Bearer ' + RESEND_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: 'Postou <naoresponda@postou.app.br>', to: AVISO_PARA, subject: '🆕 Cadastro novo no Postou: ' + nome, html }) });
+      resultado = await e.json().catch(() => ({}));
+      if (!e.ok) throw new Error('Resend ' + e.status + ' ' + JSON.stringify(resultado).slice(0, 200));
+      log('   ✅ e-mail enviado');
+    } catch (e) { status = 'erro'; resultado = { erro: e.message }; log('   ❌', e.message); }
+    await sb(`publicacoes?user_id=eq.${DONO_UID}&post_id=eq.${u.id}&rede=eq.aviso:cadastro`, { method: 'PATCH', body: JSON.stringify({ status, resultado }) });
+    n++;
+  }
+  return n;
+}
+
 async function main() {
   if (!SB_URL || !SB_KEY || !APP_ID || !APP_SECRET) {
     console.log('⏸ Robô ainda não configurado (faltam os segredos SUPABASE_URL, SUPABASE_SERVICE_KEY, META_APP_ID, META_APP_SECRET). Nada a fazer.'); return;
   }
   log(SECO ? '🧪 modo seco (não publica)' : '🤖 robô do Postou acordou');
+  try { await avisarCadastros(); } catch (e) { log('⚠️ aviso de cadastro', e.message); }
   const conexoes = await renovarConexoes();
   const contasIG = await conexoesInstagram();
   if (!conexoes.size && !contasIG.size) { log('Ninguém conectou o Facebook/Instagram ainda.'); return; }
