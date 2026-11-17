@@ -4147,7 +4147,8 @@ function abrirModalPost(id, dataPre){
     <label>Legenda / roteiro</label>
     <textarea id="mLegenda" placeholder="Legenda pronta, hashtags, roteiro do vídeo..." oninput="atualizarContadores()">${p?escapar(p.legenda):''}</textarea>
     <div class="contadores" id="contadores"></div>
-    <button class="btn-claro" style="margin-top:8px;font-size:.8rem" onclick="alternarPorRede()">✏️ Personalizar texto por rede</button>
+    <button class="btn-claro" style="margin-top:8px;font-size:.8rem;margin-right:6px" onclick="legendaMagica()">✨ Legenda mágica</button><button class="btn-claro" style="margin-top:8px;font-size:.8rem" onclick="alternarPorRede()">✏️ Personalizar texto por rede</button>
+    <div id="mMagica"></div>
     <div id="porRede" style="display:none"></div>
     <div class="rodape">
       ${p?`<button class="btn-mini perigo" style="margin-right:auto" onclick="excluirPost(${p.id})">🗑 Excluir</button><button class="btn-mini" onclick="duplicarPost(${p.id})">⧉ Duplicar</button>`:''}
@@ -4384,6 +4385,75 @@ const NICHOS_PREDEFINIDOS = {
   videomaker: '🎥 Videomaker e Storymaker',
   lifestyle: '💫 Vida & Lifestyle (pessoal)'
 };
+
+/* ✨ Legenda mágica (grátis, sem IA): 3 legendas no tom do nicho do perfil, com gancho + texto + chamada + 5 hashtags + horário sugerido */
+const semAcento = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+function nichoDaLegenda(c, titulo){
+  if(c && c.nicho && SUGESTOES_NICHO[c.nicho]) return c.nicho;
+  const txt = ' '+semAcento((c&&c.nicho||'')+' '+(titulo||''))+' ';
+  let melhor='geral', pts=0;
+  for(const [k,v] of Object.entries(SUGESTOES_NICHO)){ const n=(v.kw||[]).filter(w=>txt.includes(semAcento(w))).length; if(n>pts){ pts=n; melhor=k; } }
+  return melhor;
+}
+const CTA_MAGICA = {
+  agenda:['📲 Agende pelo direct ou pelo link da bio!','Me chama no direct pra garantir seu horário 💬','Vagas limitadas esta semana — me chama! ⏳'],
+  venda:['🛒 Peça já pelo direct!','Comenta "EU QUERO" que eu te mando os detalhes 👇','Corre que é por tempo limitado! ⏳'],
+  conteudo:['Salva pra não esquecer 📌','Manda pra alguém que precisa ver isso 💌','Comenta aqui o que você achou 👇']
+};
+const NICHO_CTA = {beleza:'agenda',barbearia:'agenda',saude:'agenda',psicologia:'agenda',odontologia:'agenda',fitness:'agenda',pets:'agenda',servicos:'agenda',limpeza:'agenda',reforma:'agenda',fotografia:'agenda',videomaker:'agenda',edicaovideo:'agenda',advocacia:'agenda',contabilidade:'agenda',educacao:'agenda',jardinagem:'agenda',tecnologia:'agenda',eventos:'agenda',
+  produtos:'venda',lojinha:'venda',moda:'venda',infantil:'venda',comida:'venda',cafeteria:'venda',artesanato:'venda',promocoes:'venda',carros:'venda',imobiliaria:'venda',viagem:'venda',vendasapp:'venda',postou:'venda',estacionamento:'venda'};
+function hashtagsMagicas(nicho, titulo){
+  const cont={};
+  ((SUGESTOES_NICHO[nicho]||SUGESTOES_NICHO.geral||{}).ideias||[]).forEach(i=>String(i.h||'').split(/\s+/).forEach(h=>{ if(/^#[^\s#]{2,}/.test(h)){ const k=h.toLowerCase(); cont[k]=(cont[k]||0)+1; } }));
+  const ordem=Object.keys(cont).sort((a,b)=>cont[b]-cont[a]);
+  const doTitulo=semAcento(titulo).split(/[^a-z0-9]+/).filter(w=>w.length>4).slice(0,2).map(w=>'#'+w);
+  return [...new Set([...doTitulo, ...embaralhar(ordem.slice(0,10))])].slice(0,5).join(' ');
+}
+function horarioMagico(tipo){ return ({reel:'19:00', video:'19:00', story:'09:00', carrossel:'12:00', live:'20:00'})[tipo] || '12:00'; }
+let _magicas=[], _legendaAntes=null;
+function legendaMagica(){
+  const box=document.getElementById('mMagica'); if(!box) return;
+  const c=clientePorId(parseInt((document.getElementById('mCliente')||{}).value));
+  const titulo=((document.getElementById('mTitulo')||{}).value||'').trim();
+  const tipo=(document.getElementById('mTipo')||{}).value||'foto';
+  const nicho=nichoDaLegenda(c, titulo);
+  const rotulo=NICHOS_PREDEFINIDOS[nicho]||(SUGESTOES_NICHO[nicho]||{}).nome||'';
+  const emo=(rotulo.match(/^\S+/)||['✨'])[0];
+  const base=titulo || 'essa novidade';
+  const assunto=/^[A-ZÀ-Ú][a-zà-ú]/.test(base) ? base.charAt(0).toLowerCase()+base.slice(1) : base; // no meio da frase
+  const Assunto=base.charAt(0).toUpperCase()+base.slice(1);
+  const ctas=CTA_MAGICA[NICHO_CTA[nicho]||'conteudo'];
+  const verbo=(tipo==='reel'||tipo==='video') ? 'Assiste até o final' : (tipo==='carrossel' ? 'Arrasta pro lado' : 'Olha só');
+  const modelos=embaralhar([
+    `${emo} Você já conhecia ${assunto}?\n\n${verbo} 👉 e descobre por que tanta gente está amando. Aqui cada detalhe é pensado com carinho pra você.\n\n${ctas[0]}`,
+    `${Assunto} ${emo}\n\n3 motivos pra você não ficar de fora:\n✅ Qualidade de verdade\n✅ Atendimento com carinho\n✅ Resultado que aparece\n\n${ctas[1]}`,
+    `Bastidores ${emo} Hoje quero te mostrar um pouquinho de ${assunto}.\n\nÉ isso que a gente faz todo dia: trabalho feito com amor e dedicação. 💜\n\n${ctas[2]}`,
+    `Para tudo! ${emo} ${Assunto} — eu precisava te mostrar.\n\n${verbo} e me conta nos comentários: você também ama? 👇\n\n${ctas[1]}`,
+    `Se você estava esperando um sinal pra conhecer ${assunto}, é este aqui ${emo}\n\nTe espero de braços abertos. ✨\n\n${ctas[0]}`
+  ]).slice(0,3);
+  _magicas=modelos.map(m=>m+'\n\n'+hashtagsMagicas(nicho, titulo));
+  const hora=horarioMagico(tipo);
+  const bt='class="btn-claro" style="padding:5px 10px;font-size:.78rem;margin:0"';
+  box.innerHTML=`<div style="background:var(--t1);border:1px solid var(--t1b);border-radius:12px;padding:10px 12px;margin-top:8px">
+    <div style="font-weight:700;margin-bottom:4px">✨ 3 legendas pra ${escapar(c?c.nome:'você')} <span style="font-weight:400;color:var(--muted);font-size:.78rem">(${escapar(rotulo||'geral')})</span></div>
+    ${titulo?'':'<div style="font-size:.78rem;color:#92400e;margin-bottom:6px">💡 Escreva o <b>Título / assunto</b> lá em cima (ex.: "Bolo de pote de Natal") que a legenda fica muito mais certeira.</div>'}
+    ${_magicas.map((t,i)=>`<div style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:6px 0;white-space:pre-wrap;font-size:.84rem;text-align:left">${escapar(t)}<div style="margin-top:6px"><button ${bt} onclick="usarMagica(${i})">✅ Usar esta</button></div></div>`).join('')}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px">
+      <button ${bt} onclick="legendaMagica()">🔄 Outras 3</button>
+      <button ${bt} onclick="usarHoraMagica('${hora}')">⏰ Usar horário sugerido (${hora})</button>
+      <button ${bt} onclick="document.getElementById('mMagica').innerHTML=''">Fechar</button>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-top:4px">Depois de usar, ajuste com o seu jeitinho — ninguém conhece seu cliente melhor que você. 💜</div>
+  </div>`;
+}
+function usarMagica(i){
+  const el=document.getElementById('mLegenda'); if(!el || !_magicas[i]) return;
+  _legendaAntes=el.value; el.value=_magicas[i]; el.dispatchEvent(new Event('input',{bubbles:true}));
+  const box=document.getElementById('mMagica');
+  if(box) box.innerHTML=`<div style="font-size:.82rem;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:7px 10px;margin-top:8px">✅ Legenda colocada! Pode editar à vontade. ${_legendaAntes&&_legendaAntes.trim()?'<a href="#" onclick="desfazerMagica();return false">↩ Voltar a legenda de antes</a>':''}</div>`;
+}
+function desfazerMagica(){ const el=document.getElementById('mLegenda'); if(el && _legendaAntes!=null){ el.value=_legendaAntes; el.dispatchEvent(new Event('input',{bubbles:true})); } const b=document.getElementById('mMagica'); if(b) b.innerHTML=''; }
+function usarHoraMagica(h){ const el=document.getElementById('mHora'); if(el){ el.value=h; el.dispatchEvent(new Event('change',{bubbles:true})); } }
 
 /* ---------- SUGESTÕES POR NICHO ---------- */
 const SUGESTOES_NICHO = {
