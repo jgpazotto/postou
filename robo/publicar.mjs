@@ -471,11 +471,27 @@ async function publicarInstagram(p, pagina) {
   // 📱 Story: cada foto/vídeo vira um story (a API não põe enquete, música, link nem figurinha)
   if (p.tipo === 'story') {
     let ultimo = null;
-    for (const m of midias.slice(0, 10)) {
+    for (const [k, m] of midias.slice(0, 10).entries()) {
       const params = m.tipo === 'video'
         ? { media_type: 'STORIES', video_url: m.url, access_token: tk }
         : { media_type: 'STORIES', image_url: m.url, access_token: tk };
-      const id = (await graph('POST', ig + '/media', params)).id;
+      let id;
+      try { id = (await graph('POST', ig + '/media', params)).id; }
+      catch (e) {
+        // "Only photo or video can be accepted as media type" = o Instagram não conseguiu baixar a mídia naquele momento
+        if (!/Only photo or video/i.test(e.message)) throw e;
+        log('   ↻ o Instagram não conseguiu baixar a mídia do story — tento de novo em 10s');
+        await sleep(10000);
+        const alt = (k === 0 && Array.isArray(p._alt) && p._alt[0] && p._alt[0].url !== m.url) ? p._alt[0] : null;
+        try { id = (await graph('POST', ig + '/media', params)).id; }
+        catch (e2) {
+          if (!alt || !/Only photo or video/i.test(e2.message)) throw e2;
+          log('   ↻ usando a foto original do post no story');
+          id = (await graph('POST', ig + '/media', alt.tipo === 'video'
+            ? { media_type: 'STORIES', video_url: alt.url, access_token: tk }
+            : { media_type: 'STORIES', image_url: alt.url, access_token: tk })).id;
+        }
+      }
       await esperarContainer(id, tk, 300, B);
       ultimo = (await publicarContainer(ig, id, tk)).id;
     }
@@ -676,6 +692,7 @@ async function main() {
   if (!r.ok) throw new Error('não consegui ler organizador: ' + r.status);
 
   const ja = await sb(`publicacoes?select=user_id,post_id,rede,status,resultado&user_id=in.(${ids})`);
+  if (!ja.ok || !Array.isArray(ja.body)) throw new Error('não consegui ler publicacoes (' + ja.status + ') — rodada pulada pra não repetir posts');
   const feito = new Set((ja.body || []).map(x => `${x.user_id}|${x.post_id}|${x.rede}`));
   // ids que o próprio robô publicou (o 🪞 espelho não repete o que já saiu pelo Postou)
   const doRobo = new Set((ja.body || []).map(x => x.resultado && x.resultado.id).filter(Boolean).map(String));
@@ -741,7 +758,7 @@ async function main() {
         let status = 'ok', resultado;
         try {
           const ehStoryIG = rede === 'instagram_story' || storyOutro || (p.tipo === 'story' && rede === 'instagram');
-          const pp = ehStoryIG ? { ...p, tipo: 'story', midias: midiaDoStory(p) } : p;
+          const pp = ehStoryIG ? { ...p, tipo: 'story', midias: midiaDoStory(p), _alt: midiasDoPost(p).slice(0, 1) } : p;
           if (contaYT) {
             resultado = await publicarYouTube(p, contaYT);
           } else if (contaTH) {
