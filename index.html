@@ -4389,6 +4389,7 @@ const NICHOS_PREDEFINIDOS = {
 /* ✨ Legenda mágica (grátis, sem IA): 3 legendas no tom do nicho do perfil, com gancho + texto + chamada + 5 hashtags + horário sugerido */
 const semAcento = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 function nichoDaLegenda(c, titulo){
+  if(c && /\bpostou\b/i.test(c.nome||'') && SUGESTOES_NICHO.postou) return 'postou'; // o perfil do próprio Postou
   if(c && c.nicho && SUGESTOES_NICHO[c.nicho]) return c.nicho;
   const txt = ' '+semAcento((c&&c.nicho||'')+' '+(titulo||''))+' ';
   let melhor='geral', pts=0;
@@ -4398,19 +4399,21 @@ function nichoDaLegenda(c, titulo){
 const CTA_MAGICA = {
   agenda:['📲 Agende pelo direct ou pelo link da bio!','Me chama no direct pra garantir seu horário 💬','Vagas limitadas esta semana — me chama! ⏳'],
   venda:['🛒 Peça já pelo direct!','Comenta "EU QUERO" que eu te mando os detalhes 👇','Corre que é por tempo limitado! ⏳'],
+  app:['🎁 Testa 15 dias grátis — o link tá na bio!','Comenta "EU QUERO" que eu te mando o link 👇','Manda pra uma amiga que precisa organizar as redes 💌'],
   conteudo:['Salva pra não esquecer 📌','Manda pra alguém que precisa ver isso 💌','Comenta aqui o que você achou 👇']
 };
 const NICHO_CTA = {beleza:'agenda',barbearia:'agenda',saude:'agenda',psicologia:'agenda',odontologia:'agenda',fitness:'agenda',pets:'agenda',servicos:'agenda',limpeza:'agenda',reforma:'agenda',fotografia:'agenda',videomaker:'agenda',edicaovideo:'agenda',advocacia:'agenda',contabilidade:'agenda',educacao:'agenda',jardinagem:'agenda',tecnologia:'agenda',eventos:'agenda',
-  produtos:'venda',lojinha:'venda',moda:'venda',infantil:'venda',comida:'venda',cafeteria:'venda',artesanato:'venda',promocoes:'venda',carros:'venda',imobiliaria:'venda',viagem:'venda',vendasapp:'venda',postou:'venda',estacionamento:'venda'};
-function hashtagsMagicas(nicho, titulo){
+  produtos:'venda',lojinha:'venda',moda:'venda',infantil:'venda',comida:'venda',cafeteria:'venda',artesanato:'venda',promocoes:'venda',carros:'venda',imobiliaria:'venda',viagem:'venda',vendasapp:'app',postou:'app',estacionamento:'venda'};
+function hashtagsMagicas(nicho, titulo, ehFrase){
   const cont={};
   ((SUGESTOES_NICHO[nicho]||SUGESTOES_NICHO.geral||{}).ideias||[]).forEach(i=>String(i.h||'').split(/\s+/).forEach(h=>{ if(/^#[^\s#]{2,}/.test(h)){ const k=h.toLowerCase(); cont[k]=(cont[k]||0)+1; } }));
   const ordem=Object.keys(cont).sort((a,b)=>cont[b]-cont[a]);
-  const doTitulo=semAcento(titulo).split(/[^a-z0-9]+/).filter(w=>w.length>4).slice(0,2).map(w=>'#'+w);
-  return [...new Set([...doTitulo, ...embaralhar(ordem.slice(0,10))])].slice(0,5).join(' ');
+  // título curto (ex.: "Bolo de pote") vira hashtag; frase (ex.: "Indica uma amiga e ganha…") não
+  const doTitulo= ehFrase ? [] : semAcento(titulo).split(/[^a-z0-9]+/).filter(w=>w.length>4).slice(0,2).map(w=>'#'+w);
+  return [...new Set([...doTitulo, ...embaralhar(ordem.slice(0,7))])].slice(0,5).join(' ');
 }
 function horarioMagico(tipo){ return ({reel:'19:00', video:'19:00', story:'09:00', carrossel:'12:00', live:'20:00'})[tipo] || '12:00'; }
-let _magicas=[], _legendaAntes=null;
+let _magicas=[], _legendaAntes=null, _horaMagica='12:00';
 function legendaMagica(){
   const box=document.getElementById('mMagica'); if(!box) return;
   const c=clientePorId(parseInt((document.getElementById('mCliente')||{}).value));
@@ -4425,7 +4428,15 @@ function legendaMagica(){
   const ctas=CTA_MAGICA[NICHO_CTA[nicho]||'conteudo'];
   const verbo=(tipo==='reel'||tipo==='video') ? 'Assiste até o final' : (tipo==='carrossel' ? 'Arrasta pro lado' : 'Olha só');
   const pessoal=['lifestyle','motivacional','imigrantes'].includes(nicho);
-  const modelos=embaralhar(pessoal ? [
+  // título que já é uma frase/chamada (ex.: "Indica uma amiga e ganha +7 dias") vira manchete, sem encaixar no meio do texto
+  const ehFrase = !!titulo && (titulo.split(/\s+/).length>4 || /[!?+]/.test(titulo) || /^(indica|indique|ganha|ganhe|venha|vem|aproveite|conheca|descubra|faca|compre|agende|chegou|garanta|participe|confira|olha|veja|bora|vamos|sabia)\b/.test(semAcento(titulo)));
+  const modelos=embaralhar(ehFrase ? [
+    `${Assunto} ${emo}\n\nÉ isso mesmo que você leu! ${verbo} 👉 e não perde essa.\n\n${ctas[0]}`,
+    `Para tudo! ${emo}\n\n${Assunto}\n\nMe conta nos comentários o que achou 👇\n\n${ctas[1]}`,
+    `📌 Salva esse post: ${Assunto} ${emo}\n\nDepois não diz que eu não avisei! 😉\n\n${ctas[2]}`,
+    `${emo} Novidade boa por aqui:\n\n${Assunto}\n\nQuem aí vai aproveitar? 🙋‍♀️👇\n\n${ctas[0]}`,
+    `Atenção ${emo}\n\n${Assunto}\n\nManda pra quem precisa saber disso 💌`
+  ] : pessoal ? [
     `${emo} ${Assunto}!\n\n${verbo} 👉 que esse momento foi especial demais. Quem aí também ama?\n\n${ctas[2]}`,
     `Hoje foi dia de ${assunto} ${emo}\n\nTem coisa melhor do que viver momentos assim com quem a gente ama? 💜\n\nMe conta nos comentários 👇`,
     `Se você nunca foi, anota aí: ${assunto} ${emo}\n\n${verbo} e me diz se não dá vontade de ir agora! 😍\n\n${ctas[1]}`,
@@ -4438,8 +4449,8 @@ function legendaMagica(){
     `Para tudo! ${emo} ${Assunto} — eu precisava te mostrar.\n\n${verbo} e me conta nos comentários: você também ama? 👇\n\n${ctas[1]}`,
     `Se você estava esperando um sinal pra conhecer ${assunto}, é este aqui ${emo}\n\nTe espero de braços abertos. ✨\n\n${ctas[0]}`
   ]).slice(0,3);
-  _magicas=modelos.map(m=>m+'\n\n'+hashtagsMagicas(nicho, titulo));
-  const hora=horarioMagico(tipo);
+  _magicas=modelos.map(m=>m+'\n\n'+hashtagsMagicas(nicho, titulo, ehFrase));
+  const hora=horarioMagico(tipo); _horaMagica=hora;
   const bt='class="btn-claro" style="padding:5px 10px;font-size:.78rem;margin:0"';
   box.innerHTML=`<div style="background:var(--t1);border:1px solid var(--t1b);border-radius:12px;padding:10px 12px;margin-top:8px">
     <div style="font-weight:700;margin-bottom:4px">✨ 3 legendas pra ${escapar(c?c.nome:'você')} <span style="font-weight:400;color:var(--muted);font-size:.78rem">(${escapar(rotulo||'geral')})</span></div>
@@ -4457,7 +4468,7 @@ function usarMagica(i){
   const el=document.getElementById('mLegenda'); if(!el || !_magicas[i]) return;
   _legendaAntes=el.value; el.value=_magicas[i]; el.dispatchEvent(new Event('input',{bubbles:true}));
   const box=document.getElementById('mMagica');
-  if(box) box.innerHTML=`<div style="font-size:.82rem;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:7px 10px;margin-top:8px">✅ Legenda colocada! Pode editar à vontade. ${_legendaAntes&&_legendaAntes.trim()?'<a href="#" onclick="desfazerMagica();return false">↩ Voltar a legenda de antes</a>':''}</div>`;
+  if(box) box.innerHTML=`<div style="font-size:.82rem;background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;border-radius:10px;padding:7px 10px;margin-top:8px">✅ Legenda colocada! Pode editar à vontade. ${_legendaAntes&&_legendaAntes.trim()?'<a href="#" onclick="desfazerMagica();return false">↩ Voltar a legenda de antes</a>':''} <button type="button" class="btn-claro" style="padding:4px 9px;font-size:.76rem;margin:4px 0 0" onclick="usarHoraMagica(_horaMagica);this.textContent='✅ Horário '+_horaMagica">⏰ Usar horário sugerido (${_horaMagica})</button></div>`;
 }
 function desfazerMagica(){ const el=document.getElementById('mLegenda'); if(el && _legendaAntes!=null){ el.value=_legendaAntes; el.dispatchEvent(new Event('input',{bubbles:true})); } const b=document.getElementById('mMagica'); if(b) b.innerHTML=''; }
 function usarHoraMagica(h){ const el=document.getElementById('mHora'); if(el){ el.value=h; el.dispatchEvent(new Event('change',{bubbles:true})); } }
