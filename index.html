@@ -520,6 +520,7 @@
         <button class="btn" style="flex:1;min-width:92px;padding:12px 8px;font-size:.95rem" onclick="postarJa('story')">📱 Story</button>
         <button class="btn" style="flex:1;min-width:92px;padding:12px 8px;font-size:.95rem" onclick="postarJa('reel')">🎬 Vídeo/Reels</button>
       </div>
+      <button class="btn" style="width:100%;margin-top:8px;padding:11px 8px;font-size:.95rem;background:linear-gradient(135deg,#7c3aed,#ec4899);border:none" onclick="abrirMotor()">🚀 Motor: 1 ideia vira 3 posts</button>
       <div style="font-size:.76rem;color:var(--muted);margin-top:6px">Escolha o perfil, suba a foto ou o vídeo e marque 🤖 <b>Publicar sozinho</b>. Pode deixar pra agora ou pra outro horário. 💜</div>
     </div>
     <div id="bannerEmpresa"></div>
@@ -4653,6 +4654,158 @@ function usarMagica(i){
 }
 function desfazerMagica(){ const el=document.getElementById('mLegenda'); if(el && _legendaAntes!=null){ el.value=_legendaAntes; el.dispatchEvent(new Event('input',{bubbles:true})); } const b=document.getElementById('mMagica'); if(b) b.innerHTML=''; }
 function usarHoraMagica(h){ const el=document.getElementById('mHora'); if(el){ el.value=h; el.dispatchEvent(new Event('change',{bubbles:true})); } }
+
+/* 🚀 Motor do Postou (grátis, sem IA): 1 ideia → roteiro do Reels + carrossel + story, parando pra pessoa aprovar cada passo */
+let motor = null;
+function motorDia(iso, n){ const d=new Date(iso+'T12:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function motorPerfis(){ return (dados.clientes||[]).filter(ehPerfilSocial); }
+function motorFrases(t){ return String(t||'').split(/(?<=[.!?])\s+/).map(s=>s.trim().replace(/[.!]+$/,'')).filter(s=>s.length>8); }
+function motorNicho(){ const c=clientePorId(motor.cid); return nichoDaLegenda(c, motor.titulo); }
+function motorEmo(n){ const r=NICHOS_PREDEFINIDOS[n]||(SUGESTOES_NICHO[n]||{}).nome||''; return (r.match(/^\S+/)||['✨'])[0]; }
+function motorCtas(n){ return CTA_MAGICA[NICHO_CTA[n]||'conteudo']; }
+function motorAssunto(){ const b=motor.titulo||'isso'; return /^[A-ZÀ-Ú][a-zà-ú]/.test(b) ? b.charAt(0).toLowerCase()+b.slice(1) : b; }
+function motorGanchos(){ const a=motorAssunto(); return [`Para tudo! Vou te mostrar ${a} em 30 segundos.`, `Ninguém te conta isso sobre ${a}…`, `3 coisas sobre ${a} que você precisa saber.`, `Salva esse vídeo: ${a}.`, `Se você ainda não sabe sobre ${a}, assiste até o final.`]; }
+function motorPontos(){
+  const p=motorFrases(motor.desc).slice(0,3);
+  const extra=['Mostra um exemplo de verdade (antes e depois, resultado ou bastidor)','Conta um detalhe que só quem é do ramo sabe','Fala de quem isso ajuda e por quê'];
+  while(p.length<3) p.push(extra[p.length]);
+  return p;
+}
+function abrirMotor(){
+  const perfis=motorPerfis();
+  if(!perfis.length){ abrirModal(`<h3>🚀 Motor do Postou</h3><p>Primeiro cadastre um perfil (👥 Usuários → ➕) pra eu saber o nicho. 💜</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>`); return; }
+  const sel=document.getElementById('filtroCliente'); const pre=sel&&sel.value?parseInt(sel.value):null;
+  motor={ passo:1, cid:(perfis.find(p=>p.id===pre)||perfis[0]).id, titulo:'', desc:'', gancho:0, roteiro:'', slides:[], comMarca:false, data:motorDia(hojeISO(),1), auto:true, sug:[] };
+  motorSugestoes(); motorTela();
+}
+function motorSugestoes(){ const n=motorNicho(); motor.sug=embaralhar(((SUGESTOES_NICHO[n]||SUGESTOES_NICHO.geral||{}).ideias)||[]).slice(0,4); }
+function motorLerTela(){
+  const v=id=>{ const e=document.getElementById(id); return e?e.value:null; };
+  if(v('motCid')!=null) motor.cid=parseInt(v('motCid'));
+  if(v('motTitulo')!=null){ const nt=v('motTitulo').trim().slice(0,90); if(nt!==motor.titulo){ motor.titulo=nt; motor.roteiro=''; motor.slides=[]; } }
+  if(v('motDesc')!=null){ const nd=v('motDesc').trim().slice(0,600); if(nd!==motor.desc){ motor.desc=nd; motor.daSug=false; motor.roteiro=''; motor.slides=[]; } }
+  if(v('motRoteiro')!=null) motor.roteiro=v('motRoteiro');
+  document.querySelectorAll('.motSlide').forEach(e=>{ motor.slides[+e.dataset.i]=e.value.trim().slice(0,160); });
+  const m=document.getElementById('motMarca'); if(m) motor.comMarca=m.checked;
+  if(v('motData')) motor.data=v('motData');
+  const a=document.getElementById('motAuto'); if(a) motor.auto=a.checked;
+}
+function motorIr(p){
+  motorLerTela();
+  if(p>=2 && !motor.titulo){ const e=document.getElementById('motTitulo'); if(e){ e.style.borderColor='#b91c1c'; e.focus(); } return; }
+  if(p===2 && !motor.roteiro) motorMontarRoteiro();
+  if(p===3 && !motor.slides.length) motorMontarSlides();
+  if(p===4){ const i=motor.slides.findIndex(t=>!t || t.includes('✍️')); if(i>=0){ const e=document.querySelector('.motSlide[data-i="'+i+'"]'); if(e){ e.style.borderColor='#b91c1c'; e.focus(); } const av=document.getElementById('motAviso'); if(av) av.textContent='✍️ Troque o texto das telas marcadas com ✍️ pelas suas palavras (é o que vai aparecer no post).'; return; } }
+  motor.passo=p; motorTela();
+}
+function motorMontarRoteiro(){
+  const g=motorGanchos(), pts=motorPontos(), cta=motorCtas(motorNicho())[motor.gancho%3];
+  motor.roteiro=`🎬 GANCHO (primeiros 3 segundos):\n"${g[motor.gancho%g.length]}"\n\n📌 PONTO 1: ${pts[0]}\n📌 PONTO 2: ${pts[1]}\n📌 PONTO 3: ${pts[2]}\n\n📣 CHAMADA FINAL: "${cta}"\n\n💡 Dica: grave em pé, perto da janela (luz boa), até 30 segundos.`;
+}
+function motorOutroGancho(){ motorLerTela(); motor.gancho++; motorMontarRoteiro(); motorTela(); }
+function motorMontarSlides(){
+  const fr=motorFrases(motor.desc).slice(0,3), cta=motorCtas(motorNicho())[0];
+  const pts=[0,1,2].map(i=> fr[i] ? (motor.daSug?'✍️ '+fr[i]:fr[i]) : '✍️ Escreva aqui o ponto '+(i+1));
+  motor.slides=[motor.titulo, pts[0], pts[1], pts[2], 'Gostou? '+cta];
+}
+function motorTela(){
+  const c=clientePorId(motor.cid), perfis=motorPerfis(), n=motorNicho();
+  const passos=['💡 Ideia','🎬 Roteiro','🖼 Carrossel','📅 Agendar'];
+  const barra=`<div style="display:flex;gap:4px;margin:6px 0 12px">${passos.map((t,i)=>`<div style="flex:1;text-align:center;font-size:.72rem;padding:5px 2px;border-radius:8px;${i+1===motor.passo?'background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;font-weight:700':i+1<motor.passo?'background:#f0fdf4;color:#166534':'background:var(--bg);color:var(--muted)'}">${i+1<motor.passo?'✅ ':''}${t}</div>`).join('')}</div>`;
+  let corpo='';
+  if(motor.passo===1){
+    corpo=`<label>Perfil</label><select id="motCid" onchange="motorLerTela();motorSugestoes();motorTela()">${perfis.map(p=>`<option value="${p.id}" ${p.id===motor.cid?'selected':''}>${escapar(p.nome)}</option>`).join('')}</select>
+    <label>Sobre o que vai ser? <span style="font-weight:400;color:var(--muted)">(o assunto)</span></label><input id="motTitulo" maxlength="90" value="${escapar(motor.titulo)}" placeholder="Ex.: Bolo de pote de Natal">
+    <label>Detalhes <span style="font-weight:400;color:var(--muted)">(opcional — 2 ou 3 frases viram os pontos do roteiro)</span></label><textarea id="motDesc" rows="3" maxlength="600" placeholder="Ex.: Feito com chocolate belga. Dura 5 dias na geladeira. Encomendas até dia 20.">${escapar(motor.desc)}</textarea>
+    <div style="font-size:.8rem;font-weight:700;margin:8px 0 4px">Ou escolha uma ideia pronta ${motorEmo(n)} <a href="#" style="font-weight:400;font-size:.76rem" onclick="motorLerTela();motorSugestoes();motorTela();return false">🔄 outras</a></div>
+    <div style="display:flex;flex-direction:column;gap:5px">${motor.sug.map((s,i)=>`<button type="button" class="btn-claro" style="text-align:left;padding:7px 10px;font-size:.8rem" onclick="motorUsarSug(${i})"><b>${escapar(s.t)}</b><br><span style="color:var(--muted)">${escapar(String(s.d||'').slice(0,110))}${String(s.d||'').length>110?'…':''}</span></button>`).join('')}</div>
+    <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="motorIr(2)">Próximo: roteiro ➜</button></div>`;
+  } else if(motor.passo===2){
+    corpo=`<p style="font-size:.84rem;margin:0 0 6px">Roteiro do <b>Reels</b> pra você gravar. Mude o que quiser — é você que conhece seu público. 💜</p>
+    <textarea id="motRoteiro" rows="11" style="font-size:.84rem">${escapar(motor.roteiro)}</textarea>
+    <button type="button" class="btn-claro" style="padding:5px 10px;font-size:.8rem;margin-top:6px" onclick="motorOutroGancho()">🔄 Outro gancho</button>
+    <div class="rodape"><button class="btn-claro" onclick="motorIr(1)">⬅ Voltar</button><button class="btn" onclick="motorIr(3)">✅ Aprovo — próximo ➜</button></div>`;
+  } else if(motor.passo===3){
+    corpo=`<p style="font-size:.84rem;margin:0 0 6px">A mesma ideia vira um <b>carrossel de ${motor.slides.length} telinhas</b> (e um story avisando do post novo). Ajuste os textos:</p>
+    ${motor.slides.map((t,i)=>`<div style="display:flex;gap:6px;align-items:center;margin:4px 0"><span style="font-size:.74rem;font-weight:700;width:52px;flex:none">${i===0?'Capa':i===motor.slides.length-1?'Final':'Tela '+(i+1)}</span><input class="motSlide" data-i="${i}" maxlength="160" value="${escapar(t)}" oninput="motorPrevia()" style="flex:1;min-width:0"></div>`).join('')}
+    ${c&&c.marca?`<label style="font-size:.84rem;display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="motMarca" ${motor.comMarca?'checked':''} onchange="motorLerTela();motorPrevia()" style="width:auto"> 🏷️ Pôr a marca de ${escapar(c.nome)}</label>`:''}
+    <div id="motAviso" style="font-size:.8rem;color:#92400e;min-height:1em;margin-top:4px">${motor.slides.some(t=>t.includes('✍️'))?'✍️ As telas com ✍️ são só a dica do que escrever — troque pelas suas palavras.':''}</div>
+    <div id="motPrev" style="display:flex;gap:6px;overflow-x:auto;padding:8px 0"></div>
+    <div class="rodape"><button class="btn-claro" onclick="motorIr(2)">⬅ Voltar</button><button class="btn" onclick="motorIr(4)">✅ Aprovo — próximo ➜</button></div>`;
+  } else {
+    const d0=motor.data, d1=motorDia(d0,1);
+    const fmt=iso=>{ const [a,m,d]=iso.split('-'); return d+'/'+m; };
+    corpo=`<p style="font-size:.84rem;margin:0 0 6px">Vou montar <b>3 posts</b> pra <b>${escapar(c?c.nome:'')}</b>:</p>
+    <label>Começar no dia</label><input type="date" id="motData" value="${d0}" onchange="motorLerTela();motorTela()">
+    <div style="font-size:.85rem;line-height:1.7;margin:8px 0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px">
+      🖼 <b>Carrossel</b> — ${fmt(d0)} às 12:00 (artes prontas + legenda)<br>
+      📱 <b>Story</b> "post novo no feed" — ${fmt(d0)} às 12:30<br>
+      🎬 <b>Reels pra gravar</b> — ${fmt(d1)} às 19:00 (fica "🎬 Em produção" com o roteiro; quando você subir o vídeo, marca 🤖)
+    </div>
+    <label style="font-size:.84rem;display:flex;gap:6px;align-items:center"><input type="checkbox" id="motAuto" ${motor.auto?'checked':''} style="width:auto"> 🤖 Publicar sozinho o carrossel e o story</label>
+    <div id="motSt" style="font-size:.82rem;min-height:1.2em;margin-top:6px"></div>
+    <div class="rodape"><button class="btn-claro" onclick="motorIr(3)">⬅ Voltar</button><button class="btn" id="motGo" onclick="motorMontar()">🚀 Montar e agendar</button></div>`;
+  }
+  abrirModal(`<h3 style="margin-bottom:2px">🚀 Motor do Postou</h3><div style="font-size:.78rem;color:var(--muted)">1 ideia vira 3 posts — e você aprova cada passo.</div>${barra}${corpo}`);
+  if(motor.passo===3) motorPrevia();
+}
+function motorUsarSug(i){ motorLerTela(); const s=motor.sug[i]; if(!s) return; motor.titulo=s.t; motor.desc=s.d||''; motor.daSug=true; motor.roteiro=''; motor.slides=[]; motorTela(); }
+function motorQuebrar(c, t, max){ const ls=[]; String(t||'').split('\n').forEach(par=>{ let l=''; par.split(/\s+/).filter(Boolean).forEach(p=>{ const tt=l?l+' '+p:p; if(c.measureText(tt).width>max && l){ ls.push(l); l=p; } else l=tt; }); if(l) ls.push(l); }); return ls.slice(0,8); }
+function motorDesenhar(cv, texto, opc){
+  const c=cv.getContext('2d'), W=cv.width, H=cv.height, o=opc||{};
+  const g=c.createLinearGradient(0,0,W,H); g.addColorStop(0,'#7c3aed'); g.addColorStop(0.55,'#a855f7'); g.addColorStop(1,'#ec4899');
+  c.fillStyle=g; c.fillRect(0,0,W,H);
+  c.fillStyle='rgba(255,255,255,.08)'; c.beginPath(); c.arc(W*0.92,H*0.08,W*0.28,0,7); c.fill(); c.beginPath(); c.arc(W*0.05,H*0.95,W*0.22,0,7); c.fill();
+  const fs=Math.round(W*(o.capa?0.085:0.064)); c.fillStyle='#fff'; c.textAlign='center'; c.textBaseline='middle';
+  c.font=`${o.capa?900:800} ${fs}px system-ui,-apple-system,"Segoe UI",sans-serif`;
+  const ls=motorQuebrar(c, texto, W*0.8), lh=fs*1.25; let y=H/2-(ls.length-1)*lh/2;
+  c.shadowColor='rgba(0,0,0,.25)'; c.shadowBlur=fs*0.2;
+  ls.forEach(l=>{ c.fillText(l, W/2, y); y+=lh; });
+  c.shadowBlur=0; c.font=`700 ${Math.round(W*0.034)}px system-ui,-apple-system,sans-serif`; c.fillStyle='rgba(255,255,255,.9)';
+  if(o.rodape) c.fillText(o.rodape, W/2, H-W*0.07);
+  if(o.num) { c.textAlign='right'; c.fillText(o.num, W-W*0.06, W*0.08); }
+  if(o.logo) desenharMarcaNoCanto(c, W, H, o.logo, 'ce', 0.14);
+}
+async function motorLogo(){ const c=clientePorId(motor.cid); if(!motor.comMarca || !c || !c.marca) return null; try{ return await carregarImgMarca(c.marca); }catch(e){ return null; } }
+async function motorPrevia(){
+  motorLerTela(); const box=document.getElementById('motPrev'); if(!box) return;
+  const logo=await motorLogo(); box.innerHTML='';
+  motor.slides.forEach((t,i)=>{ const cv=document.createElement('canvas'); cv.width=216; cv.height=270; cv.style.cssText='border-radius:8px;flex:none;width:108px;height:135px';
+    motorDesenhar(cv, t, motorOpcSlide(i, logo)); box.appendChild(cv); });
+}
+function motorOpcSlide(i, logo){ const n=motor.slides.length; return { capa:i===0, num:(i+1)+'/'+n, rodape: i===0?'Arrasta pro lado 👉':(i===n-1?'💜':''), logo }; }
+async function motorSubir(cv, nome){
+  const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',0.92)); if(!blob) throw new Error('não consegui gerar a arte');
+  const caminho=usuarioId+'/motor-'+Date.now()+'-'+Math.random().toString(36).slice(2,6)+'-'+nome+'.jpg';
+  const { error }=await sb.storage.from('midias').upload(caminho, blob, { contentType:'image/jpeg', upsert:false }); if(error) throw error;
+  return sb.storage.from('midias').getPublicUrl(caminho).data.publicUrl;
+}
+function motorLegenda(tipo){
+  const n=motorNicho(), emo=motorEmo(n), ctas=motorCtas(n), A=motor.titulo.charAt(0).toUpperCase()+motor.titulo.slice(1), tags=hashtagsMagicas(n, motor.titulo, motor.titulo.split(/\s+/).length>4);
+  if(tipo==='carrossel') return `${emo} ${A}\n\nArrasta pro lado 👉 que eu te explico tudo em ${motor.slides.length} telinhas.\n\n${ctas[0]}\n\n${tags}`;
+  return `${A} ${emo}\n\nAssiste até o final 👉 e me conta nos comentários o que achou!\n\n${ctas[1]}\n\n${tags}`;
+}
+async function motorMontar(){
+  motorLerTela(); const st=document.getElementById('motSt'), bt=document.getElementById('motGo');
+  const c=clientePorId(motor.cid); if(!c){ st.textContent='⚠️ Escolha um perfil.'; return; }
+  if(bt) bt.disabled=true;
+  try{
+    st.textContent='⏳ Desenhando as artes…';
+    const logo=await motorLogo(), urls=[];
+    for(let i=0;i<motor.slides.length;i++){ const cv=document.createElement('canvas'); cv.width=1080; cv.height=1350; motorDesenhar(cv, motor.slides[i], motorOpcSlide(i, logo)); st.textContent='⏳ Subindo a arte '+(i+1)+' de '+motor.slides.length+'…'; urls.push(await motorSubir(cv, 's'+(i+1))); }
+    const cs=document.createElement('canvas'); cs.width=1080; cs.height=1920; motorDesenhar(cs, '📌 Post novo no feed!\n\n'+motor.titulo, { capa:true, rodape:'Corre lá no perfil 👀💜', logo });
+    st.textContent='⏳ Subindo o story…'; const urlStory=await motorSubir(cs, 'story');
+    const redes=(c.redes||[]).map(r=>r.tipo), d0=motor.data, d1=motorDia(d0,1);
+    const base={ clienteId:c.id, redes, legendas:{}, virarStory:false };
+    const auto=!!motor.auto;
+    dados.posts.push(Object.assign({id:novoId()}, base, { titulo:motor.titulo, data:d0, hora:'12:00', tipo:'carrossel', status:auto?'agendado':'aprovado', legenda:motorLegenda('carrossel'), midias:urls.map((u,i)=>({url:u, tipo:'imagem', nome:'motor-'+(i+1)+'.jpg'})), autoPublicar:auto, obs:'🚀 Feito pelo Motor do Postou' }));
+    dados.posts.push(Object.assign({id:novoId()}, base, { titulo:'Story: '+motor.titulo, data:d0, hora:'12:30', tipo:'story', status:auto?'agendado':'aprovado', legenda:'', midias:[{url:urlStory, tipo:'imagem', nome:'motor-story.jpg'}], autoPublicar:auto, obs:'🚀 Feito pelo Motor do Postou' }));
+    dados.posts.push(Object.assign({id:novoId()}, base, { titulo:'Reels: '+motor.titulo, data:d1, hora:'19:00', tipo:'reel', status:'producao', legenda:motorLegenda('reel'), midias:[], autoPublicar:false, obs:'🚀 ROTEIRO (Motor do Postou):\n\n'+motor.roteiro }));
+    tocar();
+    const [a,m,d]=d0.split('-');
+    abrirModal(`<h3>🎉 Pronto! 3 posts no calendário</h3><p style="font-size:.9rem">🖼 Carrossel e 📱 story em <b>${d}/${m}</b>${auto?' — o 🤖 robô publica sozinho':''}.<br>🎬 O Reels ficou como <b>"Em produção"</b> com o roteiro nas observações: grave, abra o post, suba o vídeo e marque 🤖 <b>Publicar sozinho</b>.</p><div class="rodape"><button class="btn-claro" onclick="fecharModal()">Fechar</button><button class="btn" onclick="fecharModal();trocarAba('calendario')">📅 Ver no calendário</button></div>`);
+  }catch(e){ if(st) st.textContent='⚠️ Não consegui montar: '+((e&&e.message)||e)+' — tente de novo. 💜'; if(bt) bt.disabled=false; }
+}
 
 /* ---------- SUGESTÕES POR NICHO ---------- */
 const SUGESTOES_NICHO = {
