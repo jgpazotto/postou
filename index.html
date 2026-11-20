@@ -504,6 +504,7 @@
     <button data-aba="quadro" onclick="trocarAba('quadro')">🗂 Status</button>
     <button data-aba="vendas" onclick="trocarAba('vendas')">💵 Vendas</button>
     <button data-aba="caixa" onclick="trocarAba('caixa')">💰 Caixa</button>
+    <button data-aba="vitrine" onclick="trocarAba('vitrine')">🛍️ Vitrine</button>
     <button data-aba="ajuda" onclick="trocarAba('ajuda')">❓ Ajuda</button>
     <button data-aba="contatos" onclick="trocarAba('contatos')" style="display:none">📇 Contatos</button>
     <button data-aba="equipe" onclick="trocarAba('equipe')" style="display:none">🏢 Equipe</button>
@@ -657,6 +658,13 @@
     <div class="secao-topo"><h2>👑 Painel do Dono · assinantes</h2><button class="btn-claro" onclick="carregarDono()">🔄 Atualizar</button></div>
     <p style="font-size:.85rem;color:var(--muted);margin-top:-8px;margin-bottom:12px">Veja quem usa o Postou e libere o acesso de quem precisa — sem depender de ninguém. 💜</p>
     <div id="listaDono"><div class="vazio">Abrindo o painel…</div></div>
+  </section>
+  <section id="aba-vitrine" style="display:none">
+    <div class="secao-topo"><h2>🛍️ Vitrine das Empreendedoras</h2><button class="btn-claro" onclick="carregarVitrine()">🔄 Atualizar</button></div>
+    <p style="font-size:.85rem;color:var(--muted);margin-top:-8px;margin-bottom:12px">Aqui as empreendedoras do Postou mostram o seu trabalho e se ajudam: segue, curte, comenta e indica. 💜 Quem não é visto não é lembrado!</p>
+    <div id="vitrineDona"></div>
+    <div class="cartao" id="vitrineMeu" style="margin-bottom:14px"></div>
+    <div id="vitrineLista"><div class="vazio">Abrindo a vitrine…</div></div>
   </section>
   <section id="aba-ajuda" style="display:none">
     <div class="secao-topo"><h2>Como usar o Postou — passo a passo</h2></div>
@@ -1100,6 +1108,7 @@ function aplicarPlano(){
   }
   const btnD = document.querySelector('nav button[data-aba="dono"]');
   if(btnD) btnD.style.display = ehDono() ? '' : 'none';
+  if(ehDono() && typeof vitContarPendentes==='function') vitContarPendentes();
   const btnE = document.querySelector('nav button[data-aba="equipe"]');
   if(btnE) btnE.style.display = podeEquipe() ? '' : 'none';
   const btnC = document.querySelector('nav button[data-aba="contatos"]');
@@ -1661,7 +1670,7 @@ function tocar(){ render(); agendarSalvar(); }
 function trocarAba(aba){
   abaAtual = aba;
   document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('ativo', b.dataset.aba===aba));
-  ['hoje','clientes','robo','calendario','tarefas','ideias','quadro','vendas','caixa','ajuda','dono','equipe','contatos'].forEach(a=>{
+  ['hoje','clientes','robo','calendario','tarefas','ideias','quadro','vendas','caixa','ajuda','dono','equipe','contatos','vitrine'].forEach(a=>{
     const el=document.getElementById('aba-'+a); if(el) el.style.display = a===aba?'':'none';
   });
   render();
@@ -1669,7 +1678,108 @@ function trocarAba(aba){
   if(aba==='robo'){ renderConexoes(); renderStoryPadrao(); }
   if(aba==='equipe'){ carregarEquipe(); carregarSalas(); }
   if(aba==='contatos') carregarContatos();
+  if(aba==='vitrine') carregarVitrine();
 }
+
+/* 🛍️ Vitrine das Empreendedoras — cada cartão só aparece depois que a Joice aprova */
+let vitMeu=null, vitFotoTemp;
+function vitIg(t){ return String(t||'').trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i,'').replace(/^@/,'').replace(/[\/?#].*$/,'').replace(/[^A-Za-z0-9._]/g,'').slice(0,30); }
+function vitZap(t){ return String(t||'').replace(/\D/g,'').slice(0,15); }
+function vitFotoOk(u){ return /^https:\/\/[a-z0-9.-]+\.supabase\.co\/storage\//i.test(String(u||'')); }
+function vitCartaoHtml(v, extra){
+  const ig=vitIg(v.instagram), zap=vitZap(v.whatsapp);
+  return `<div class="cartao" style="display:flex;gap:12px;align-items:flex-start">
+    ${vitFotoOk(v.foto_url)?`<img src="${escapar(v.foto_url)}" alt="" style="width:72px;height:72px;border-radius:14px;object-fit:cover;flex:none">`:`<div style="width:72px;height:72px;border-radius:14px;flex:none;display:flex;align-items:center;justify-content:center;font-size:1.8rem;background:linear-gradient(135deg,#7c3aed,#ec4899)">🛍️</div>`}
+    <div style="flex:1;min-width:0">
+      <div style="font-weight:800">${escapar(v.nome)}</div>
+      ${v.cidade?`<div style="font-size:.78rem;color:var(--muted)">📍 ${escapar(v.cidade)}</div>`:''}
+      ${v.descricao?`<div style="font-size:.86rem;margin:4px 0;white-space:pre-wrap">${escapar(v.descricao)}</div>`:''}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        ${ig?`<a class="btn-mini" href="https://instagram.com/${ig}" target="_blank" rel="noopener" style="text-decoration:none">📸 @${escapar(ig)}</a>`:''}
+        ${zap?`<a class="btn-mini" href="https://wa.me/${zap}" target="_blank" rel="noopener" style="text-decoration:none">💬 WhatsApp</a>`:''}
+      </div>
+      ${extra||''}
+    </div></div>`;
+}
+async function carregarVitrine(){
+  const lista=document.getElementById('vitrineLista'); if(!lista) return;
+  try{
+    const { data, error }=await sb.from('vitrine').select('id,user_id,nome,descricao,instagram,whatsapp,cidade,foto_url,aprovado,ativo,criado_em').order('criado_em',{ascending:false}).limit(500);
+    if(error) throw error;
+    const todos=data||[];
+    vitMeu=todos.find(v=>v.user_id===usuarioId)||null;
+    desenharMeuCartao();
+    const pub=todos.filter(v=>v.aprovado && v.ativo);
+    lista.innerHTML = pub.length ? '<h3 style="margin:6px 0 10px">✨ Quem já está na vitrine</h3>'+pub.map(v=>vitCartaoHtml(v)).join('') : '<div class="vazio">A vitrine ainda está vazia — seja a primeira! 💜</div>';
+    const dona=document.getElementById('vitrineDona');
+    if(dona){
+      if(ehDono()){
+        const pend=todos.filter(v=>!v.aprovado && v.ativo), esc=todos.filter(v=>v.aprovado && !v.ativo);
+        dona.innerHTML = '<div class="cartao" style="margin-bottom:14px;border:2px solid var(--g2)"><h3 style="margin-bottom:6px">👑 Esperando sua aprovação ('+pend.length+')</h3>'+
+          (pend.length ? pend.map(v=>vitCartaoHtml(v, `<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn" onclick="vitDona(${v.id},{aprovado:true,ativo:true})">✅ Aprovar</button><button class="btn-claro" onclick="vitDona(${v.id},{ativo:false})">🙈 Esconder</button></div>`)).join('') : '<div style="font-size:.85rem;color:var(--muted)">Nada novo por aqui. 💜</div>')+
+          (pub.length ? '<details style="margin-top:8px"><summary style="cursor:pointer;font-size:.85rem">Esconder alguém que já está na vitrine</summary>'+pub.map(v=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0;font-size:.85rem"><span>${escapar(v.nome)}</span><button class="btn-mini" onclick="vitDona(${v.id},{ativo:false})">🙈 Esconder</button></div>`).join('')+'</details>' : '')+
+          (esc.length ? '<details style="margin-top:6px"><summary style="cursor:pointer;font-size:.85rem">Escondidos ('+esc.length+')</summary>'+esc.map(v=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:4px 0;font-size:.85rem"><span>${escapar(v.nome)}</span><button class="btn-mini" onclick="vitDona(${v.id},{ativo:true})">👀 Mostrar de novo</button></div>`).join('')+'</details>' : '')+'</div>';
+        vitMarcarPendentes(pend.length);
+      } else dona.innerHTML='';
+    }
+  }catch(e){ lista.innerHTML='<div class="vazio">⚠️ Não consegui abrir a vitrine agora. Tente de novo daqui a pouquinho. 💜</div>'; }
+}
+function vitMarcarPendentes(n){ const b=document.querySelector('nav button[data-aba="vitrine"]'); if(b) b.textContent = n ? '🛍️ Vitrine 🔴'+n : '🛍️ Vitrine'; }
+async function vitContarPendentes(){
+  if(!ehDono() || window._vitContou) return; window._vitContou=true;
+  try{ const { count }=await sb.from('vitrine').select('id',{count:'exact',head:true}).eq('aprovado',false).eq('ativo',true); vitMarcarPendentes(count||0); }catch(e){}
+}
+function desenharMeuCartao(){
+  const el=document.getElementById('vitrineMeu'); if(!el) return;
+  const v=vitMeu||{}, a=(dados&&dados.assinatura)||{};
+  vitFotoTemp=undefined;
+  const status = !vitMeu ? '' : !vitMeu.ativo ? '🙈 Seu cartão está escondido no momento.' : vitMeu.aprovado ? '✅ Seu cartão está na vitrine!' : '⏳ Recebido! Assim que a Joice aprovar, ele aparece pra todo mundo. 💜';
+  el.innerHTML = `<h3 style="margin-bottom:4px">${vitMeu?'✏️ Meu cartão':'➕ Colocar meu negócio na vitrine'}</h3>
+    ${status?`<div style="font-size:.85rem;margin-bottom:8px">${status}</div>`:'<div style="font-size:.82rem;color:var(--muted);margin-bottom:8px">Grátis pra quem usa o Postou. A Joice confere cada cartão antes de aparecer. 💜</div>'}
+    <details ${vitMeu?'':'open'}><summary style="cursor:pointer;font-size:.85rem;font-weight:700;color:var(--g1)">${vitMeu?'Editar meu cartão':'Preencher'}</summary>
+    <label>Nome do negócio</label><input id="vitNome" maxlength="80" value="${escapar(v.nome||'')}" placeholder="Ex.: Doce Encanto Confeitaria">
+    <label>O que você faz <span style="font-weight:400;color:var(--muted)">(até 400 letras)</span></label><textarea id="vitDesc" maxlength="400" rows="3" placeholder="Ex.: Bolos de festa e doces finos sob encomenda. Entrego em Curitiba.">${escapar(v.descricao||'')}</textarea>
+    <label>Instagram</label><input id="vitIg" maxlength="60" value="${escapar(v.instagram||'')}" placeholder="@seuperfil">
+    <label>WhatsApp <span style="font-weight:400;color:var(--muted)">(com o código do país, ex.: 55 41 99999-9999)</span></label><input id="vitZap" maxlength="30" value="${escapar(v.whatsapp||a.whatsapp||'')}" placeholder="55 11 99999-9999">
+    <label>Cidade</label><input id="vitCidade" maxlength="60" value="${escapar(v.cidade||'')}" placeholder="Ex.: Austin, TX">
+    <label>Foto ou logo <span style="font-weight:400;color:var(--muted)">(opcional)</span></label>
+    <div style="display:flex;gap:10px;align-items:center"><div id="vitFotoPrev">${vitFotoOk(v.foto_url)?`<img src="${escapar(v.foto_url)}" alt="" style="width:56px;height:56px;border-radius:12px;object-fit:cover">`:''}</div><input type="file" accept="image/*" onchange="vitEnviarFoto(this)" style="font-size:.8rem"></div>
+    <div id="vitSt" style="font-size:.8rem;min-height:1.1em;margin:6px 0"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" onclick="vitSalvar()">${vitMeu?'💾 Salvar mudanças':'🚀 Enviar pra vitrine'}</button>${vitMeu?(vitMeu.ativo?'<button class="btn-claro" onclick="vitAtivo(false)">🙈 Esconder meu cartão</button>':'<button class="btn-claro" onclick="vitAtivo(true)">👀 Mostrar de novo</button>'):''}</div>
+    ${vitMeu?'<div style="font-size:.76rem;color:var(--muted);margin-top:6px">Se mudar o texto ou a foto, o cartão volta pra Joice conferir.</div>':''}
+    </details>`;
+}
+async function vitEnviarFoto(input){
+  const f=input.files&&input.files[0]; if(!f) return; const st=document.getElementById('vitSt');
+  if(!/^image\//.test(f.type||'')){ st.textContent='⚠️ Escolha uma imagem.'; return; }
+  st.textContent='⏳ Subindo a foto…';
+  try{
+    const img=await new Promise((ok,falha)=>{ const i=new Image(); i.onload=()=>ok(i); i.onerror=falha; i.src=URL.createObjectURL(f); });
+    const lado=Math.min(img.width,img.height), cv=document.createElement('canvas'); cv.width=cv.height=Math.min(600,lado);
+    cv.getContext('2d').drawImage(img,(img.width-lado)/2,(img.height-lado)/2,lado,lado,0,0,cv.width,cv.height);
+    const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',0.86));
+    const caminho=usuarioId+'/vitrine-'+Date.now()+'.jpg';
+    const { error }=await sb.storage.from('midias').upload(caminho, blob, { contentType:'image/jpeg', upsert:false }); if(error) throw error;
+    vitFotoTemp=sb.storage.from('midias').getPublicUrl(caminho).data.publicUrl;
+    document.getElementById('vitFotoPrev').innerHTML=`<img src="${escapar(vitFotoTemp)}" alt="" style="width:56px;height:56px;border-radius:12px;object-fit:cover">`;
+    st.textContent='✅ Foto pronta! Agora toque em Enviar/Salvar.';
+  }catch(e){ st.textContent='⚠️ Não consegui subir a foto. Tente outra. 💜'; }
+  input.value='';
+}
+async function vitSalvar(){
+  const st=document.getElementById('vitSt'); const val=id=>(document.getElementById(id).value||'').trim();
+  const reg={ nome:val('vitNome').slice(0,80), descricao:val('vitDesc').slice(0,400)||null, instagram:vitIg(val('vitIg'))||null, whatsapp:val('vitZap').slice(0,30)||null, cidade:val('vitCidade').slice(0,60)||null };
+  if(!reg.nome){ st.textContent='⚠️ Coloque o nome do negócio. 💜'; return; }
+  if(vitFotoTemp!==undefined) reg.foto_url=vitFotoTemp; else if(!vitMeu) reg.foto_url=null;
+  st.textContent='⏳ Salvando…';
+  try{
+    const r = vitMeu ? await sb.from('vitrine').update(reg).eq('id',vitMeu.id) : await sb.from('vitrine').insert(reg);
+    if(r.error) throw r.error;
+    st.textContent='✅ Salvo!'; await carregarVitrine();
+  }catch(e){ st.textContent='⚠️ Não consegui salvar: '+((e&&e.message)||e); }
+}
+async function vitAtivo(ativo){ if(!vitMeu) return; try{ const { error }=await sb.from('vitrine').update({ativo}).eq('id',vitMeu.id); if(error) throw error; await carregarVitrine(); }catch(e){ const st=document.getElementById('vitSt'); if(st) st.textContent='⚠️ '+((e&&e.message)||e); } }
+async function vitDona(id, campos){ if(!ehDono()) return; try{ const { error }=await sb.from('vitrine').update(campos).eq('id',id); if(error) throw error; await carregarVitrine(); }catch(e){ alert('Não consegui: '+((e&&e.message)||e)); } }
 
 function ordenarClientes(){
   if(dados && Array.isArray(dados.clientes)){
