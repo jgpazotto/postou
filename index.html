@@ -2048,11 +2048,8 @@ function renderHoje(){
     const oi = primeiroNome ? ('Oi, '+escapar(primeiroNome)+'! ') : 'Oi! ';
     const diaNum = parseInt(hoje.slice(0,4))*372 + parseInt(hoje.slice(5,7))*31 + parseInt(hoje.slice(8,10));
     const rec = RECADINHOS[diaNum % RECADINHOS.length];
-    elRec.innerHTML = `<div style="background:linear-gradient(135deg,var(--t1),var(--t2));border:1px solid var(--t1b);border-radius:14px;padding:14px 16px;margin-bottom:14px;box-shadow:0 2px 10px rgba(124,58,237,.06)">
-      <div style="font-size:.78rem;color:var(--g1);font-weight:800;letter-spacing:.3px;margin-bottom:3px">💜 RECADINHO DO DIA</div>
-      <div style="font-size:.95rem;color:#4b3a63;line-height:1.5">${oi}${rec}</div>
-      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirRespostas()">💬 Respostas prontas</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirNaoSegue()">🔍 Quem não me segue</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
-    </div>`;
+    window._recadoJoy = oi+rec;
+    elRec.innerHTML = '';
   }
   if(elRec) elRec.innerHTML = blocoSeuDia(f, hoje) + elRec.innerHTML + painelRoboHoje(f, hoje);
   const posts = dados.posts.filter(p=>(!f||p.clienteId===f));
@@ -4360,8 +4357,10 @@ function blocoSeuDia(f, hoje){
     return `<details id="seuDia" ${fechado?'':'open'} ontoggle="try{localStorage.setItem('postou_seuDia',this.open?'':'1')}catch(e){}" style="background:#fff;border:1px solid var(--t1b);border-radius:14px;padding:12px 14px;margin-bottom:14px;box-shadow:0 2px 10px rgba(124,58,237,.06)">
       <summary style="cursor:pointer;font-weight:800;color:var(--g1);font-size:.95rem">${seuDiaCara}Joy · Seu dia — ${oi}!</summary>
       <div style="font-size:.9rem;line-height:1.5;margin-top:8px;display:flex;flex-direction:column;gap:6px">${L.map(x=>'<div>'+x+'</div>').join('')}</div>
+      ${window._recadoJoy?`<div style="margin-top:10px;padding:10px 12px;background:linear-gradient(135deg,var(--t1),var(--t2));border:1px solid var(--t1b);border-radius:12px;font-size:.92rem;color:#4b3a63;line-height:1.5">💬 <b style="color:var(--g1)">Recadinho da Joy:</b> ${window._recadoJoy}</div>`:''}
       <div style="margin-top:10px;padding:8px 10px;background:var(--t1);border-radius:10px;font-size:.88rem">👉 <b>Comece por:</b> ${dica}</div>
       ${blocoDesafio(f, hoje)}
+      <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="abrirRespostas()">💬 Respostas prontas</button><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="abrirNaoSegue()">🔍 Quem não me segue</button><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
     </details>`;
   }catch(e){ console.warn('Seu dia', e); return ''; }
 }
