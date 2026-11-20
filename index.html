@@ -1182,6 +1182,7 @@ function abrirIndicar(){
   const cod=meuCodigoIndicacao();
   const convite=`Oi! 💜 Eu uso o Postou pra organizar minhas redes sociais (e até serviços) num lugar só: calendário, ideias prontas por nicho e financeiro. Você ganha 15 dias grátis pra testar! É só entrar em postou.app.br e, em "Código de indicação", colocar o meu: ${cod} — aí você ganha os 15 dias e eu ganho mais 7 dias grátis também. 🎁`;
   abrirModal(`
+    <div style="text-align:center;margin-bottom:4px">${joyCara('coracao',64)}</div>
     <h3>💌 Indique uma amiga</h3>
     <p style="font-size:.88rem;color:var(--muted);margin-bottom:10px">Sua amiga ganha os 15 dias grátis pra testar, e quando ela se cadastrar com o seu código, você ganha <b>+7 dias grátis</b> também. Só vale quando ela entra de verdade! 💜</p>
     <div style="background:linear-gradient(135deg,var(--t1),var(--t2));border:1px solid var(--t1b);border-radius:12px;padding:14px;text-align:center;margin-bottom:12px">
@@ -4265,6 +4266,9 @@ function atualizarOndeSai(){
   el.innerHTML = '📍 Vai sair no perfil <b>'+escapar(c.nome)+'</b>: '+partes.join(' · ')
     + (semRobo ? '<div style="margin-top:6px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:7px 10px;color:#92400e;font-size:.82rem">⚠️ <b>'+escapar(c.nome)+'</b> ainda não está ligado ao robô — o Instagram/Facebook desse perfil <b>não sai sozinho</b>. Ligue em 🤖 Robô (📸 Conectar só o Instagram) ou poste por um perfil já ligado.</div>' : '');
 }
+/* 😊 Carinhas da Joy (sprite joy-carinhas.png: estrelas, triste, ops, coração) */
+const JOY_CARAS={estrelas:0,triste:1,ops:2,coracao:3};
+function joyCara(n,px){ px=px||30; const i=JOY_CARAS[n]||0; return `<span role="img" aria-label="Joy" style="display:inline-block;width:${px}px;height:${px}px;border-radius:50%;background:url(joy-carinhas.png) ${-i*px}px 0/${px*4}px ${px}px no-repeat;vertical-align:middle;margin:-4px 6px 0 0"></span>`; }
 /* 🤖 SEU DIA (item 21) — resumo grátis por regras, no topo da aba Hoje */
 function seuDiaIr(id){ const el=document.getElementById(id); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'start'}); el.style.transition='box-shadow .3s'; el.style.boxShadow='0 0 0 3px #ec4899'; el.style.borderRadius='12px'; setTimeout(()=>{ el.style.boxShadow=''; },1800); }
 function seuDiaNum(iso){ return new Date(parseInt(iso.slice(0,4)), parseInt(iso.slice(5,7))-1, parseInt(iso.slice(8,10))).getTime(); }
@@ -4326,9 +4330,10 @@ function blocoSeuDia(f, hoje){
     else if(nomesDev.length) dica='mandar um lembrete carinhoso pra quem está devendo. 📱';
     else if(!deHoje.length) dica='criar o post de hoje — o 🚀 Motor faz em 4 passinhos.';
     else dica='tá tudo em dia! 🎉 Aproveita pra gravar um conteúdo extra pra semana. 💜';
+    const seuDiaCara = atras.length ? joyCara('ops',30) : /tá tudo em dia/.test(dica) ? joyCara('estrelas',30) : '<img src="joy-192.png" alt="" style="width:30px;height:30px;border-radius:50%;vertical-align:middle;margin:-4px 6px 0 0">';
     let fechado=false; try{ fechado = localStorage.getItem('postou_seuDia')==='1'; }catch(e){}
     return `<details id="seuDia" ${fechado?'':'open'} ontoggle="try{localStorage.setItem('postou_seuDia',this.open?'':'1')}catch(e){}" style="background:#fff;border:1px solid var(--t1b);border-radius:14px;padding:12px 14px;margin-bottom:14px;box-shadow:0 2px 10px rgba(124,58,237,.06)">
-      <summary style="cursor:pointer;font-weight:800;color:var(--g1);font-size:.95rem"><img src="joy-192.png" alt="" style="width:30px;height:30px;border-radius:50%;vertical-align:middle;margin:-4px 6px 0 0">Joy · Seu dia — ${oi}!</summary>
+      <summary style="cursor:pointer;font-weight:800;color:var(--g1);font-size:.95rem">${seuDiaCara}Joy · Seu dia — ${oi}!</summary>
       <div style="font-size:.9rem;line-height:1.5;margin-top:8px;display:flex;flex-direction:column;gap:6px">${L.map(x=>'<div>'+x+'</div>').join('')}</div>
       <div style="margin-top:10px;padding:8px 10px;background:var(--t1);border-radius:10px;font-size:.88rem">👉 <b>Comece por:</b> ${dica}</div>
       ${blocoDesafio(f, hoje)}
@@ -4406,7 +4411,7 @@ function criarDesafio21(){
   if(!dados.desafios) dados.desafios=[];
   dados.desafios.push({ id, clienteId:cid, inicio:ini, criado:hojeISO() });
   tocar();
-  abrirModal(`<h3>🔥 Desafio aceito!</h3>
+  abrirModal(`<div style="text-align:center;margin-bottom:4px">${joyCara('estrelas',72)}</div><h3>🔥 Desafio aceito!</h3>
     <p style="font-size:.92rem;line-height:1.5">Coloquei <b>21 ideias</b> no calendário do <b>${escapar(c.nome)}</b>, de <b>${dataBR(ini)}</b> a <b>${dataBR(isoSomaDias(ini,20))}</b>, às ${escapar(hora)}.</p>
     <p style="font-size:.88rem;color:var(--muted);line-height:1.5">Em cada post a ideia está nas observações. Grave, suba o vídeo/arte, use o ✨ <b>Legenda mágica</b> e ligue o 🤖 se quiser que o robô publique. Cada post publicado sobe o contador na aba Hoje. Bora! 💜</p>
     <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Fechar</button><button class="btn" onclick="fecharModal();trocarAba('calendario')">📅 Ver no calendário</button></div>`);
@@ -4421,7 +4426,7 @@ function blocoDesafio(f, hoje){
     const pct=Math.min(100, Math.round(feitos/21*100));
     const barra=`<div style="height:10px;background:#f3e8ff;border-radius:99px;overflow:hidden;margin:6px 0"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#7c3aed,#ec4899);border-radius:99px"></div></div>`;
     let txt;
-    if(feitos>=21) txt=`🏆 <b>PARABÉNS!</b> Você completou o Desafio 21 no <b>${escapar(c.nome)}</b>! Constância de campeã! 🎉💜`;
+    if(feitos>=21) txt=`${joyCara('estrelas',34)}🏆 <b>PARABÉNS!</b> Você completou o Desafio 21 no <b>${escapar(c.nome)}</b>! Constância de campeã! 🎉💜`;
     else if(dia<1) txt=`🔥 Desafio 21 do <b>${escapar(c.nome)}</b> começa ${dia===0?'amanhã':'em '+(1-dia)+' dias'} (${dataBR(d.inicio)}). Já dá pra adiantar os primeiros vídeos! 🎬`;
     else if(dia>21) txt=`🔥 Desafio 21 do <b>${escapar(c.nome)}</b> terminou com <b>${feitos}/21</b> publicados. ${feitos>=15?'Arrasou! 💪':'Que tal começar outro e bater o recorde? 💜'}`;
     else {
@@ -7149,7 +7154,7 @@ function painelRoboHoje(f, hoje){
       }).join(' · ');
       return `<div style="padding:6px 0;border-top:1px dashed var(--t1b)"><div style="font-size:.84rem"><b>${p.data===hoje?'Hoje':'Ontem'} ${escapar(p.hora||'')}</b> · <span class="bolinha" style="background:${c.cor||'#a855f7'}"></span> ${escapar(c.nome||'')} · ${escapar(p.titulo||'(sem título)')}</div><div style="font-size:.8rem;margin-top:2px">${partes}</div></div>`;
     }).join('');
-    return `<details ${erros?'open':''} style="background:${erros?'#fef2f2':'#f0fdf4'};border:1px solid ${erros?'#fecaca':'#bbf7d0'};border-radius:14px;padding:10px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700;font-size:.9rem">🤖 O robô publicou ${erros?`<span style="color:#dc2626">· ⚠️ ${erros} com erro</span>`:'· tudo certo ✅'} <span style="font-weight:400;color:var(--muted);font-size:.78rem">(hoje e ontem — toque no 🔗 pra ver o post)</span></summary>${linhas}</details>`;
+    return `<details ${erros?'open':''} style="background:${erros?'#fef2f2':'#f0fdf4'};border:1px solid ${erros?'#fecaca':'#bbf7d0'};border-radius:14px;padding:10px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700;font-size:.9rem">${erros?joyCara('triste',26):'🤖'} O robô publicou ${erros?`<span style="color:#dc2626">· ⚠️ ${erros} com erro</span>`:'· tudo certo ✅'} <span style="font-weight:400;color:var(--muted);font-size:.78rem">(hoje e ontem — toque no 🔗 pra ver o post)</span></summary>${linhas}</details>`;
   }catch(e){ return ''; }
 }
 /* ✋ limite do Facebook (story em vídeo) não é erro do robô: mostra como "à mão" e não conta como erro */
