@@ -1283,7 +1283,8 @@ async function carregarDono(){
     else if(a.liberadoAte){ badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo')+' · até '+dataBRcompleta(a.liberadoAte); }
     else if(a.liberadoPor==='dono'){ badge='♾️ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo')+' · liberado pra sempre'; }
     else { badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo'); }
-    return {userId:row.user_id, nome, badge, cor, expirado, plano:(a.plano||''), liberadoAte:(a.liberadoAte||''), liberadoPor:(a.liberadoPor||''), zap:a.zap||'', niver:a.niver||'', email:a.email||'', interesse:a.interesse||'pessoal', codigo:codigoIndicacao(a.email||'',nome), indicadoPor:(a.indicadoPor||'').toUpperCase(), ehEu:row.user_id===usuarioId};
+    const _dr = plano==='trial' ? 15-diasDesde(a.inicio) : (a.liberadoAte ? -diasDesde(a.liberadoAte) : 9999);
+    return {diasRest:_dr, diasVencida:(expirado?Math.max(0,-_dr):0), userId:row.user_id, nome, badge, cor, expirado, plano:(a.plano||''), liberadoAte:(a.liberadoAte||''), liberadoPor:(a.liberadoPor||''), zap:a.zap||'', niver:a.niver||'', email:a.email||'', interesse:a.interesse||'pessoal', codigo:codigoIndicacao(a.email||'',nome), indicadoPor:(a.indicadoPor||'').toUpperCase(), ehEu:row.user_id===usuarioId};
   }).sort((x,y)=>(y.expirado?1:0)-(x.expirado?1:0));
   const nomePorCodigo = {}, codigoParaUserId = {}; lista.forEach(u=>{ nomePorCodigo[u.codigo]=u.nome; codigoParaUserId[u.codigo]=u.userId; });
   dados.premiosTratados = dados.premiosTratados || [];
@@ -1312,7 +1313,7 @@ async function carregarDono(){
       ${premiar.map(u=>{ const refId=codigoParaUserId[u.indicadoPor]; const refNome=escapar(nomePorCodigo[u.indicadoPor]||u.indicadoPor); return `<div class="pag-linha"><span style="flex:1;font-size:.85rem"><b>${escapar(u.nome)}</b> entrou com o código de <b style="color:var(--g1)">${refNome}</b></span><button class="btn" style="padding:5px 10px;font-size:.78rem" onclick="premiarIndicacao('${refId}','${u.userId}')">🎁 Dar 7 dias p/ ${refNome}</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="marcarPremioTratado('${u.userId}')">✔ Já resolvi</button></div>`; }).join('')}
     </div>`;
   }
-  html+=lista.map(u=>{
+  const linhaU=(u)=>{
     const planoAtualSel = (u.plano && PLANOS[u.plano] && !['trial','expirado','completo'].includes(u.plano)) ? u.plano : (u.interesse||'pessoal');
     const sel=`<select id="planoSel_${u.userId}" title="Mudar o plano (salva na hora)" onchange="liberarUsuario('${u.userId}')">${planos.map(p=>`<option value="${p}" ${p===planoAtualSel?'selected':''}>${(PLANOS[p]&&PLANOS[p].rotulo)||p}</option>`).join('')}</select>`;
     const prazos=[['1m','1 mês'],['3m','3 meses'],['6m','6 meses'],['1a','1 ano'],['sempre','♾️ Pra sempre']];
@@ -1331,10 +1332,34 @@ async function carregarDono(){
     const quantasIndicou = lista.filter(x=>x.indicadoPor===u.codigo).length;
     const contouIndicacoes = quantasIndicou>0 ? `<br><span style="font-size:.75rem;color:#0a8a4a;font-weight:700">⭐ já indicou ${quantasIndicou} amiga(s)! (dar prêmio 💜)</span>` : '';
     const codigoLinha = `<br><span style="font-size:.72rem;color:var(--muted)">código: <b>${escapar(u.codigo)}</b></span>`;
-    return `<div class="pag-linha"><span style="flex:1"><b>${escapar(u.nome)}</b> ${u.ehEu?'<span style="color:var(--muted);font-size:.75rem">(você)</span>':''}<br><span style="font-size:.8rem;color:${u.cor};font-weight:700">${u.badge}</span>${contato}${codigoLinha}${indicadaPor}${contouIndicacoes}</span>${acoes}</div>`;
-  }).join('');
+    return `<div class="pag-linha"><span style="flex:1"><b>${escapar(u.nome)}</b> ${u.ehEu?'<span style="color:var(--muted);font-size:.75rem">(você)</span>':''}<br><span style="font-size:.8rem;color:${u.cor};font-weight:700">${u.badge}</span>${contato}${codigoLinha}${indicadaPor}${contouIndicacoes}${u.vencendo?atencaoDono(u):''}</span>${acoes}</div>`;
+  };
+  lista.forEach(u=>{ u.vencendo = !u.expirado && !u.ehEu && u.diasRest<=3; });
+  const vencendo=lista.filter(u=>u.vencendo).sort((a,b)=>a.diasRest-b.diasRest);
+  const ativas=lista.filter(u=>!u.expirado && !u.vencendo);
+  const recentes=lista.filter(u=>u.expirado && u.diasVencida<=30).sort((a,b)=>a.diasVencida-b.diasVencida);
+  const inativas=lista.filter(u=>u.expirado && u.diasVencida>30).sort((a,b)=>a.diasVencida-b.diasVencida);
+  const secDono=(t,cor,arr,dica)=>arr.length?`<h3 style="margin:18px 0 6px;color:${cor}">${t} <span style="font-size:.8rem;color:var(--muted);font-weight:600">${arr.length}</span></h3>${dica?`<div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">${dica}</div>`:''}${arr.map(linhaU).join('')}`:'';
+  html+=secDono('⏰ Vencendo em até 3 dias — dar atenção!','#b45309',vencendo,'Mande um oi, pergunte o que ela achou e o que podemos melhorar. 💜');
+  html+=secDono('✅ Ativas','#0a8a4a',ativas,'');
+  html+=secDono('⛔ Venceram há pouco (até 30 dias)','#c0392b',recentes,'Ainda dá pra chamar de volta — um +7 dias de presente costuma ajudar.');
+  if(inativas.length) html+=`<details style="margin-top:18px"><summary style="cursor:pointer;font-weight:800;color:var(--muted)">💤 Inativas há mais de 30 dias (${inativas.length}) — toque pra ver</summary>${inativas.map(linhaU).join('')}</details>`;
   cont.innerHTML=html;
 }
+/* ⏰ Painel do Dono: quem está pra vencer (dar atenção) */
+window._donoAtencao = window._donoAtencao || {};
+function atencaoDono(u){
+  const pn=(u.nome||'').split(' ')[0]||'';
+  const quando = u.diasRest<=0 ? 'hoje' : u.diasRest===1 ? 'amanhã' : 'em '+u.diasRest+' dias';
+  const oque = u.plano==='trial' ? 'seu teste grátis do Postou termina' : 'sua liberação do Postou termina';
+  const txt = `Oi ${pn}! 💜 Aqui é do Postou ✈️ Passando pra avisar que ${oque} ${quando}. Queria muito saber: o que você mais gostou até agora? E o que ficou difícil ou faltou? Sua opinião ajuda a gente a melhorar! Se quiser continuar, te ajudo a escolher o melhor plano. 😊`;
+  window._donoAtencao[u.userId] = { zap:u.zap, email:u.email, txt };
+  const b='class="btn" style="padding:5px 10px;font-size:.78rem;margin:6px 6px 0 0"';
+  return `<br>${u.zap?`<button ${b} onclick="atencaoZap('${u.userId}')">💬 Mandar oi + pedir opinião</button>`:''}${u.email?`<button ${b} onclick="atencaoEmail('${u.userId}')">✉️ E-mail: está acabando</button>`:''}<button class="btn-claro" style="padding:5px 10px;font-size:.78rem;margin:6px 6px 0 0" onclick="atencaoCopiar('${u.userId}',this)">📋 Copiar mensagem</button>`;
+}
+function atencaoZap(id){ const x=window._donoAtencao[id]; if(!x||!x.zap) return; const el=document.getElementById('ddi_'+id); const ddi=(el&&el.value)||ddiSugerido(x.zap); window.open('https://wa.me/'+ddi+numeroLocal(x.zap)+'?text='+encodeURIComponent(x.txt),'_blank'); }
+function atencaoEmail(id){ const x=window._donoAtencao[id]; if(!x||!x.email) return; location.href='mailto:'+encodeURIComponent(x.email)+'?subject='+encodeURIComponent('Seu Postou está quase acabando 💜')+'&body='+encodeURIComponent(x.txt); }
+function atencaoCopiar(id, bt){ const x=window._donoAtencao[id]; if(!x) return; try{ navigator.clipboard.writeText(x.txt); if(bt) bt.textContent='✔ Copiado!'; }catch(e){} }
 function prazoParaData(prazo){
   const h=hojeISO();
   if(prazo==='1m') return isoSomaDias(h,30);
