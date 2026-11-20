@@ -521,6 +521,7 @@
         <button class="btn" style="flex:1;min-width:92px;padding:12px 8px;font-size:.95rem" onclick="postarJa('reel')">🎬 Vídeo/Reels</button>
       </div>
       <button class="btn" style="width:100%;margin-top:8px;padding:11px 8px;font-size:.95rem;background:linear-gradient(135deg,#7c3aed,#ec4899);border:none" onclick="abrirMotor()">🚀 Motor: 1 ideia vira 3 posts</button>
+      <button class="btn" style="width:100%;margin-top:8px;padding:11px 8px;font-size:.95rem;background:linear-gradient(135deg,#f97316,#ec4899);border:none" onclick="abrirDesafio21()">🔥 Desafio 21 posts em 21 dias</button>
       <div style="font-size:.76rem;color:var(--muted);margin-top:6px">Escolha o perfil, suba a foto ou o vídeo e marque 🤖 <b>Publicar sozinho</b>. Pode deixar pra agora ou pra outro horário. 💜</div>
     </div>
     <div id="bannerEmpresa"></div>
@@ -2027,7 +2028,7 @@ function renderHoje(){
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirRespostas()">💬 Respostas prontas</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirNaoSegue()">🔍 Quem não me segue</button><button class="btn-claro" style="padding:6px 12px;font-size:.8rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
     </div>`;
   }
-  if(elRec) elRec.innerHTML += painelRoboHoje(f, hoje);
+  if(elRec) elRec.innerHTML = blocoSeuDia(f, hoje) + elRec.innerHTML + painelRoboHoje(f, hoje);
   const posts = dados.posts.filter(p=>(!f||p.clienteId===f));
   const deHoje = posts.filter(p=>p.data===hoje && p.status!=='publicado').sort((a,b)=>(a.hora||'99').localeCompare(b.hora||'99'));
   const atrasados = posts.filter(p=>p.data<hoje && p.status!=='publicado').sort((a,b)=>a.data.localeCompare(b.data));
@@ -2099,12 +2100,12 @@ function renderHoje(){
           <button class="btn-claro" style="padding:5px 10px;font-size:.78rem;color:#b91c1c" onclick="acaoSelecao('apagar')">🗑 Apagar</button>
           <button class="btn-mini" onclick="sairSelecao()">✕ Fechar</button></div>`
       : '';
-    html += `<div class="hoje-grupo"><h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠️ Precisa de andamento (atrasadas) <span style="font-size:.8rem;color:var(--muted);font-weight:600">${atrasados.length}</span>${modoSelecao?'':`<button class="btn-claro" style="padding:4px 10px;font-size:.76rem;margin-left:auto" onclick="entrarSelecao()">☑️ Selecionar vários</button>`}</h3>` + barraSel + atrasados.map(p=>linhaPost(p,true)).join('') + '</div>';
+    html += `<div class="hoje-grupo" id="hgAtrasadas"><h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">⚠️ Precisa de andamento (atrasadas) <span style="font-size:.8rem;color:var(--muted);font-weight:600">${atrasados.length}</span>${modoSelecao?'':`<button class="btn-claro" style="padding:4px 10px;font-size:.76rem;margin-left:auto" onclick="entrarSelecao()">☑️ Selecionar vários</button>`}</h3>` + barraSel + atrasados.map(p=>linhaPost(p,true)).join('') + '</div>';
   }
   { const ate = isoSomaDias(hoje, 7);
     const pEditar = posts.filter(p=>p.status!=='publicado' && p.data>=hoje && p.data<=ate && !temMidia(p)).sort((a,b)=>(a.data+(a.hora||'')).localeCompare(b.data+(b.hora||'')));
     if(pEditar.length){
-      html += `<div class="hoje-grupo"><h3>🎬 Pra editar · falta subir vídeo/arte <span style="font-size:.8rem;color:var(--muted);font-weight:600">próximos 7 dias</span></h3>` + pEditar.map(p=>{ const c=clientePorId(p.clienteId); return `<div class="pag-linha"><span class="bolinha" style="background:${c?c.cor:'#999'}"></span><span style="flex:1;cursor:pointer" onclick="abrirModalPost(${p.id})"><b>${dataBRcompleta(p.data).slice(0,5)}${p.hora?' '+escapar(p.hora):''}</b> · ${escapar(p.titulo)} <span style="color:var(--muted);font-size:.8rem">· ${c?escapar(c.nome):''}</span></span><button class="btn" style="padding:5px 10px;font-size:.78rem" onclick="subirMidiaPost(${p.id})">🎬 Subir</button></div>`; }).join('') + '</div>';
+      html += `<div class="hoje-grupo" id="hgEditar"><h3>🎬 Pra editar · falta subir vídeo/arte <span style="font-size:.8rem;color:var(--muted);font-weight:600">próximos 7 dias</span></h3>` + pEditar.map(p=>{ const c=clientePorId(p.clienteId); return `<div class="pag-linha"><span class="bolinha" style="background:${c?c.cor:'#999'}"></span><span style="flex:1;cursor:pointer" onclick="abrirModalPost(${p.id})"><b>${dataBRcompleta(p.data).slice(0,5)}${p.hora?' '+escapar(p.hora):''}</b> · ${escapar(p.titulo)} <span style="color:var(--muted);font-size:.8rem">· ${c?escapar(c.nome):''}</span></span><button class="btn" style="padding:5px 10px;font-size:.78rem" onclick="subirMidiaPost(${p.id})">🎬 Subir</button></div>`; }).join('') + '</div>';
     }
   }
   const nivers = proximosAniversarios(7).filter(x=>!f||x.c.id===f);
@@ -4264,6 +4265,173 @@ function atualizarOndeSai(){
   el.innerHTML = '📍 Vai sair no perfil <b>'+escapar(c.nome)+'</b>: '+partes.join(' · ')
     + (semRobo ? '<div style="margin-top:6px;background:#fef3c7;border:1px solid #fcd34d;border-radius:10px;padding:7px 10px;color:#92400e;font-size:.82rem">⚠️ <b>'+escapar(c.nome)+'</b> ainda não está ligado ao robô — o Instagram/Facebook desse perfil <b>não sai sozinho</b>. Ligue em 🤖 Robô (📸 Conectar só o Instagram) ou poste por um perfil já ligado.</div>' : '');
 }
+/* 🤖 SEU DIA (item 21) — resumo grátis por regras, no topo da aba Hoje */
+function seuDiaIr(id){ const el=document.getElementById(id); if(!el) return; el.scrollIntoView({behavior:'smooth',block:'start'}); el.style.transition='box-shadow .3s'; el.style.boxShadow='0 0 0 3px #ec4899'; el.style.borderRadius='12px'; setTimeout(()=>{ el.style.boxShadow=''; },1800); }
+function seuDiaNum(iso){ return new Date(parseInt(iso.slice(0,4)), parseInt(iso.slice(5,7))-1, parseInt(iso.slice(8,10))).getTime(); }
+function blocoSeuDia(f, hoje){
+  try{
+    const agora=new Date(), h=agora.getHours();
+    const oi = h<12 ? '☀️ Bom dia' : h<18 ? '🌤 Boa tarde' : '🌙 Boa noite';
+    const agoraHM=String(h).padStart(2,'0')+':'+String(agora.getMinutes()).padStart(2,'0');
+    const posts=(dados.posts||[]).filter(p=>!f||p.clienteId===f);
+    const abertos=posts.filter(p=>p.status!=='publicado' && p.data);
+    const deHoje=abertos.filter(p=>p.data===hoje).sort((a,b)=>(a.hora||'99').localeCompare(b.hora||'99'));
+    const prox=deHoje.find(p=>p.hora && p.hora>=agoraHM) || deHoje[0];
+    const atras=abertos.filter(p=>p.data<hoje);
+    const ate7=isoSomaDias(hoje,7), ate3=isoSomaDias(hoje,3);
+    const semArte=abertos.filter(p=>p.data>=hoje && p.data<=ate7 && !temMidia(p));
+    const semLeg=abertos.filter(p=>p.data>=hoje && p.data<=ate3 && p.tipo!=='story' && !String(p.legenda||'').trim())
+      .sort((a,b)=>(a.data+(a.hora||'')).localeCompare(b.data+(b.hora||'')));
+    /* 💰 quem está devendo + caixa da semana */
+    const ym=hoje.slice(0,7), diaHoje=parseInt(hoje.slice(8,10));
+    const ativos=(dados.clientes||[]).filter(c=>(!f||c.id===f) && !c.arquivado);
+    const porNome={};
+    const soma=(nome,v)=>{ v=Number(v)||0; if(v>0) porNome[nome]=(porNome[nome]||0)+v; };
+    ativos.forEach(c=>{
+      if(c.valor>0 && c.diaPagamento>0 && !(c.pagamentos&&c.pagamentos[ym]) && diaHoje>c.diaPagamento) soma(c.nome, c.valor);
+      if(typeof dividaRestante==='function') soma(c.nome, dividaRestante(c));
+    });
+    const desde60=isoSomaDias(hoje,-60);
+    (dados.compromissos||[]).forEach(x=>{
+      if(x.tipoCompromisso==='pagamento' && !x.pago && x.data && x.data<hoje && x.data>=desde60 && (!f||x.clienteId===f)){
+        const c=clientePorId(x.clienteId); if(c && c.arquivado) return;
+        soma(c?c.nome:(x.titulo||'Cobrança'), x.valor);
+      }
+    });
+    const nomesDev=Object.keys(porNome).sort((a,b)=>porNome[b]-porNome[a]);
+    const totDev=nomesDev.reduce((s,n)=>s+porNome[n],0);
+    const desde=isoSomaDias(hoje,-6);
+    const entrou=(dados.recebimentos||[]).filter(r=>(!f||r.clienteId===f) && r.data>=desde && r.data<=hoje).reduce((s,r)=>s+(Number(r.valor)||0),0)
+      + (dados.vendas||[]).filter(v=>(!f||v.clienteId===f) && v.data>=desde && v.data<=hoje).reduce((s,v)=>s+(Number(v.valor)||0),0);
+    let vem=0;
+    ativos.forEach(c=>{ if(c.valor>0 && c.diaPagamento>0 && !(c.pagamentos&&c.pagamentos[ym])){ const dd=c.diaPagamento-diaHoje; if(dd>=0 && dd<=7) vem+=Number(c.valor)||0; } });
+    (dados.compromissos||[]).forEach(x=>{ if(x.tipoCompromisso==='pagamento' && !x.pago && x.data>=hoje && x.data<=ate7 && (!f||x.clienteId===f)) vem+=Number(x.valor)||0; });
+    const usaCaixa = entrou>0 || vem>0 || totDev>0 || ativos.some(c=>c.valor>0);
+    /* linhas */
+    const bt=(t,on)=>`<button class="btn-claro" style="padding:3px 10px;font-size:.76rem;margin-left:6px" onclick="${on}">${t}</button>`;
+    const pl=(n,um,varios)=>n===1?um:varios;
+    const L=[];
+    if(deHoje.length) L.push(`📌 <b>${deHoje.length}</b> ${pl(deHoje.length,'post','posts')} pra hoje${prox?` — próximo: <b>${prox.hora?escapar(prox.hora)+' · ':''}${escapar(prox.titulo||'')}</b>`:''}`+(prox?bt('Abrir',`abrirModalPost(${prox.id})`):''));
+    else L.push('📌 Nenhum post pra hoje.'+bt('🚀 Criar com o Motor','abrirMotor()'));
+    if(atras.length) L.push(`⚠️ <b>${atras.length}</b> ${pl(atras.length,'post atrasado','posts atrasados')}`+bt('Ver',"seuDiaIr('hgAtrasadas')"));
+    if(semArte.length) L.push(`🎬 <b>${semArte.length}</b> sem vídeo/arte (próximos 7 dias)`+bt('Ver',"seuDiaIr('hgEditar')"));
+    if(semLeg.length) L.push(`✍️ <b>${semLeg.length}</b> sem legenda (próximos 3 dias)`+bt('✨ Fazer a 1ª',`abrirModalPost(${semLeg[0].id})`));
+    if(nomesDev.length) L.push(`💰 Devendo: <b>${nomesDev.slice(0,3).map(n=>escapar(n)).join(', ')}</b>${nomesDev.length>3?' +'+(nomesDev.length-3):''} — ${dinheiro(totDev)}`+bt('Ver no Caixa',"trocarAba('caixa')"));
+    if(usaCaixa) L.push(`💵 Caixa da semana: entrou <b>${dinheiro(entrou)}</b>${vem>0?` · vem aí <b>${dinheiro(vem)}</b> nos próximos 7 dias`:''}`);
+    let dica;
+    if(atras.length) dica='resolver os atrasados — publicar, mudar a data ou marcar ✅ Publicado.';
+    else if(prox && !temMidia(prox)) dica=`subir o vídeo/arte de "<b>${escapar(prox.titulo||'')}</b>". 🎬`;
+    else if(prox && prox.tipo!=='story' && !String(prox.legenda||'').trim()) dica=`a legenda de "<b>${escapar(prox.titulo||'')}</b>" — o ✨ Legenda mágica faz em 1 toque.`;
+    else if(semArte.length) dica='adiantar as artes e vídeos da semana. 🎬';
+    else if(nomesDev.length) dica='mandar um lembrete carinhoso pra quem está devendo. 📱';
+    else if(!deHoje.length) dica='criar o post de hoje — o 🚀 Motor faz em 4 passinhos.';
+    else dica='tá tudo em dia! 🎉 Aproveita pra gravar um conteúdo extra pra semana. 💜';
+    let fechado=false; try{ fechado = localStorage.getItem('postou_seuDia')==='1'; }catch(e){}
+    return `<details id="seuDia" ${fechado?'':'open'} ontoggle="try{localStorage.setItem('postou_seuDia',this.open?'':'1')}catch(e){}" style="background:#fff;border:1px solid var(--t1b);border-radius:14px;padding:12px 14px;margin-bottom:14px;box-shadow:0 2px 10px rgba(124,58,237,.06)">
+      <summary style="cursor:pointer;font-weight:800;color:var(--g1);font-size:.95rem">🤖 Seu dia — ${oi}!</summary>
+      <div style="font-size:.9rem;line-height:1.5;margin-top:8px;display:flex;flex-direction:column;gap:6px">${L.map(x=>'<div>'+x+'</div>').join('')}</div>
+      <div style="margin-top:10px;padding:8px 10px;background:var(--t1);border-radius:10px;font-size:.88rem">👉 <b>Comece por:</b> ${dica}</div>
+      ${blocoDesafio(f, hoje)}
+    </details>`;
+  }catch(e){ console.warn('Seu dia', e); return ''; }
+}
+
+/* 🔥 DESAFIO 21 POSTS EM 21 DIAS */
+const DESAFIO_EXTRA=[
+  {t:'Quem sou eu', d:'Se apresente: seu nome, o que você faz e pra quem. Rosto na câmera gera confiança.', h:'#prazer #quemsoueu #desafio21'},
+  {t:'Por que eu comecei', d:'Conte como tudo começou. História conecta mais que propaganda.', h:'#minhahistoria #comecei #desafio21'},
+  {t:'Um dia comigo', d:'Vlog curtinho: pedacinhos do seu dia com cortes rápidos e um texto em cada cena.', h:'#umdiacomigo #rotina #bastidores'},
+  {t:'Erro que todo mundo comete', d:'Fale de um erro comum no seu ramo e como evitar. Conteúdo que as pessoas salvam!', h:'#erroscomuns #dica #aprenda'},
+  {t:'Mito ou verdade', d:'Pegue uma crença do seu ramo e diga se é mito ou verdade.', h:'#mitoouverdade #curiosidade #dica'},
+  {t:'Me pergunta!', d:'Peça perguntas (caixinha no story). Depois responda em vídeo — vira conteúdo pra semana.', h:'#perguntas #caixinha #responde'},
+  {t:'Antes e depois', d:'Mostre uma transformação em tela dividida: antes de um lado, depois do outro.', h:'#antesedepois #transformacao #resultado'},
+  {t:'Minha ferramenta favorita', d:'Mostre algo que você usa todo dia e por que ama.', h:'#favoritos #ferramentas #dica'},
+  {t:'Depoimento', d:'Print ou vídeo de alguém feliz com você. Prova social vende.', h:'#depoimento #clientefeliz #gratidao'},
+  {t:'3 dicas rápidas', d:'Carrossel com 3 dicas curtinhas do seu assunto.', h:'#dicas #salvaessepost #aprenda'},
+  {t:'Bastidores', d:'Mostre o que ninguém vê: preparação, bagunça, organização.', h:'#bastidores #processo #vidareal'},
+  {t:'Respondendo uma dúvida', d:'Pegue a dúvida que mais te fazem e responda falando pra câmera, com legenda grande na tela.', h:'#duvidas #respondendo #dica'},
+  {t:'Uma conquista', d:'Celebre uma vitória (pequena ou grande) e agradeça quem te acompanha.', h:'#conquista #gratidao #celebrar'},
+  {t:'Convite especial', d:'Chame pra ação: agendar, comprar, mandar mensagem. Diga exatamente o que a pessoa tem que fazer.', h:'#convite #chamaai #oportunidade'}
+];
+function abrirDesafio21(){
+  if(!dados.clientes || !dados.clientes.filter(c=>!c.arquivado).length){ abrirModal('<h3>Ops!</h3><p>Cadastre um perfil primeiro, na aba Usuários. 💜</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
+  const f=filtroAtivo(), amanha=isoSomaDias(hojeISO(),1);
+  abrirModal(`<h3>🔥 Desafio 21 posts em 21 dias</h3>
+    <p style="font-size:.88rem;color:var(--muted);line-height:1.5">1 post por dia, 21 dias seguidos. Eu coloco no calendário <b>uma ideia pra cada dia</b> (Reels, carrossel e foto se revezando) — você só grava, sobe e publica. O contador vai subindo na aba Hoje. <b>Constância é o que faz o perfil crescer!</b> 💪</p>
+    <label>Perfil</label>
+    <select id="d21Cli">${dados.clientes.filter(c=>!c.arquivado).map(c=>`<option value="${c.id}" ${f===c.id?'selected':''}>${escapar(c.nome)}</option>`).join('')}</select>
+    <label>Começa em</label>
+    <input type="date" id="d21Ini" value="${amanha}">
+    <label>Horário dos posts</label>
+    <input type="time" id="d21Hora" value="12:00">
+    <div id="d21St" style="font-size:.85rem;margin-top:8px;color:#b45309"></div>
+    <div class="rodape">
+      <button class="btn-claro" onclick="fecharModal()">Agora não</button>
+      <button class="btn" id="d21Go" onclick="criarDesafio21()" style="flex:1">🔥 Topo o desafio!</button>
+    </div>`);
+}
+function desafioTerminou(d){ const ps=(dados.posts||[]).filter(p=>p.desafio===d.id); return ps.filter(p=>p.status==='publicado').length>=21 || hojeISO()>isoSomaDias(d.inicio,20); }
+function listaDesafio21(c){
+  const n=nichoDaLegenda(c,'');
+  const doNicho=embaralhar(((SUGESTOES_NICHO[n]||SUGESTOES_NICHO.geral||{}).ideias)||[]).map(i=>({t:i.t, d:i.d, h:i.h}));
+  const extra=embaralhar(DESAFIO_EXTRA.slice(1));
+  const lista=[DESAFIO_EXTRA[0]], vistos=new Set([DESAFIO_EXTRA[0].t]);
+  let i=0, j=0;
+  while(lista.length<20 && (i<doNicho.length || j<extra.length)){
+    let x;
+    if(lista.length%2===1 && i<doNicho.length) x=doNicho[i++];
+    else if(j<extra.length) x=extra[j++];
+    else x=doNicho[i++];
+    if(x && !vistos.has(x.t)){ vistos.add(x.t); lista.push(x); }
+  }
+  const todos=doNicho.concat(DESAFIO_EXTRA); let k=0;
+  while(lista.length<20 && todos.length) lista.push(todos[k++ % todos.length]);
+  lista.push({t:'Desafio cumprido! 🏆', d:'Conte o que você aprendeu postando 21 dias seguidos e agradeça quem acompanhou. Você merece comemorar!', h:'#desafio21 #consegui #constancia'});
+  return lista;
+}
+function criarDesafio21(){
+  const st=document.getElementById('d21St');
+  const cid=parseInt(document.getElementById('d21Cli').value), c=clientePorId(cid);
+  const ini=document.getElementById('d21Ini').value, hora=document.getElementById('d21Hora').value||'12:00';
+  if(!c){ st.textContent='⚠️ Escolha um perfil.'; return; }
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(ini)){ st.textContent='⚠️ Escolha o dia de começar.'; return; }
+  if(ini<hojeISO()){ st.textContent='⚠️ O desafio começa hoje ou depois. 😉'; return; }
+  if((dados.desafios||[]).some(d=>d.clienteId===cid && !desafioTerminou(d))){ st.textContent='💪 Esse perfil já está num desafio! Termine esse primeiro (o contador fica na aba Hoje).'; return; }
+  const lista=listaDesafio21(c), id='d21-'+Date.now(), redes=(c.redes||[]).map(r=>r.tipo), tipos=['reel','carrossel','foto'];
+  lista.slice(0,21).forEach((x,ix)=>{
+    dados.posts.push({ id:novoId(), clienteId:cid, redes:redes.slice(), data:isoSomaDias(ini,ix), hora, tipo:tipos[ix%3],
+      titulo:'🔥 Dia '+(ix+1)+': '+x.t, legenda:'', status:'ideia', desafio:id,
+      obs:'🔥 Desafio 21 posts em 21 dias — dia '+(ix+1)+'/21\n💡 '+x.d+(x.h?'\n'+x.h:'') });
+  });
+  if(!dados.desafios) dados.desafios=[];
+  dados.desafios.push({ id, clienteId:cid, inicio:ini, criado:hojeISO() });
+  tocar();
+  abrirModal(`<h3>🔥 Desafio aceito!</h3>
+    <p style="font-size:.92rem;line-height:1.5">Coloquei <b>21 ideias</b> no calendário do <b>${escapar(c.nome)}</b>, de <b>${dataBR(ini)}</b> a <b>${dataBR(isoSomaDias(ini,20))}</b>, às ${escapar(hora)}.</p>
+    <p style="font-size:.88rem;color:var(--muted);line-height:1.5">Em cada post a ideia está nas observações. Grave, suba o vídeo/arte, use o ✨ <b>Legenda mágica</b> e ligue o 🤖 se quiser que o robô publique. Cada post publicado sobe o contador na aba Hoje. Bora! 💜</p>
+    <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Fechar</button><button class="btn" onclick="fecharModal();trocarAba('calendario')">📅 Ver no calendário</button></div>`);
+}
+function blocoDesafio(f, hoje){
+  const ds=(dados.desafios||[]).filter(d=>(!f||d.clienteId===f) && hoje<=isoSomaDias(d.inicio,27));
+  return ds.map(d=>{
+    const c=clientePorId(d.clienteId); if(!c || c.arquivado) return '';
+    const ps=(dados.posts||[]).filter(p=>p.desafio===d.id);
+    const feitos=ps.filter(p=>p.status==='publicado').length;
+    const dia=Math.round((seuDiaNum(hoje)-seuDiaNum(d.inicio))/864e5)+1;
+    const pct=Math.min(100, Math.round(feitos/21*100));
+    const barra=`<div style="height:10px;background:#f3e8ff;border-radius:99px;overflow:hidden;margin:6px 0"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,#7c3aed,#ec4899);border-radius:99px"></div></div>`;
+    let txt;
+    if(feitos>=21) txt=`🏆 <b>PARABÉNS!</b> Você completou o Desafio 21 no <b>${escapar(c.nome)}</b>! Constância de campeã! 🎉💜`;
+    else if(dia<1) txt=`🔥 Desafio 21 do <b>${escapar(c.nome)}</b> começa ${dia===0?'amanhã':'em '+(1-dia)+' dias'} (${dataBR(d.inicio)}). Já dá pra adiantar os primeiros vídeos! 🎬`;
+    else if(dia>21) txt=`🔥 Desafio 21 do <b>${escapar(c.nome)}</b> terminou com <b>${feitos}/21</b> publicados. ${feitos>=15?'Arrasou! 💪':'Que tal começar outro e bater o recorde? 💜'}`;
+    else {
+      const pd=ps.find(p=>p.data===hoje);
+      txt=`🔥 Desafio 21 · <b>${escapar(c.nome)}</b>: <b>${feitos}/21</b> publicados · hoje é o <b>dia ${dia}</b>${pd?(pd.status==='publicado'?' ✅':` <button class="btn-claro" style="padding:3px 10px;font-size:.76rem;margin-left:6px" onclick="abrirModalPost(${pd.id})">Ver o post do dia</button>`):''}`;
+    }
+    return `<div style="margin-top:10px;padding:8px 10px;border:1px dashed #f0abfc;border-radius:10px;font-size:.88rem">${txt}${barra}</div>`;
+  }).join('');
+}
+
 /* ➕ Postar agora: abre a postagem de hoje, daqui a 10 min, já no formato escolhido e com 🤖 ligado */
 function postarJa(tipo){
   abrirModalPost(null, hojeISO());
