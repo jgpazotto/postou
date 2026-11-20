@@ -4848,7 +4848,7 @@ function abrirMotor(){
   const perfis=motorPerfis();
   if(!perfis.length){ abrirModal(`<h3>🚀 Motor do Postou</h3><p>Primeiro cadastre um perfil (👥 Usuários → ➕) pra eu saber o nicho. 💜</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>`); return; }
   const sel=document.getElementById('filtroCliente'); const pre=sel&&sel.value?parseInt(sel.value):null;
-  motor={ passo:1, cid:(perfis.find(p=>p.id===pre)||perfis[0]).id, titulo:'', desc:'', gancho:0, roteiro:'', slides:[], comMarca:false, data:motorDia(hojeISO(),1), auto:true, sug:[] };
+  motor={ passo:1, cid:(perfis.find(p=>p.id===pre)||perfis[0]).id, titulo:'', desc:'', gancho:0, roteiro:'', slides:[], comMarca:false, data:motorDia(hojeISO(),1), auto:true, sug:[], arqs:[], imgs:[], slidesK:0 };
   motorSugestoes(); motorTela();
 }
 function motorSugestoes(){ const n=motorNicho(); motor.sug=embaralhar(((SUGESTOES_NICHO[n]||SUGESTOES_NICHO.geral||{}).ideias)||[]).slice(0,4); }
@@ -4867,8 +4867,9 @@ function motorIr(p){
   motorLerTela();
   if(p>=2 && !motor.titulo){ const e=document.getElementById('motTitulo'); if(e){ e.style.borderColor='#b91c1c'; e.focus(); } return; }
   if(p===2 && !motor.roteiro) motorMontarRoteiro();
-  if(p===3 && !motor.slides.length) motorMontarSlides();
-  if(p===4){ const i=motor.slides.findIndex(t=>!t || t.includes('✍️')); if(i>=0){ const e=document.querySelector('.motSlide[data-i="'+i+'"]'); if(e){ e.style.borderColor='#b91c1c'; e.focus(); } const av=document.getElementById('motAviso'); if(av) av.textContent='✍️ Troque o texto das telas marcadas com ✍️ pelas suas palavras (é o que vai aparecer no post).'; return; } }
+  if(p===3 && !motor.slides.length){ motorMontarSlides(); motor.slidesK=0; }
+  if(p===3) motorAjustarSlides();
+  if(p===4){ const i=motor.slides.findIndex((t,j)=>(!t && !motorFotos()[j]) || String(t||'').includes('✍️')); if(i>=0){ const e=document.querySelector('.motSlide[data-i="'+i+'"]'); if(e){ e.style.borderColor='#b91c1c'; e.focus(); } const av=document.getElementById('motAviso'); if(av) av.textContent='✍️ Troque o texto das telas marcadas com ✍️ pelas suas palavras (é o que vai aparecer no post).'; return; } }
   motor.passo=p; motorTela();
 }
 function motorMontarRoteiro(){
@@ -4890,16 +4891,17 @@ function motorTela(){
     corpo=`<label>Perfil</label><select id="motCid" onchange="motorLerTela();motorSugestoes();motorTela()">${perfis.map(p=>`<option value="${p.id}" ${p.id===motor.cid?'selected':''}>${escapar(p.nome)}</option>`).join('')}</select>
     <label>Sobre o que vai ser? <span style="font-weight:400;color:var(--muted)">(o assunto)</span></label><input id="motTitulo" maxlength="90" value="${escapar(motor.titulo)}" placeholder="Ex.: Bolo de pote de Natal">
     <label>Detalhes <span style="font-weight:400;color:var(--muted)">(opcional — 2 ou 3 frases viram os pontos do roteiro)</span></label><textarea id="motDesc" rows="3" maxlength="600" placeholder="Ex.: Feito com chocolate belga. Dura 5 dias na geladeira. Encomendas até dia 20.">${escapar(motor.desc)}</textarea>
+    <label>📸 Já tem fotos ou vídeos? <span style="font-weight:400;color:var(--muted)">(opcional — as fotos viram o carrossel, o vídeo vira o Reels)</span></label><input type="file" id="motArq" accept="image/*,video/*" multiple onchange="motorLerTela();motorEscolherArq(this)">${motorResumoArq()}
     <div style="font-size:.8rem;font-weight:700;margin:8px 0 4px">Ou escolha uma ideia pronta ${motorEmo(n)} <a href="#" style="font-weight:400;font-size:.76rem" onclick="motorLerTela();motorSugestoes();motorTela();return false">🔄 outras</a></div>
     <div style="display:flex;flex-direction:column;gap:5px">${motor.sug.map((s,i)=>`<button type="button" class="btn-claro" style="text-align:left;padding:7px 10px;font-size:.8rem" onclick="motorUsarSug(${i})"><b>${escapar(s.t)}</b><br><span style="color:var(--muted)">${escapar(String(s.d||'').slice(0,110))}${String(s.d||'').length>110?'…':''}</span></button>`).join('')}</div>
     <div class="rodape"><button class="btn-claro" onclick="fecharModal()">Cancelar</button><button class="btn" onclick="motorIr(2)">Próximo: roteiro ➜</button></div>`;
   } else if(motor.passo===2){
-    corpo=`<p style="font-size:.84rem;margin:0 0 6px">Roteiro do <b>Reels</b> pra você gravar. Mude o que quiser — é você que conhece seu público. 💜</p>
+    corpo=`${motorVideo()?'<p style="font-size:.84rem;margin:0 0 6px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:6px 8px">🎬 Você já tem vídeo! Ele vai direto no <b>Reels</b>. O texto abaixo fica só como guia nas observações — pode mudar ou apagar.</p>':''}<p style="font-size:.84rem;margin:0 0 6px">Roteiro do <b>Reels</b> pra você gravar. Mude o que quiser — é você que conhece seu público. 💜</p>
     <textarea id="motRoteiro" rows="11" style="font-size:.84rem">${escapar(motor.roteiro)}</textarea>
     <button type="button" class="btn-claro" style="padding:5px 10px;font-size:.8rem;margin-top:6px" onclick="motorOutroGancho()">🔄 Outro gancho</button>
     <div class="rodape"><button class="btn-claro" onclick="motorIr(1)">⬅ Voltar</button><button class="btn" onclick="motorIr(3)">✅ Aprovo — próximo ➜</button></div>`;
   } else if(motor.passo===3){
-    corpo=`<p style="font-size:.84rem;margin:0 0 6px">A mesma ideia vira um <b>carrossel de ${motor.slides.length} telinhas</b> (e um story avisando do post novo). Ajuste os textos:</p>
+    corpo=`<p style="font-size:.84rem;margin:0 0 6px">A mesma ideia vira um <b>carrossel de ${motor.slides.length} telinhas</b> (e um story avisando do post novo). Ajuste os textos:${motorFotos().length?' <b>📸 Usando suas fotos</b> — o texto aparece embaixo da foto (deixe vazio pra foto sem texto).':''}</p>
     ${motor.slides.map((t,i)=>`<div style="display:flex;gap:6px;align-items:center;margin:4px 0"><span style="font-size:.74rem;font-weight:700;width:52px;flex:none">${i===0?'Capa':i===motor.slides.length-1?'Final':'Tela '+(i+1)}</span><input class="motSlide" data-i="${i}" maxlength="160" value="${escapar(t)}" oninput="motorPrevia()" style="flex:1;min-width:0"></div>`).join('')}
     ${c&&c.marca?`<label style="font-size:.84rem;display:flex;gap:6px;align-items:center;margin-top:6px"><input type="checkbox" id="motMarca" ${motor.comMarca?'checked':''} onchange="motorLerTela();motorPrevia()" style="width:auto"> 🏷️ Pôr a marca de ${escapar(c.nome)}</label>`:''}
     <div id="motAviso" style="font-size:.8rem;color:#92400e;min-height:1em;margin-top:4px">${motor.slides.some(t=>t.includes('✍️'))?'✍️ As telas com ✍️ são só a dica do que escrever — troque pelas suas palavras.':''}</div>
@@ -4913,19 +4915,76 @@ function motorTela(){
     <div style="font-size:.85rem;line-height:1.7;margin:8px 0;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px">
       🖼 <b>Carrossel</b> — ${fmt(d0)} às 12:00 (artes prontas + legenda)<br>
       📱 <b>Story</b> "post novo no feed" — ${fmt(d0)} às 12:30<br>
-      🎬 <b>Reels pra gravar</b> — ${fmt(d1)} às 19:00 (fica "🎬 Em produção" com o roteiro; quando você subir o vídeo, marca 🤖)
+      ${motorVideo()?`🎬 <b>Reels com o seu vídeo</b> — ${fmt(d1)} às 19:00`:`🎬 <b>Reels pra gravar</b> — ${fmt(d1)} às 19:00 (fica "🎬 Em produção" com o roteiro; quando você subir o vídeo, marca 🤖)`}
     </div>
-    <label style="font-size:.84rem;display:flex;gap:6px;align-items:center"><input type="checkbox" id="motAuto" ${motor.auto?'checked':''} style="width:auto"> 🤖 Publicar sozinho o carrossel e o story</label>
+    <label style="font-size:.84rem;display:flex;gap:6px;align-items:center"><input type="checkbox" id="motAuto" ${motor.auto?'checked':''} style="width:auto"> 🤖 Publicar sozinho o carrossel e o story${motorVideo()?' e o Reels':''}</label>
     <div id="motSt" style="font-size:.82rem;min-height:1.2em;margin-top:6px"></div>
     <div class="rodape"><button class="btn-claro" onclick="motorIr(3)">⬅ Voltar</button><button class="btn" id="motGo" onclick="motorMontar()">🚀 Montar e agendar</button></div>`;
   }
   abrirModal(`<h3 style="margin-bottom:2px">🚀 Motor do Postou</h3><div style="font-size:.78rem;color:var(--muted)">1 ideia vira 3 posts — e você aprova cada passo.</div>${barra}${corpo}`);
   if(motor.passo===3) motorPrevia();
 }
+/* 📸 Motor com as fotos/vídeos da pessoa (20/11) */
+function motorFotos(){ return (motor && motor.imgs) || []; }
+function motorVideo(){ return ((motor && motor.arqs) || []).find(a=>a.tipo==='video'); }
+function motorResumoArq(){ const a=(motor&&motor.arqs)||[]; if(!a.length) return ''; const f=a.filter(x=>x.tipo==='imagem').length, v=a.filter(x=>x.tipo==='video').length;
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0">${a.slice(0,10).map(x=>x.tipo==='video'?`<video src="${x.url}" muted playsinline style="width:44px;height:44px;object-fit:cover;border-radius:6px;background:#000"></video>`:`<img src="${x.url}" alt="" style="width:44px;height:44px;object-fit:cover;border-radius:6px">`).join('')}<span style="font-size:.78rem;color:var(--muted)">${f?f+' foto(s) → carrossel':''}${f&&v?' · ':''}${v?'vídeo → Reels':''}</span></div>`; }
+function motorEscolherArq(inp){
+  const fs=Array.from((inp&&inp.files)||[]); if(!fs.length) return;
+  motor.arqs=fs.slice(0,11).map(f=>({file:f, tipo:/^video\//.test(f.type)?'video':'imagem', url:URL.createObjectURL(f)}));
+  motor.imgs=[]; motor.slidesK=0;
+  Promise.all(motor.arqs.filter(a=>a.tipo==='imagem').slice(0,10).map(a=>new Promise(ok=>{ const im=new Image(); im.onload=()=>ok(im); im.onerror=()=>ok(null); im.src=a.url; })))
+    .then(r=>{ motor.imgs=r.filter(Boolean); motorTela(); });
+}
+function motorAjustarSlides(){
+  const k=motorFotos().length; if(!k || motor.slidesK===k) return;
+  let b=(motor.slides&&motor.slides.length)?motor.slides.slice():[motor.titulo];
+  b=b.map(t=>/^✍️ Escreva aqui/.test(t||'')?'':t);
+  let s; if(k>=b.length) s=(b.length>1?b.slice(0,-1).concat(Array(k-b.length).fill(''),[b[b.length-1]]):b.concat(Array(k-b.length).fill(''))); else if(k===1) s=[b[0]]; else s=b.slice(0,k-1).concat([b[b.length-1]]);
+  motor.slides=s; motor.slidesK=k;
+}
+function motorDesenharFoto(cv, texto, o){
+  const c=cv.getContext('2d'), W=cv.width, H=cv.height, im=o.img;
+  c.fillStyle='#000'; c.fillRect(0,0,W,H);
+  const sc=Math.max(W/im.width,H/im.height), iw=im.width*sc, ih=im.height*sc; c.drawImage(im,(W-iw)/2,(H-ih)/2,iw,ih);
+  const t=String(texto||'').trim();
+  if(t){ const g=c.createLinearGradient(0,H*0.45,0,H); g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,.72)'); c.fillStyle=g; c.fillRect(0,H*0.45,W,H*0.55);
+    const fs=Math.round(W*(o.capa?0.075:0.058)); c.font=`${o.capa?900:800} ${fs}px system-ui,-apple-system,"Segoe UI",sans-serif`; c.fillStyle='#fff'; c.textAlign='center'; c.textBaseline='middle'; c.shadowColor='rgba(0,0,0,.5)'; c.shadowBlur=fs*0.25;
+    const ls=motorQuebrar(c,t,W*0.84).slice(0,5), lh=fs*1.22; let y=H-W*0.16-(ls.length-1)*lh; ls.forEach(l=>{ c.fillText(l,W/2,y); y+=lh; }); c.shadowBlur=0; }
+  c.font=`700 ${Math.round(W*0.034)}px system-ui,-apple-system,sans-serif`; c.fillStyle='rgba(255,255,255,.95)'; c.shadowColor='rgba(0,0,0,.5)'; c.shadowBlur=6; c.textBaseline='middle';
+  if(o.rodape){ c.textAlign='center'; c.fillText(o.rodape, W/2, H-W*0.06); }
+  if(o.num){ c.textAlign='right'; c.fillText(o.num, W-W*0.06, W*0.08); }
+  c.shadowBlur=0;
+  if(o.logo) desenharMarcaNoCanto(c, W, H, o.logo, 'ce', 0.14);
+}
+async function motorSubirArq(f){
+  const ext=(((f.name||'').match(/\.(\w{2,4})$/)||[0,'mp4'])[1]).toLowerCase();
+  const caminho=usuarioId+'/motor-'+Date.now()+'-'+Math.random().toString(36).slice(2,6)+'-video.'+ext;
+  const { error }=await sb.storage.from('midias').upload(caminho, f, { contentType:f.type||'video/mp4', upsert:false }); if(error) throw error;
+  return sb.storage.from('midias').getPublicUrl(caminho).data.publicUrl;
+}
+/* ✈️ A Joy no lugar de todo 🤖 da tela (só na tela — não mexe em textos salvos nem em legendas) */
+(function(){
+  const PULA={SCRIPT:1,STYLE:1,TEXTAREA:1,INPUT:1,OPTION:1,SELECT:1,TITLE:1,NOSCRIPT:1};
+  function troca(raiz){
+    if(!raiz) return;
+    const w=document.createTreeWalker(raiz,NodeFilter.SHOW_TEXT,{acceptNode(n){ if(n.nodeValue.indexOf('🤖')<0) return NodeFilter.FILTER_REJECT; for(let p=n.parentNode;p&&p!==document.body;p=p.parentNode){ if(PULA[p.nodeName]||p.isContentEditable) return NodeFilter.FILTER_REJECT; } return NodeFilter.FILTER_ACCEPT; }});
+    const lista=[]; while(w.nextNode()) lista.push(w.currentNode);
+    lista.forEach(n=>{ const partes=n.nodeValue.split('🤖'); const f=document.createDocumentFragment(); partes.forEach((t,i)=>{ if(i){ const im=document.createElement('img'); im.src='joy-192.png'; im.alt='Joy'; im.className='joy-ico'; f.appendChild(im); } if(t) f.appendChild(document.createTextNode(t)); }); if(n.parentNode) n.parentNode.replaceChild(f,n); });
+  }
+  function go(){
+    const st=document.createElement('style'); st.textContent='.joy-ico{width:1.25em;height:1.25em;border-radius:50%;vertical-align:-.25em;display:inline-block;margin:0 .05em}'; document.head.appendChild(st);
+    let pend=false; const obs=new MutationObserver(()=>{ if(pend) return; pend=true; requestAnimationFrame(()=>{ pend=false; obs.disconnect(); try{ troca(document.body); }catch(e){} obs.observe(document.body,{childList:true,subtree:true,characterData:true}); }); });
+    try{ troca(document.body); }catch(e){}
+    obs.observe(document.body,{childList:true,subtree:true,characterData:true});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',go); else go();
+})();
 function motorUsarSug(i){ motorLerTela(); const s=motor.sug[i]; if(!s) return; motor.titulo=s.t; motor.desc=s.d||''; motor.daSug=true; motor.roteiro=''; motor.slides=[]; motorTela(); }
 function motorQuebrar(c, t, max){ const ls=[]; String(t||'').split('\n').forEach(par=>{ let l=''; par.split(/\s+/).filter(Boolean).forEach(p=>{ const tt=l?l+' '+p:p; if(c.measureText(tt).width>max && l){ ls.push(l); l=p; } else l=tt; }); if(l) ls.push(l); }); return ls.slice(0,8); }
 function motorDesenhar(cv, texto, opc){
   const c=cv.getContext('2d'), W=cv.width, H=cv.height, o=opc||{};
+  if(o.img) return motorDesenharFoto(cv, texto, o);
   const g=c.createLinearGradient(0,0,W,H); g.addColorStop(0,'#7c3aed'); g.addColorStop(0.55,'#a855f7'); g.addColorStop(1,'#ec4899');
   c.fillStyle=g; c.fillRect(0,0,W,H);
   c.fillStyle='rgba(255,255,255,.08)'; c.beginPath(); c.arc(W*0.92,H*0.08,W*0.28,0,7); c.fill(); c.beginPath(); c.arc(W*0.05,H*0.95,W*0.22,0,7); c.fill();
@@ -4946,7 +5005,7 @@ async function motorPrevia(){
   motor.slides.forEach((t,i)=>{ const cv=document.createElement('canvas'); cv.width=216; cv.height=270; cv.style.cssText='border-radius:8px;flex:none;width:108px;height:135px';
     motorDesenhar(cv, t, motorOpcSlide(i, logo)); box.appendChild(cv); });
 }
-function motorOpcSlide(i, logo){ const n=motor.slides.length; return { capa:i===0, num:(i+1)+'/'+n, rodape: i===0?'Arrasta pro lado 👉':(i===n-1?'💜':''), logo }; }
+function motorOpcSlide(i, logo){ const n=motor.slides.length; return { capa:i===0, num:(i+1)+'/'+n, rodape: i===0?'Arrasta pro lado 👉':(i===n-1?'💜':''), logo, img:(motorFotos()[i]||null) }; }
 async function motorSubir(cv, nome){
   const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',0.92)); if(!blob) throw new Error('não consegui gerar a arte');
   const caminho=usuarioId+'/motor-'+Date.now()+'-'+Math.random().toString(36).slice(2,6)+'-'+nome+'.jpg';
@@ -4966,17 +5025,19 @@ async function motorMontar(){
     st.textContent='⏳ Desenhando as artes…';
     const logo=await motorLogo(), urls=[];
     for(let i=0;i<motor.slides.length;i++){ const cv=document.createElement('canvas'); cv.width=1080; cv.height=1350; motorDesenhar(cv, motor.slides[i], motorOpcSlide(i, logo)); st.textContent='⏳ Subindo a arte '+(i+1)+' de '+motor.slides.length+'…'; urls.push(await motorSubir(cv, 's'+(i+1))); }
-    const cs=document.createElement('canvas'); cs.width=1080; cs.height=1920; motorDesenhar(cs, '📌 Post novo no feed!\n\n'+motor.titulo, { capa:true, rodape:'Corre lá no perfil 👀💜', logo });
+    const cs=document.createElement('canvas'); cs.width=1080; cs.height=1920; motorDesenhar(cs, '📌 Post novo no feed!\n\n'+motor.titulo, { capa:true, rodape:'Corre lá no perfil 👀💜', logo, img:(motorFotos()[0]||null) });
     st.textContent='⏳ Subindo o story…'; const urlStory=await motorSubir(cs, 'story');
+    const vid=motorVideo(); let urlVid=null;
+    if(vid){ st.textContent='⏳ Subindo o vídeo…'; urlVid=await motorSubirArq(vid.file); }
     const redes=(c.redes||[]).map(r=>r.tipo), d0=motor.data, d1=motorDia(d0,1);
     const base={ clienteId:c.id, redes, legendas:{}, virarStory:false };
     const auto=!!motor.auto;
     dados.posts.push(Object.assign({id:novoId()}, base, { titulo:motor.titulo, data:d0, hora:'12:00', tipo:'carrossel', status:auto?'agendado':'aprovado', legenda:motorLegenda('carrossel'), midias:urls.map((u,i)=>({url:u, tipo:'imagem', nome:'motor-'+(i+1)+'.jpg'})), autoPublicar:auto, obs:'🚀 Feito pelo Motor do Postou' }));
     dados.posts.push(Object.assign({id:novoId()}, base, { titulo:'Story: '+motor.titulo, data:d0, hora:'12:30', tipo:'story', status:auto?'agendado':'aprovado', legenda:'', midias:[{url:urlStory, tipo:'imagem', nome:'motor-story.jpg'}], autoPublicar:auto, obs:'🚀 Feito pelo Motor do Postou' }));
-    dados.posts.push(Object.assign({id:novoId()}, base, { titulo:'Reels: '+motor.titulo, data:d1, hora:'19:00', tipo:'reel', status:'producao', legenda:motorLegenda('reel'), midias:[], autoPublicar:false, obs:'🚀 ROTEIRO (Motor do Postou):\n\n'+motor.roteiro }));
+    dados.posts.push(Object.assign({id:novoId()}, base, { titulo:'Reels: '+motor.titulo, data:d1, hora:'19:00', tipo:'reel', status:urlVid?(auto?'agendado':'aprovado'):'producao', legenda:motorLegenda('reel'), midias:urlVid?[{url:urlVid, tipo:'video', nome:(vid.file.name||'video.mp4')}]:[], autoPublicar:!!(urlVid&&auto), obs:'🚀 ROTEIRO (Motor do Postou):\n\n'+motor.roteiro }));
     tocar();
     const [a,m,d]=d0.split('-');
-    abrirModal(`<h3>🎉 Pronto! 3 posts no calendário</h3><p style="font-size:.9rem">🖼 Carrossel e 📱 story em <b>${d}/${m}</b>${auto?' — o 🤖 robô publica sozinho':''}.<br>🎬 O Reels ficou como <b>"Em produção"</b> com o roteiro nas observações: grave, abra o post, suba o vídeo e marque 🤖 <b>Publicar sozinho</b>.</p><div class="rodape"><button class="btn-claro" onclick="fecharModal()">Fechar</button><button class="btn" onclick="fecharModal();trocarAba('calendario')">📅 Ver no calendário</button></div>`);
+    abrirModal(`<h3>🎉 Pronto! 3 posts no calendário</h3><p style="font-size:.9rem">🖼 Carrossel e 📱 story em <b>${d}/${m}</b>${auto?' — o 🤖 robô publica sozinho':''}.<br>${urlVid?'🎬 O Reels com o seu vídeo ficou pro dia seguinte às 19:00'+(auto?' — o robô publica sozinho.':'.'):'🎬 O Reels ficou como <b>"Em produção"</b> com o roteiro nas observações: grave, abra o post, suba o vídeo e marque 🤖 <b>Publicar sozinho</b>.'}</p><div class="rodape"><button class="btn-claro" onclick="fecharModal()">Fechar</button><button class="btn" onclick="fecharModal();trocarAba('calendario')">📅 Ver no calendário</button></div>`);
   }catch(e){ if(st) st.textContent='⚠️ Não consegui montar: '+((e&&e.message)||e)+' — tente de novo. 💜'; if(bt) bt.disabled=false; }
 }
 
