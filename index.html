@@ -1729,6 +1729,21 @@ function vitCartaoHtml(v, extra){
       ${extra||''}
     </div></div>`;
 }
+/* ✈️ Cartão fixo do Postou — sempre o primeiro da vitrine */
+function vitPostouHtml(){
+  return `<div class="cartao" style="display:flex;gap:12px;align-items:flex-start;border:2px solid #c4b5fd;background:linear-gradient(135deg,#faf5ff,#fff1f7)">
+    <img src="apple-touch-icon.png" alt="Postou" style="width:72px;height:72px;border-radius:14px;object-fit:cover;flex:none">
+    <div style="flex:1;min-width:0">
+      <div style="font-size:.72rem;font-weight:800;color:var(--g1);letter-spacing:.3px">📌 A CASA DE TODAS NÓS</div>
+      <div style="font-weight:800">Postou ✈️ — suas redes num lugar só</div>
+      <div style="font-size:.86rem;margin:4px 0;line-height:1.45">Calendário de posts, ideias prontas pro seu nicho, legenda mágica, o 🚀 Motor que monta o post com as suas fotos e vídeos, o caixa das clientes e a Joy pra te ajudar todo dia. Feito por uma empreendedora, pra empreendedoras. 💜</div>
+      <div style="font-size:.82rem;color:var(--muted)">Gostou? Indica pra uma amiga conhecer — quem ganha é todo mundo. 💜</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+        <a class="btn-mini" href="https://instagram.com/postou.br" target="_blank" rel="noopener" style="text-decoration:none">📸 @postou.br</a>
+        <button class="btn-mini" onclick="abrirIndicar()">💌 Indicar uma amiga</button>
+      </div>
+    </div></div>`;
+}
 async function carregarVitrine(){
   const lista=document.getElementById('vitrineLista'); if(!lista) return;
   try{
@@ -1738,7 +1753,7 @@ async function carregarVitrine(){
     vitMeu=todos.find(v=>v.user_id===usuarioId)||null;
     desenharMeuCartao();
     const pub=todos.filter(v=>v.aprovado && v.ativo);
-    lista.innerHTML = pub.length ? '<h3 style="margin:6px 0 10px">✨ Quem já está na vitrine</h3>'+pub.map(v=>vitCartaoHtml(v)).join('') : '<div class="vazio">A vitrine ainda está vazia — seja a primeira! 💜</div>';
+    lista.innerHTML = vitPostouHtml() + (pub.length ? '<h3 style="margin:6px 0 10px">✨ Quem já está na vitrine</h3>'+pub.map(v=>vitCartaoHtml(v)).join('') : '<div class="vazio">Ainda não tem ninguém aqui — seja a primeira! 💜</div>');
     const dona=document.getElementById('vitrineDona');
     if(dona){
       if(ehDono()){
@@ -4355,9 +4370,8 @@ function blocoSeuDia(f, hoje){
     const seuDiaCara = atras.length ? joyCara('ops',38) : /tá tudo em dia/.test(dica) ? joyCara('estrelas',38) : '<img src="joy-192.png" alt="" style="width:38px;height:38px;border-radius:50%;vertical-align:middle;margin:-4px 6px 0 0">';
     let fechado=false; try{ fechado = localStorage.getItem('postou_seuDia')==='1'; }catch(e){}
     return `<details id="seuDia" ${fechado?'':'open'} ontoggle="try{localStorage.setItem('postou_seuDia',this.open?'':'1')}catch(e){}" style="background:#fff;border:1px solid var(--t1b);border-radius:14px;padding:12px 14px;margin-bottom:14px;box-shadow:0 2px 10px rgba(124,58,237,.06)">
-      <summary style="cursor:pointer;font-weight:800;color:var(--g1);font-size:.95rem">${seuDiaCara}Joy · Seu dia — ${oi}!</summary>
+      <summary style="cursor:pointer;font-weight:800;color:var(--g1);font-size:.95rem">${seuDiaCara}Joy · Seu dia — ${oi}!${window._recadoJoy?`<div class="joy-fala" style="position:relative;margin:8px 0 2px 22px;padding:9px 12px;background:linear-gradient(135deg,var(--t1),var(--t2));border:1px solid var(--t1b);border-radius:4px 14px 14px 14px;font-weight:500;font-size:.9rem;color:#4b3a63;line-height:1.5">${window._recadoJoy}</div>`:''}</summary>
       <div style="font-size:.9rem;line-height:1.5;margin-top:8px;display:flex;flex-direction:column;gap:6px">${L.map(x=>'<div>'+x+'</div>').join('')}</div>
-      ${window._recadoJoy?`<div style="margin-top:10px;padding:10px 12px;background:linear-gradient(135deg,var(--t1),var(--t2));border:1px solid var(--t1b);border-radius:12px;font-size:.92rem;color:#4b3a63;line-height:1.5">💬 <b style="color:var(--g1)">Recadinho da Joy:</b> ${window._recadoJoy}</div>`:''}
       <div style="margin-top:10px;padding:8px 10px;background:var(--t1);border-radius:10px;font-size:.88rem">👉 <b>Comece por:</b> ${dica}</div>
       ${blocoDesafio(f, hoje)}
       <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap"><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="abrirRespostas()">💬 Respostas prontas</button><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="abrirNaoSegue()">🔍 Quem não me segue</button><button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="abrirIndicar()">💌 Indicar uma amiga e ganhar prêmio</button></div>
