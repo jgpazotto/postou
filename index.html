@@ -366,6 +366,10 @@
       <a href="#lp-recursos" class="lp-btn-claro">Ver o que faz</a>
     </div>
     <div class="lp-mini">🎁 Experimente 15 dias grátis</div>
+    <div class="lp-joy" style="margin:18px auto 0;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap">
+      <video id="lpJoyVid" src="joy-ola.mp4" poster="joy-ola.jpg" autoplay muted loop playsinline preload="metadata" style="width:120px;height:213px;object-fit:cover;border-radius:18px;border:3px solid rgba(255,255,255,.7);box-shadow:0 8px 24px rgba(0,0,0,.18);background:#e9d5ff"></video>
+      <div style="text-align:left;max-width:230px"><div style="font-weight:800;font-size:1.05rem">Oi! Eu sou a Joy ✈️</div><div style="font-size:.88rem;opacity:.95;margin:4px 0 8px">Sua comissária no Postou: te guio em tudo, todo dia.</div><button type="button" onclick="const v=document.getElementById('lpJoyVid');v.muted=false;v.loop=false;v.currentTime=0;v.play();this.textContent='🔊 Falando…'" style="background:#fff;color:#7c3aed;border:0;border-radius:999px;padding:7px 14px;font-weight:800;cursor:pointer">🔊 Ouvir a Joy</button></div>
+    </div>
   </header>
   <section class="lp-sec lp-prints">
     <h2>Veja o Postou funcionando 👀</h2>
@@ -6394,6 +6398,7 @@ function alternarChat(){
   const cx = document.getElementById('chatCaixa');
   cx.classList.toggle('aberto');
   if(cx.classList.contains('aberto') && !document.getElementById('chatMsgs').children.length){
+    try{ const vv=document.createElement('video'); vv.src='joy-ola.mp4'; vv.poster='joy-ola.jpg'; vv.controls=true; vv.playsInline=true; vv.setAttribute('playsinline',''); vv.preload='metadata'; vv.style.cssText='display:block;width:150px;height:267px;object-fit:cover;border-radius:14px;margin:4px 0 8px;background:#e9d5ff'; document.getElementById('chatMsgs').appendChild(vv); vv.play().catch(()=>{ vv.muted=true; vv.play().catch(()=>{}); }); }catch(e){}
     msgBot('Oi! 👋 Eu sou a Joy, sua assistente do Postou. Bem-vinda a bordo! ✈️ Posso explicar qualquer parte do app e ainda dou dicas de marketing. Escolha uma pergunta ou digite a sua:');
     msgBot('💡 Dica do dia: ' + DICAS_DIA[new Date().getDate() % DICAS_DIA.length]);
     const chips = document.createElement('div');
