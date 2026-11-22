@@ -904,7 +904,7 @@ async function fazerCadastro(){
   if(!email || senha.length<6){ msg.textContent='Preencha o e-mail e uma senha com pelo menos 6 caracteres.'; return; }
   document.getElementById('btnCadastrar').textContent = 'Criando sua conta…';
   const { data, error } = await sb.auth.signUp({ email, password: senha, options: { emailRedirectTo: 'https://postou.app.br/', data: { nome, zap, interesse, indicadoPor, niver } } });
-  document.getElementById('btnCadastrar').textContent = '🎁 Começar meus 15 dias grátis';
+  document.getElementById('btnCadastrar').textContent = '🎁 Começar meus '+(ehBlack()?30:15)+' dias grátis';
   if(error){ msg.textContent = 'Erro ao criar conta: '+error.message; return; }
   if(data && data.session){ msg.textContent=''; await entrarNoApp(); }
   else { mostrarEntrar(); msg.style.color = '#15803d'; msg.textContent = '✅ Conta criada! Falta só 1 passo: abra seu e-mail (olhe também a caixa de SPAM/Lixo eletrônico) e clique no link de confirmação. Depois volte aqui e entre. 💜'; }
@@ -1078,6 +1078,10 @@ function planoConfig(){
   }
   return PLANOS[pl] || PLANOS.completo;
 }
+/* 🖤 Black do Postou: quem se cadastra até 30/11 ganha 30 dias de teste; indicação vale +14 */
+const BLACK_ATE='2026-11-30';
+function ehBlack(){ return hojeISO() <= BLACK_ATE; }
+function diasTesteDe(a){ return Number(a && a.diasTeste) || 15; }
 function diasDeTeste(){
   if(!dados.assinatura || dados.assinatura.plano!=='trial') return 0;
   const ini = dados.assinatura.inicio;
@@ -1088,7 +1092,7 @@ function diasDeTeste(){
 function planoAtual(){
   const a = dados.assinatura;
   if(!a || !a.plano) return 'completo';
-  if(a.plano==='trial') return diasDeTeste()>15 ? 'expirado' : 'trial';
+  if(a.plano==='trial') return diasDeTeste()>diasTesteDe(a) ? 'expirado' : 'trial';
   // Liberação com prazo (dono definiu uma data): quando o prazo passa, volta pra expirado
   if(a.liberadoAte && hojeISO() > a.liberadoAte) return 'expirado';
   return PLANOS[a.plano] ? a.plano : 'completo';
@@ -1103,7 +1107,7 @@ function aplicarPlano(){
   if(badge){
     const nomePlano = (conf.rotulo||'').replace(/^\S+\s/,'');
     if(pl==='trial'){
-      const resta = Math.max(0, 15-diasDeTeste());
+      const resta = Math.max(0, diasTesteDe(dados.assinatura)-diasDeTeste());
       badge.textContent = '🎁 Teste grátis · Postou '+nomePlano+' · '+(resta===0?'último dia!':'faltam '+resta+' dia'+(resta>1?'s':''));
     }
     else badge.textContent = nomePlano ? 'Plano: Postou '+nomePlano : '';
@@ -1142,7 +1146,7 @@ function verificarExpiracao(){
   div.id = 'telaExpirada';
   div.style.cssText = 'position:fixed;inset:0;background:linear-gradient(150deg,var(--g1),var(--g2) 52%,var(--g3));z-index:300;display:flex;align-items:center;justify-content:center;padding:16px';
   div.innerHTML = `<div class="caixa-login">
-    <h2 style="margin-bottom:8px">Seu teste de 15 dias acabou 🥲</h2>
+    <h2 style="margin-bottom:8px">Seu teste de ${diasTesteDe(dados.assinatura)} dias acabou 🥲</h2>
     <p>Gostou do Postou? A gente adoraria continuar com você! Fale com a Joice para assinar — seus dados estão guardados e voltam assim que você ativar.</p>
     <a class="btn" style="display:block;text-decoration:none;margin-bottom:8px" href="https://ig.me/m/postou.br" target="_blank">💜 Falar com a Joice e assinar</a>
     <button class="btn-claro" style="width:100%;margin-bottom:8px" onclick="exportar()">⬇ Baixar meus dados</button>
@@ -1180,11 +1184,11 @@ function meuCodigoIndicacao(){ const a=(dados&&dados.assinatura)||{}; const emai
 function abrirIndicar(){
   const primeiro=(((dados&&dados.assinatura&&dados.assinatura.nome)||(usuarioMeta&&usuarioMeta.nome)||'').split(' ')[0])||'';
   const cod=meuCodigoIndicacao();
-  const convite=`Oi! 💜 Eu uso o Postou pra organizar minhas redes sociais (e até serviços) num lugar só: calendário, ideias prontas por nicho e financeiro. Você ganha 15 dias grátis pra testar! É só entrar em postou.app.br e, em "Código de indicação", colocar o meu: ${cod} — aí você ganha os 15 dias e eu ganho mais 7 dias grátis também. 🎁`;
+  const convite=`Oi! 💜 Eu uso o Postou pra organizar minhas redes sociais (e até serviços) num lugar só: calendário, ideias prontas por nicho e financeiro. Você ganha ${ehBlack()?30:15} dias grátis pra testar!${ehBlack()?' (🖤 Black do Postou, só até 30/11)':''} É só entrar em postou.app.br e, em "Código de indicação", colocar o meu: ${cod} — aí você ganha os ${ehBlack()?30:15} dias e eu ganho mais ${ehBlack()?14:7} dias grátis também. 🎁`;
   abrirModal(`
     <div style="text-align:center;margin-bottom:4px">${joyCara('coracao',64)}</div>
     <h3>💌 Indique uma amiga</h3>
-    <p style="font-size:.88rem;color:var(--muted);margin-bottom:10px">Sua amiga ganha os 15 dias grátis pra testar, e quando ela se cadastrar com o seu código, você ganha <b>+7 dias grátis</b> também. Só vale quando ela entra de verdade! 💜</p>
+    <p style="font-size:.88rem;color:var(--muted);margin-bottom:10px">Sua amiga ganha os ${ehBlack()?30:15} dias grátis pra testar, e quando ela se cadastrar com o seu código, você ganha <b>+${ehBlack()?14:7} dias grátis</b> também${ehBlack()?' (🖤 Black, até 30/11)':''}. Só vale quando ela entra de verdade! 💜</p>
     <div style="background:linear-gradient(135deg,var(--t1),var(--t2));border:1px solid var(--t1b);border-radius:12px;padding:14px;text-align:center;margin-bottom:12px">
       <div style="font-size:.75rem;color:var(--g1);font-weight:800">SEU CÓDIGO DE INDICAÇÃO</div>
       <div style="font-size:1.5rem;font-weight:800;color:var(--g1);letter-spacing:1px;margin-top:4px">${escapar(cod)}</div>
@@ -1278,12 +1282,12 @@ async function carregarDono(){
     const plano=a.plano||'completo';
     let badge='', cor='#0a8a4a', expirado=false;
     const venceu = a.liberadoAte && hojeISO() > a.liberadoAte;
-    if(plano==='trial'){ const dias=diasDesde(a.inicio); if(dias>15){ expirado=true; badge=`⛔ Teste expirado (${dias} dias)`; cor='#c0392b'; } else { badge=`🎁 Teste · faltam ${Math.max(0,15-dias)} dia(s)`; cor='#c026a8'; } }
+    if(plano==='trial'){ const dias=diasDesde(a.inicio); const _dt=diasTesteDe(a); if(dias>_dt){ expirado=true; badge=`⛔ Teste expirado (${dias} dias)`; cor='#c0392b'; } else { badge=`🎁 Teste${_dt>15?' 🖤':''} · faltam ${Math.max(0,_dt-dias)} dia(s)`; cor='#c026a8'; } }
     else if(venceu){ expirado=true; badge='⛔ Liberação venceu ('+dataBRcompleta(a.liberadoAte)+')'; cor='#c0392b'; }
     else if(a.liberadoAte){ badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo')+' · até '+dataBRcompleta(a.liberadoAte); }
     else if(a.liberadoPor==='dono'){ badge='♾️ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo')+' · liberado pra sempre'; }
     else { badge='✅ '+((PLANOS[plano]&&PLANOS[plano].rotulo)||'Ativo'); }
-    const _dr = plano==='trial' ? 15-diasDesde(a.inicio) : (a.liberadoAte ? -diasDesde(a.liberadoAte) : 9999);
+    const _dr = plano==='trial' ? diasTesteDe(a)-diasDesde(a.inicio) : (a.liberadoAte ? -diasDesde(a.liberadoAte) : 9999);
     return {diasRest:_dr, diasVencida:(expirado?Math.max(0,-_dr):0), userId:row.user_id, nome, badge, cor, expirado, plano:(a.plano||''), liberadoAte:(a.liberadoAte||''), liberadoPor:(a.liberadoPor||''), zap:a.zap||'', niver:a.niver||'', email:a.email||'', interesse:a.interesse||'pessoal', codigo:codigoIndicacao(a.email||'',nome), indicadoPor:(a.indicadoPor||'').toUpperCase(), ehEu:row.user_id===usuarioId};
   }).sort((x,y)=>(y.expirado?1:0)-(x.expirado?1:0));
   const nomePorCodigo = {}, codigoParaUserId = {}; lista.forEach(u=>{ nomePorCodigo[u.codigo]=u.nome; codigoParaUserId[u.codigo]=u.userId; });
@@ -1309,7 +1313,7 @@ async function carregarDono(){
   if(premiar.length){
     html+=`<div style="background:linear-gradient(135deg,var(--t1),var(--t2));border:1px solid var(--t1b);border-radius:14px;padding:14px 16px;margin-bottom:14px">
       <div style="font-weight:800;color:var(--g1);margin-bottom:8px">🎁 Indicações pra premiar (${premiar.length})</div>
-      <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px">Cada amiga que entrou por indicação: dê 7 dias grátis pra quem indicou. 💜</div>
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px">Cada amiga que entrou por indicação: dê ${ehBlack()?'14 dias (🖤 Black, até 30/11)':'7 dias'} grátis pra quem indicou. 💜</div>
       ${premiar.map(u=>{ const refId=codigoParaUserId[u.indicadoPor]; const refNome=escapar(nomePorCodigo[u.indicadoPor]||u.indicadoPor); return `<div class="pag-linha"><span style="flex:1;font-size:.85rem"><b>${escapar(u.nome)}</b> entrou com o código de <b style="color:var(--g1)">${refNome}</b></span><button class="btn" style="padding:5px 10px;font-size:.78rem" onclick="premiarIndicacao('${refId}','${u.userId}')">🎁 Dar 7 dias p/ ${refNome}</button> <button class="btn-claro" style="padding:5px 10px;font-size:.78rem" onclick="marcarPremioTratado('${u.userId}')">✔ Já resolvi</button></div>`; }).join('')}
     </div>`;
   }
@@ -1389,7 +1393,8 @@ async function liberarUsuario(userId){
 function isoSomaDias(iso, n){ const d=new Date(parseInt(iso.slice(0,4)),parseInt(iso.slice(5,7))-1,parseInt(iso.slice(8,10))); d.setDate(d.getDate()+n); const mm=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return d.getFullYear()+'-'+mm+'-'+dd; }
 function proximaDataDia(dia){ if(!dia||dia<1) return hojeISO(); const hj=new Date(); hj.setHours(0,0,0,0); let y=hj.getFullYear(), m=hj.getMonth(); for(let k=0;k<4;k++){ const ult=new Date(y,m+1,0).getDate(); const d=Math.min(dia,ult); const cand=new Date(y,m,d); if(cand>=hj){ return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'); } m++; if(m>11){m=0;y++;} } return hojeISO(); }
 function limparRecebimentos(id){ dados.compromissos=(dados.compromissos||[]).filter(x=>!(x.clienteId===id && x.tipoCompromisso==='pagamento' && !x.pago)); fecharModal(); tocar(); }
-async function darSemana(userId){
+async function darSemana(userId, n){
+  n = n || 7;
   const cont=document.getElementById('listaDono');
   const { data } = await sb.from('organizador').select('conteudo').eq('user_id',userId).maybeSingle();
   const c=(data&&data.conteudo)||{}; c.assinatura=c.assinatura||{};
@@ -1397,10 +1402,10 @@ async function darSemana(userId){
   if(a.plano && a.plano!=='trial'){ avisoDono='💜 '+((a.nome||'Essa pessoa').split(' ')[0])+' já é assinante paga — o prêmio dela pode ser um desconto no próximo mês (combine com ela por WhatsApp).'; carregarDono(); return; }
   a.plano='trial';
   const dias=diasDesde(a.inicio);
-  a.inicio = (dias>=7) ? hojeISO() : isoSomaDias(a.inicio||hojeISO(), 7);
+  a.inicio = (dias>=n) ? hojeISO() : isoSomaDias(a.inicio||hojeISO(), n);
   const { error } = await sb.from('organizador').update({ conteudo:c, atualizado:new Date().toISOString() }).eq('user_id',userId);
   if(error){ if(cont) cont.insertAdjacentHTML('afterbegin',`<div class="vazio" style="color:#c0392b">Não consegui dar os dias: ${escapar(error.message)}</div>`); return; }
-  avisoDono='🎁 +7 dias grátis dados para '+escapar((a.nome||'a pessoa').split(' ')[0])+'! Agora clique em 📱 Avisar pra contar a novidade. 💜';
+  avisoDono='🎁 +'+n+' dias grátis dados para '+escapar((a.nome||'a pessoa').split(' ')[0])+'! Agora clique em 📱 Avisar pra contar a novidade. 💜';
   carregarDono();
 }
 async function darQuinzena(userId){
@@ -1424,7 +1429,7 @@ async function marcarPremioTratado(entrouId){
   carregarDono();
 }
 async function premiarIndicacao(referrerId, entrouId){
-  await darSemana(referrerId);
+  await darSemana(referrerId, ehBlack()?14:7);
   await marcarPremioTratado(entrouId);
 }
 async function salvarEquipeEmail(){
@@ -1661,7 +1666,7 @@ async function carregarDados(){
     if(mudou) await salvarAgora();
   } else {
     dados = JSON.parse(JSON.stringify(DADOS_INICIAIS));
-    dados.assinatura = { plano:'trial', inicio:hojeISO(), niver:usuarioMeta.niver||'', nome:usuarioMeta.nome||'', zap:usuarioMeta.zap||'', email:usuarioMeta.email||'', interesse:usuarioMeta.interesse||'', indicadoPor:usuarioMeta.indicadoPor||'' };
+    dados.assinatura = { plano:'trial', inicio:hojeISO(), diasTeste:(ehBlack()?30:15), niver:usuarioMeta.niver||'', nome:usuarioMeta.nome||'', zap:usuarioMeta.zap||'', email:usuarioMeta.email||'', interesse:usuarioMeta.interesse||'', indicadoPor:usuarioMeta.indicadoPor||'' };
     await salvarAgora();
   }
 }
@@ -7343,6 +7348,11 @@ async function tentarDeNovo(postId, rede){
 }
 setInterval(()=>{ if(usuarioId) carregarPublicacoes(); }, 60000);
 
+/* 🖤 Black: troca "15 dias" por "30 dias" na página de entrada até 30/11 */
+(function(){ try{ if(!ehBlack()) return;
+  document.querySelectorAll('.lp-btn-grande,.lp-mini,.lp-sub,#tituloEntrar,#btnCadastrar,#formCadastro p').forEach(el=>{ if(el.children.length===0 || el.classList.contains('lp-sub')) el.innerHTML = el.innerHTML.replace(/15 dias/g,'30 dias'); });
+  const mini=document.querySelector('.lp-hero .lp-mini'); if(mini) mini.innerHTML='🖤 <b>Black do Postou:</b> 30 dias grátis pra quem entrar até 30/11';
+}catch(e){} })();
 iniciar();
 </script>
 </body>
