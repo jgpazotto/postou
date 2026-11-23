@@ -526,6 +526,7 @@
       </div>
       <button class="btn" style="width:100%;margin-top:8px;padding:11px 8px;font-size:.95rem;background:linear-gradient(135deg,#7c3aed,#ec4899);border:none" onclick="abrirMotor()">🚀 Motor: 1 ideia vira 3 posts</button>
       <button class="btn" style="width:100%;margin-top:8px;padding:11px 8px;font-size:.95rem;background:linear-gradient(135deg,#f97316,#ec4899);border:none" onclick="abrirDesafio21()">🔥 Desafio 21 posts em 21 dias</button>
+      <button class="btn" style="width:100%;margin-top:8px;padding:11px 8px;font-size:.95rem;background:linear-gradient(135deg,#0ea5e9,#7c3aed);border:none" onclick="abrirOrganizador()">📸 Organizar fotos da viagem / evento</button>
       <div style="font-size:.76rem;color:var(--muted);margin-top:6px">Escolha o perfil, suba a foto ou o vídeo e marque 🤖 <b>Publicar sozinho</b>. Pode deixar pra agora ou pra outro horário. 💜</div>
     </div>
     <div id="bannerEmpresa"></div>
@@ -4406,6 +4407,168 @@ const DESAFIO_EXTRA=[
   {t:'Uma conquista', d:'Celebre uma vitória (pequena ou grande) e agradeça quem te acompanha.', h:'#conquista #gratidao #celebrar'},
   {t:'Convite especial', d:'Chame pra ação: agendar, comprar, mandar mensagem. Diga exatamente o que a pessoa tem que fazer.', h:'#convite #chamaai #oportunidade'}
 ];
+/* 📸 Organizador de fotos (grátis, roda no aparelho, nada sobe pra internet até a pessoa escolher) */
+let orgItens = [], orgFiltro = 'todas';
+function abrirOrganizador(){
+  let ov = document.getElementById('orgTela');
+  if(!ov){ ov = document.createElement('div'); ov.id = 'orgTela'; document.body.appendChild(ov); }
+  ov.style.cssText = 'position:fixed;inset:0;z-index:400;background:#faf7ff;overflow:auto;padding:14px;';
+  ov.innerHTML = `<div style="max-width:980px;margin:0 auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <h2 style="margin:0;color:var(--g1)">📸 Organizador de fotos</h2>
+      <button class="btn-claro" onclick="fecharOrganizador()">✕ Fechar</button>
+    </div>
+    <p style="font-size:.9rem;color:var(--muted);margin:6px 0 12px;line-height:1.5">Escolha as fotos e vídeos de uma viagem ou de um evento (pode ser muitos!). Eu separo <b>por dia e por momento</b>, junto as <b>repetidas</b>, marco as <b>tremidas e escuras</b> e você escolhe as ⭐ favoritas pra virar post. 🔒 Suas fotos <b>não saem do seu aparelho</b> enquanto você não escolher.</p>
+    <label class="btn" style="display:inline-block;cursor:pointer">➕ Escolher fotos e vídeos<input type="file" accept="image/*,video/*" multiple style="display:none" onchange="orgCarregar(this)"></label>
+    <div id="orgStatus" style="font-size:.88rem;margin:10px 0"></div>
+    <div id="orgBarra"></div>
+    <div id="orgLista"></div>
+  </div>`;
+  document.body.style.overflow = 'hidden';
+  if(orgItens.length) orgDesenhar();
+}
+function fecharOrganizador(){ const ov=document.getElementById('orgTela'); if(ov) ov.remove(); document.body.style.overflow=''; }
+
+/* data da foto: EXIF DateTimeOriginal (JPEG) ou a data do arquivo */
+async function orgDataExif(f){
+  try{
+    if(!/jpe?g/i.test(f.type) && !/\.jpe?g$/i.test(f.name)) return null;
+    const b = new DataView(await f.slice(0, 131072).arrayBuffer());
+    if(b.getUint16(0) !== 0xFFD8) return null;
+    let o = 2;
+    while(o < b.byteLength - 4){
+      const m = b.getUint16(o), len = b.getUint16(o+2);
+      if(m === 0xFFE1){
+        const s = o + 10; const le = b.getUint16(s) === 0x4949;
+        const g16 = p=>b.getUint16(p, le), g32 = p=>b.getUint32(p, le);
+        const ler = (ifd)=>{ const n=g16(s+ifd), r={}; for(let i=0;i<n;i++){ const e=s+ifd+2+i*12; r[g16(e)]=g32(e+8); } return r; };
+        const ifd0 = ler(g32(s+4));
+        const txt = p=>{ let t=''; for(let i=0;i<19;i++) t+=String.fromCharCode(b.getUint8(s+p+i)); return t; };
+        let dt = null;
+        if(ifd0[0x8769]){ const ex = ler(ifd0[0x8769]); if(ex[0x9003]) dt = txt(ex[0x9003]); }
+        if(!dt && ifd0[0x0132]) dt = txt(ifd0[0x0132]);
+        if(dt && /^\d{4}:\d\d:\d\d \d\d:\d\d/.test(dt)){ const [d,h]=dt.split(' '); return new Date(d.replace(/:/g,'-')+'T'+h); }
+        return null;
+      }
+      if((m & 0xFF00) !== 0xFF00) break;
+      o += 2 + len;
+    }
+  }catch(e){}
+  return null;
+}
+async function orgMiniatura(f){
+  const cv = document.createElement('canvas'), W = 180;
+  let src, w, h, video = false;
+  if((f.type||'').startsWith('video')){
+    video = true;
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'metadata';
+    const url = URL.createObjectURL(f); v.src = url;
+    await new Promise((ok)=>{ v.onloadeddata = ok; v.onerror = ok; setTimeout(ok, 6000); });
+    try{ v.currentTime = Math.min(1, (v.duration||2)/2); await new Promise(ok=>{ v.onseeked = ok; setTimeout(ok, 3000); }); }catch(e){}
+    src = v; w = v.videoWidth||9; h = v.videoHeight||16;
+    var dur = v.duration||0;
+    setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  } else {
+    try{ src = await createImageBitmap(f); }catch(e){ const im=new Image(); const u=URL.createObjectURL(f); im.src=u; await new Promise(ok=>{ im.onload=ok; im.onerror=ok; }); src=im; }
+    w = src.width||1; h = src.height||1;
+  }
+  const esc = W / Math.max(w, h); cv.width = Math.max(1, Math.round(w*esc)); cv.height = Math.max(1, Math.round(h*esc));
+  const cx = cv.getContext('2d'); try{ cx.drawImage(src, 0, 0, cv.width, cv.height); }catch(e){}
+  /* medidas: brilho, nitidez (variação do contorno) e "impressão digital" de 64 bits pra achar parecidas */
+  let brilho = 0, nit = 0, hash = '';
+  try{
+    const px = cx.getImageData(0, 0, cv.width, cv.height).data, n = cv.width*cv.height, g = new Float32Array(n);
+    for(let i=0;i<n;i++){ g[i] = .299*px[i*4] + .587*px[i*4+1] + .114*px[i*4+2]; brilho += g[i]; }
+    brilho /= n;
+    let s=0, s2=0, c=0;
+    for(let y=1;y<cv.height-1;y++) for(let x=1;x<cv.width-1;x++){ const i=y*cv.width+x; const l=4*g[i]-g[i-1]-g[i+1]-g[i-cv.width]-g[i+cv.width]; s+=l; s2+=l*l; c++; }
+    nit = c ? (s2/c - (s/c)*(s/c)) : 0;
+    const p = document.createElement('canvas'); p.width = 9; p.height = 8; const pc = p.getContext('2d'); pc.drawImage(cv, 0, 0, 9, 8);
+    const d = pc.getImageData(0, 0, 9, 8).data;
+    for(let y=0;y<8;y++) for(let x=0;x<8;x++){ const a=d[(y*9+x)*4]+d[(y*9+x)*4+1]+d[(y*9+x)*4+2], b2=d[(y*9+x+1)*4]+d[(y*9+x+1)*4+1]+d[(y*9+x+1)*4+2]; hash += a>b2?'1':'0'; }
+  }catch(e){}
+  return { thumb: cv.toDataURL('image/jpeg', .7), brilho, nit, hash, video, dur: typeof dur==='number'?dur:0 };
+}
+function orgDist(a, b){ if(!a||!b||a.length!==b.length) return 99; let d=0; for(let i=0;i<a.length;i++) if(a[i]!==b[i]) d++; return d; }
+async function orgCarregar(input){
+  const arqs = [...(input.files||[])]; input.value = '';
+  if(!arqs.length) return;
+  const st = document.getElementById('orgStatus');
+  let i = 0;
+  for(const f of arqs){
+    i++; if(st) st.textContent = `⏳ Olhando ${i} de ${arqs.length}… (fica tudo no seu aparelho)`;
+    if(orgItens.some(x=>x.f.name===f.name && x.f.size===f.size)) continue;
+    const quando = (await orgDataExif(f)) || new Date(f.lastModified || Date.now());
+    const m = await orgMiniatura(f);
+    orgItens.push({ id: orgItens.length+1, f, quando, ...m, estrela: false, marca: '' });
+  }
+  orgAnalisar();
+  if(st) st.innerHTML = `✅ Pronto! ${orgItens.length} arquivo(s) organizados. Toque na ⭐ das que você mais gostar.`;
+  orgDesenhar();
+}
+function orgAnalisar(){
+  orgItens.sort((a,b)=>a.quando-b.quando);
+  /* momentos: pausa de mais de 45 min começa um momento novo */
+  let mom = 0, ant = null;
+  orgItens.forEach(it=>{ if(!ant || it.quando-ant.quando > 45*60000 || it.quando.toDateString()!==ant.quando.toDateString()) mom++; it.momento = mom; ant = it; it.marca=''; });
+  /* repetidas/parecidas: tiradas com até 2 min de diferença e quase iguais → fica a mais nítida */
+  for(let a=0;a<orgItens.length;a++){
+    const A = orgItens[a]; if(A.video || A.marca) continue;
+    const grupo = [A];
+    for(let b=a+1;b<orgItens.length;b++){ const B = orgItens[b]; if(B.quando-A.quando > 120000) break; if(!B.video && !B.marca && orgDist(A.hash,B.hash) <= 10) grupo.push(B); }
+    if(grupo.length > 1){ const melhor = grupo.reduce((x,y)=>y.nit>x.nit?y:x); grupo.forEach(g=>{ if(g!==melhor) g.marca='parecida'; }); melhor.marca = 'melhor'; }
+  }
+  const nits = orgItens.filter(x=>!x.video).map(x=>x.nit).sort((a,b)=>a-b), med = nits.length ? nits[Math.floor(nits.length/2)] : 0;
+  orgItens.forEach(it=>{ if(it.marca==='parecida' || it.video) return; if(it.brilho < 45) it.marca = it.marca==='melhor'?'melhor':'escura'; else if(med && it.nit < med*0.18) it.marca = it.marca==='melhor'?'melhor':'tremida'; });
+}
+function orgDesenhar(){
+  const lista = document.getElementById('orgLista'), barra = document.getElementById('orgBarra'); if(!lista) return;
+  const ruins = orgItens.filter(x=>['parecida','escura','tremida'].includes(x.marca)), est = orgItens.filter(x=>x.estrela);
+  barra.innerHTML = !orgItens.length ? '' : `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;position:sticky;top:-14px;background:#faf7ff;padding:8px 0;z-index:2">
+    ${[['todas','Todas ('+orgItens.length+')'],['estrelas','⭐ Favoritas ('+est.length+')'],['apagar','🗑️ Pra apagar ('+ruins.length+')']].map(([k,t])=>`<button class="${orgFiltro===k?'btn':'btn-claro'}" style="padding:6px 12px;font-size:.82rem" onclick="orgFiltro='${k}';orgDesenhar()">${t}</button>`).join('')}
+    <span style="flex:1"></span>
+    <button class="btn" style="padding:6px 12px;font-size:.82rem" onclick="orgVirarPost()" ${est.length?'':'disabled'}>🚀 Virar post (${Math.min(est.length,10)})</button>
+    <button class="btn-claro" style="padding:6px 12px;font-size:.82rem" onclick="orgListaApagar()">📋 Lista do que apagar</button>
+    <button class="btn-claro" style="padding:6px 12px;font-size:.82rem" onclick="orgItens=[];orgDesenhar();document.getElementById('orgStatus').textContent=''">↺ Recomeçar</button>
+  </div>`;
+  let vis = orgItens;
+  if(orgFiltro==='estrelas') vis = est; else if(orgFiltro==='apagar') vis = ruins;
+  if(!vis.length){ lista.innerHTML = orgItens.length ? '<div class="vazio">Nada aqui ainda. 💜</div>' : ''; return; }
+  const DIAS = ['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+  let html = '', dAnt = '', mAnt = 0;
+  vis.forEach(it=>{
+    const d = it.quando;
+    const dia = `${DIAS[d.getDay()]}, ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+    if(dia !== dAnt){ if(dAnt) html += '</div>'; html += `<h3 style="margin:16px 0 4px">📅 ${dia}</h3>`; dAnt = dia; mAnt = 0; html += '<div>'; }
+    if(it.momento !== mAnt){ const doMom = vis.filter(x=>x.momento===it.momento); html += `<div style="font-size:.82rem;color:var(--muted);margin:10px 0 6px;font-weight:700">🕐 Momento das ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} · ${doMom.length} item(ns)</div>`; mAnt = it.momento; }
+    const etq = {parecida:'🔁 parecida', escura:'🌑 escura', tremida:'〰️ tremida', melhor:'👍 melhor do grupo'}[it.marca] || '';
+    const cor = it.marca==='melhor' ? '#16a34a' : it.marca ? '#b45309' : '';
+    html += `<div style="display:inline-block;vertical-align:top;width:120px;margin:0 6px 8px 0;position:relative">
+      <img src="${it.thumb}" alt="" style="width:120px;height:150px;object-fit:cover;border-radius:10px;border:3px solid ${it.estrela?'#f59e0b':'transparent'};cursor:pointer;${['parecida','escura','tremida'].includes(it.marca)?'opacity:.55;':''}" onclick="orgEstrela(${it.id})">
+      ${it.video?`<span style="position:absolute;top:6px;left:6px;background:#0008;color:#fff;font-size:.7rem;border-radius:6px;padding:1px 5px">🎬 ${Math.round(it.dur)}s</span>`:''}
+      <button onclick="orgEstrela(${it.id})" style="position:absolute;top:4px;right:4px;border:0;border-radius:50%;width:30px;height:30px;background:#fff;cursor:pointer;font-size:1rem;box-shadow:0 1px 4px #0003">${it.estrela?'⭐':'☆'}</button>
+      ${etq?`<div style="font-size:.7rem;color:${cor};font-weight:700">${etq}</div>`:''}
+    </div>`;
+  });
+  lista.innerHTML = html + '</div>';
+}
+function orgEstrela(id){ const it = orgItens.find(x=>x.id===id); if(it){ it.estrela = !it.estrela; orgDesenhar(); } }
+function orgListaApagar(){
+  const ruins = orgItens.filter(x=>['parecida','escura','tremida'].includes(x.marca));
+  const txt = ruins.map(x=>`${x.f.name} — ${x.marca} — ${x.quando.toLocaleString('pt-BR')}`).join('\n');
+  abrirModal(`<h3>📋 Lista do que pode apagar (${ruins.length})</h3>
+    <p style="font-size:.85rem;color:var(--muted)">O celular não deixa nenhum site apagar fotos sozinho. Use esta lista pra apagar na galeria — ou confira no filtro "🗑️ Pra apagar" antes. Nada foi apagado. 💜</p>
+    <textarea readonly style="width:100%;min-height:220px;font-size:.78rem">${escapar(txt||'Nenhuma foto ruim encontrada! 🎉')}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.querySelector('#conteudoModal textarea').value);this.textContent='✅ Copiado'">📋 Copiar</button><button class="btn-claro" onclick="fecharModal()">Fechar</button></div>`);
+}
+function orgVirarPost(){
+  const sel = orgItens.filter(x=>x.estrela).slice(0, 10);
+  if(!sel.length) return;
+  const temVideo = sel.some(x=>x.video);
+  fecharOrganizador();
+  postarJa(temVideo && sel.length===1 ? 'reel' : 'post');
+  setTimeout(()=>{ try{ enviarMidias({ files: sel.map(x=>x.f), value: '' }); }catch(e){} }, 900);
+}
 function abrirDesafio21(){
   if(!dados.clientes || !dados.clientes.filter(c=>!c.arquivado).length){ abrirModal('<h3>Ops!</h3><p>Cadastre um perfil primeiro, na aba Usuários. 💜</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
   const f=filtroAtivo(), amanha=isoSomaDias(hojeISO(),1);
@@ -6263,7 +6426,7 @@ const JOY_ACOES = {
   hoje:()=>trocarAba('hoje'), calendario:()=>trocarAba('calendario'), ideias:()=>trocarAba('ideias'), caixa:()=>trocarAba('caixa'),
   vitrine:()=>trocarAba('vitrine'), usuarios:()=>trocarAba('clientes'), robo:()=>trocarAba('robo'), tarefas:()=>trocarAba('tarefas'),
   status:()=>trocarAba('quadro'), vendas:()=>trocarAba('vendas'), ajuda:()=>trocarAba('ajuda'), equipe:()=>trocarAba('equipe'),
-  motor:()=>abrirMotor(), desafio:()=>abrirDesafio21(), nicho:()=>{trocarAba('ideias'); abrirSugestoes();}, tendencias:()=>{trocarAba('ideias'); abrirTendencias();},
+  motor:()=>abrirMotor(), desafio:()=>abrirDesafio21(), organizador:()=>abrirOrganizador(), nicho:()=>{trocarAba('ideias'); abrirSugestoes();}, tendencias:()=>{trocarAba('ideias'); abrirTendencias();},
   respostas:()=>abrirRespostas(), naosegue:()=>abrirNaoSegue(), indicar:()=>abrirIndicar(), conta:()=>abrirConfig(), tour:()=>iniciarTour(),
   post:()=>postarJa('post'), reels:()=>postarJa('reel')
 };
@@ -6286,6 +6449,7 @@ const JOY_MAPA = [
   {k:['minha conta','configuracao','meu plano','trocar cor','tamanho dos botoes','esconder aba'], ir:'conta', bt:'⚙️ Abrir Conta', r:'⚙️ Em "⚙️ Conta" (lá em cima, do lado do Backup) você muda seus dados, vê o plano e os dias que faltam, troca a cor do painel, o tamanho dos botões e esconde abas que não usa.'},
   {k:['tour','tour de boas vindas','me mostra o app','me ensina','por onde comeco','por onde começo','estou perdida','to perdida','me perdi','primeira vez','como usar o app','mapa do site','onde fica cada coisa'], ir:'tour', bt:'🧭 Fazer o tour', r:'🧭 Calma, eu te guio! ✈️ O caminho mais fácil: 1) 🏠 Hoje → "➕ Postar agora" pra criar um post; 2) 📅 Calendário pra ver tudo agendado; 3) 💡 Ideias quando faltar inspiração; 4) 💰 Caixa pro dinheiro. Quer que eu te mostre tela por tela? Toque no tour aqui embaixo — ou me pergunte "onde fica…" qualquer coisa.'}
 ];
+JOY_MAPA.push({k:['organizar fotos','organizador','fotos repetidas','muitas fotos','galeria','fotos da viagem','apagar fotos','escolher fotos','melhores fotos'], ir:'organizador', bt:'📸 Abrir o Organizador', r:'📸 O Organizador fica na aba 🏠 Hoje, no quadro "➕ Postar agora" (botão azul "Organizar fotos da viagem / evento"). Você escolhe um monte de fotos e vídeos e eu separo por dia e por momento, junto as repetidas, marco as tremidas e escuras e você escolhe as ⭐ favoritas pra virar post. Suas fotos não saem do seu aparelho enquanto você não escolher. 💜'});
 BASE_CONHECIMENTO.push(...JOY_MAPA);
 BASE_CONHECIMENTO.push({k:['o que vc faz','o que voce faz','quem e voce','quem e vc','quem e a joy','seu nome','qual seu nome','voce e quem','como voce pode me ajudar','como vc pode me ajudar','pra que voce serve','o que voce sabe','joy'], ir:'tour', bt:'🧭 Fazer o tour', r:'Eu sou a Joy, a comissária do Postou! ✈️💜 Meu trabalho é deixar a sua viagem pelas redes tranquila: 1) te mostro onde fica cada coisa no app (pergunte "onde fica…" — ex.: "onde fica o motor?"); 2) te ajudo a postar e agendar; 3) dou dicas de marketing: o que postar, melhor horário, hashtags, quanto cobrar; 4) todo dia deixo um recadinho e o seu resumo no "Joy · Seu dia", na aba 🏠 Hoje. Quer que eu te mostre o app tela por tela?'});
 const JOY_AREAS = [['🏠 Hoje','hoje'],['➕ Criar post','post'],['🚀 Motor','motor'],['📅 Calendário','calendario'],['💡 Ideias','nicho'],['💰 Caixa','caixa'],['🛍️ Vitrine','vitrine'],['🧭 Tour','tour']];
