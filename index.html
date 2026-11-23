@@ -6449,6 +6449,7 @@ const JOY_MAPA = [
   {k:['minha conta','configuracao','meu plano','trocar cor','tamanho dos botoes','esconder aba'], ir:'conta', bt:'⚙️ Abrir Conta', r:'⚙️ Em "⚙️ Conta" (lá em cima, do lado do Backup) você muda seus dados, vê o plano e os dias que faltam, troca a cor do painel, o tamanho dos botões e esconde abas que não usa.'},
   {k:['tour','tour de boas vindas','me mostra o app','me ensina','por onde comeco','por onde começo','estou perdida','to perdida','me perdi','primeira vez','como usar o app','mapa do site','onde fica cada coisa'], ir:'tour', bt:'🧭 Fazer o tour', r:'🧭 Calma, eu te guio! ✈️ O caminho mais fácil: 1) 🏠 Hoje → "➕ Postar agora" pra criar um post; 2) 📅 Calendário pra ver tudo agendado; 3) 💡 Ideias quando faltar inspiração; 4) 💰 Caixa pro dinheiro. Quer que eu te mostre tela por tela? Toque no tour aqui embaixo — ou me pergunte "onde fica…" qualquer coisa.'}
 ];
+JOY_MAPA.push({k:['tirar pausas','tirar as pausas','cortar pausas','cortar silencio','silencio','editar video','cortar video','video dinamico','edicao automatica'], ir:'reels', bt:'🎬 Abrir um post de vídeo', r:'✂️ Pra tirar as pausas da sua fala: crie um post, suba o vídeo e toque em "✂️ Tirar as pausas" (embaixo do vídeo). Eu ouço o vídeo, acho os silêncios e te mostro a prévia em "▶️ Ver sem pausas". Gostou? É só salvar: o 🤖 robô corta de verdade na hora de publicar. Não gostou? "↩️ Voltar as pausas".'});
 JOY_MAPA.push({k:['organizar fotos','organizador','fotos repetidas','muitas fotos','galeria','fotos da viagem','apagar fotos','escolher fotos','melhores fotos'], ir:'organizador', bt:'📸 Abrir o Organizador', r:'📸 O Organizador fica na aba 🏠 Hoje, no quadro "➕ Postar agora" (botão azul "Organizar fotos da viagem / evento"). Você escolhe um monte de fotos e vídeos e eu separo por dia e por momento, junto as repetidas, marco as tremidas e escuras e você escolhe as ⭐ favoritas pra virar post. Suas fotos não saem do seu aparelho enquanto você não escolher. 💜'});
 BASE_CONHECIMENTO.push(...JOY_MAPA);
 BASE_CONHECIMENTO.push({k:['o que vc faz','o que voce faz','quem e voce','quem e vc','quem e a joy','seu nome','qual seu nome','voce e quem','como voce pode me ajudar','como vc pode me ajudar','pra que voce serve','o que voce sabe','joy'], ir:'tour', bt:'🧭 Fazer o tour', r:'Eu sou a Joy, a comissária do Postou! ✈️💜 Meu trabalho é deixar a sua viagem pelas redes tranquila: 1) te mostro onde fica cada coisa no app (pergunte "onde fica…" — ex.: "onde fica o motor?"); 2) te ajudo a postar e agendar; 3) dou dicas de marketing: o que postar, melhor horário, hashtags, quanto cobrar; 4) todo dia deixo um recadinho e o seu resumo no "Joy · Seu dia", na aba 🏠 Hoje. Quer que eu te mostre o app tela por tela?'});
@@ -6620,6 +6621,69 @@ function nomeFuso(){
 function ehPerfilSocial(c){ return c && !c.arquivado && c.tipo!=='cliente' && c.tipo!=='servico'; }
 
 /* ---------- mídias do post (arte / vídeo) ---------- */
+/* ✂️ Tirar as pausas do vídeo (grátis, sem IA): acha os silêncios pelo som e o robô corta na hora de publicar */
+function acharPausas(dados, taxa, opc){
+  opc = opc || {};
+  const jan = Math.round(taxa * 0.05), n = Math.floor(dados.length / jan);
+  if(n < 10) return null;
+  const rms = new Float32Array(n);
+  for(let i=0;i<n;i++){ let s=0; for(let k=i*jan;k<(i+1)*jan;k++){ const v=dados[k]; s+=v*v; } rms[i]=Math.sqrt(s/jan); }
+  const ord = Array.from(rms).sort((a,b)=>a-b);
+  const fundo = ord[Math.floor(n*0.15)], fala = ord[Math.floor(n*0.85)];
+  if(fala < 0.004 || fala < fundo*2.5) return { segs:[[0, n*0.05]], tirado:0, pausas:0, motivo:'sem-fala' };
+  const lim = fundo + (fala-fundo)*0.18;
+  const minPausa = Math.round((opc.minPausa||0.55)/0.05), folga = opc.folga||0.12, total = n*0.05;
+  const cortes = []; let ini = -1;
+  for(let i=0;i<=n;i++){
+    const quieto = i<n && rms[i] < lim;
+    if(quieto && ini<0) ini = i;
+    if(!quieto && ini>=0){ if(i-ini >= minPausa) cortes.push([ini*0.05, i*0.05]); ini = -1; }
+  }
+  const segs = []; let pos = 0;
+  cortes.forEach(([a,b])=>{
+    const fimSeg = a===0 ? 0 : Math.min(total, a+folga), iniProx = b>=total-0.01 ? total : Math.max(0, b-folga);
+    if(fimSeg > pos + 0.05) segs.push([+pos.toFixed(2), +fimSeg.toFixed(2)]);
+    pos = iniProx;
+  });
+  if(total > pos + 0.05) segs.push([+pos.toFixed(2), +total.toFixed(2)]);
+  const ficou = segs.reduce((s,[a,b])=>s+(b-a),0);
+  return { segs, tirado: +(total-ficou).toFixed(1), pausas: cortes.length, total: +total.toFixed(1) };
+}
+async function tirarPausas(i){
+  const m = midiasTemp[i]; if(!m || m.tipo!=='video') return;
+  const st = document.getElementById('mMidiaStatus');
+  if(m.cortes){ delete m.cortes; delete m.cortesInfo; desenharMidias(); if(st) st.innerHTML='↩️ Pausas de volta: o vídeo sai inteiro.'; return; }
+  if(st) st.innerHTML = '✂️ Ouvindo o vídeo pra achar as pausas… (vídeo longo pode levar uns segundinhos)';
+  try{
+    const buf = await (await fetch(m.url)).arrayBuffer();
+    const Ctx = window.AudioContext || window.webkitAudioContext; const ctx = new Ctx();
+    const audio = await new Promise((ok, erro)=>{ const p = ctx.decodeAudioData(buf, ok, erro); if(p && p.then) p.then(ok, erro); });
+    try{ ctx.close(); }catch(e){}
+    const r = acharPausas(audio.getChannelData(0), audio.sampleRate);
+    if(!r || r.motivo==='sem-fala'){ if(st) st.innerHTML='🤔 Não achei fala nesse vídeo (só música ou silêncio) — então não tem pausa pra tirar.'; return; }
+    if(r.tirado < 0.6 || r.segs.length < 2){ if(st) st.innerHTML='👏 Seu vídeo já está sem pausas — não precisei cortar nada!'; return; }
+    m.cortes = r.segs; m.cortesInfo = { tirado: r.tirado, pausas: r.pausas, total: r.total };
+    desenharMidias();
+    if(st) st.innerHTML = `✂️ Achei <b>${r.pausas} pausa(s)</b> — o vídeo fica <b>${r.tirado}s mais curto</b> (${r.total}s → ${(r.total-r.tirado).toFixed(1)}s). Toque em <b>▶️ Ver sem pausas</b> pra conferir. O 🤖 robô corta de verdade na hora de publicar. 💜`;
+  }catch(e){ if(st) st.innerHTML = '⚠️ Não consegui ouvir o som desse vídeo neste aparelho. Tenta pelo computador (Chrome) 💜'; }
+}
+function verSemPausas(i){
+  const m = midiasTemp[i]; if(!m || !m.cortes) return;
+  let ov = document.getElementById('semPausaTela'); if(ov) ov.remove();
+  ov = document.createElement('div'); ov.id = 'semPausaTela';
+  ov.style.cssText = 'position:fixed;inset:0;z-index:500;background:rgba(20,10,40,.85);display:flex;align-items:center;justify-content:center;padding:14px';
+  ov.innerHTML = `<div style="background:#fff;border-radius:16px;padding:14px;max-width:420px;width:100%">
+    <h3 style="margin:0 0 4px">▶️ Prévia sem as pausas</h3><p style="font-size:.85rem;color:var(--muted);margin:0 0 8px">É assim que o vídeo vai sair (${(m.cortesInfo.total-m.cortesInfo.tirado).toFixed(1)}s em vez de ${m.cortesInfo.total}s).</p>
+    <video id="vSemPausa" src="${escapar(m.url)}" playsinline controls style="width:100%;max-height:60vh;border-radius:12px;background:#000"></video>
+    <button class="btn" style="margin-top:8px;width:100%" onclick="document.getElementById('semPausaTela').remove()">Voltar pro post</button></div>`;
+  document.body.appendChild(ov);
+  const v = document.getElementById('vSemPausa'), s = m.cortes;
+  v.addEventListener('timeupdate', ()=>{
+    const t = v.currentTime; const dentro = s.find(([a,b])=>t>=a-0.02 && t<b);
+    if(!dentro){ const prox = s.find(([a])=>a>t); if(prox) v.currentTime = prox[0]; else { v.pause(); v.currentTime = s[0][0]; } }
+  });
+  v.currentTime = s[0][0]; v.play().catch(()=>{});
+}
 function desenharMidias(){
   const el = document.getElementById('mMidiasPrev'); if(!el) return;
   el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:${m.tipo==='video'?'112px':'110px'};height:${m.tipo==='video'?'190px':'110px'};border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
@@ -6628,6 +6692,7 @@ function desenharMidias(){
       <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
     </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
   if(midiasTemp.length) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Tira as artes e escolhe outra" onclick="trocarArte()" style="align-self:center">🔄 Trocar arte</button>`);
+  midiasTemp.forEach((m,i)=>{ if(m.tipo!=='video') return; el.insertAdjacentHTML('beforeend', m.cortes ? `<span style="align-self:center;display:inline-flex;gap:4px"><button class="btn-mini" onclick="verSemPausas(${i})">▶️ Ver sem pausas</button><button class="btn-mini" title="Volta o vídeo inteiro" onclick="tirarPausas(${i})">↩️ Voltar as pausas</button></span>` : `<button class="btn-mini" title="Acha os silêncios da sua fala e corta — o vídeo fica mais dinâmico" onclick="tirarPausas(${i})" style="align-self:center">✂️ Tirar as pausas</button>`); });
   if(midiasTemp.some(m=>m.semMarca)) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Volta as fotos sem o logo" onclick="tirarMarcaDasFotos()" style="align-self:center">↩️ Tirar a marca</button>`);
   else if(midiasTemp.some(m=>m.tipo==='imagem') && marcaDoPostAtual()) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Põe o logo desse perfil nas fotos — só neste post" onclick="escolherCantoMarca()" style="align-self:center">🏷️ Pôr a marca</button>`);
   if(midiasTemp.some(m=>m.tipo==='imagem')) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Junta as fotos num vídeo em pé, com música e texto — chama mais atenção que foto parada" onclick="abrirFotosReels()" style="align-self:center;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;border:none">✨ Fotos → Reels com música</button>`);
