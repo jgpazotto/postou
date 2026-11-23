@@ -6752,7 +6752,7 @@ function abrirFotosReels(){
     <label style="font-size:.82rem;font-weight:700;display:block">✍️ Texto na tela <span style="font-weight:400;color:var(--muted)">(opcional, aparece no começo)</span></label>
     <input id="reelTexto" maxlength="70" value="${escapar(reelOpc.texto||'')}" placeholder="Ex.: Semana de banho aqui em casa! 🫧" style="width:100%;margin:4px 0 6px;padding:9px;border-radius:10px;border:1px solid var(--line);box-sizing:border-box">
     <div style="font-size:.78rem;font-weight:700;margin-top:2px">Estilo da letra</div>
-    <div id="reelEst" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${[['contorno','✏️ Contorno'],['caixa','🟪 Com caixa'],['sombra','🌫 Só sombra']].map((x,i)=>`<button type="button" data-v="${x[0]}" class="btn-claro" style="padding:5px 10px;font-size:.78rem${x[0]===reelOpc.estilo?';outline:2px solid var(--g2)':''}">${x[1]}</button>`).join('')}</div>
+    <div id="reelEst" style="display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 6px">${[['contorno','✏️ Contorno'],['caixa','🟪 Com caixa'],['sombra','🌫 Só sombra'],['palavra','💬 Palavra por palavra']].map((x,i)=>`<button type="button" data-v="${x[0]}" class="btn-claro" style="padding:5px 10px;font-size:.78rem${x[0]===reelOpc.estilo?';outline:2px solid var(--g2)':''}">${x[1]}</button>`).join('')}</div>
     <div style="font-size:.78rem;font-weight:700">Cor</div>
     <div id="reelCor" style="display:flex;flex-wrap:wrap;gap:7px;margin:4px 0 6px">${REEL_CORES.map((c,i)=>`<button type="button" data-v="${c}" title="${c}" style="width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid #fff;box-shadow:0 0 0 ${c===reelOpc.cor?'3px var(--g2)':'1px #ccc'};background:${c==='postou'?'linear-gradient(135deg,#7c3aed,#ec4899)':c}"></button>`).join('')}</div>
     <div style="font-size:.78rem;font-weight:700">Posição</div>
@@ -6926,6 +6926,7 @@ function desenharQuadroReel(cv, imgs, t, seg, texto){
 }
 function textoNaTelaReel(c,W,H,texto,a,ap){
     const o=reelOpc;
+    if(o.estilo==='palavra') return textoPalavraReel(c,W,H,texto,a);
     c.save(); c.globalAlpha=a; const fs=Math.round(W*0.064); c.font=`900 ${fs}px system-ui,-apple-system,"Segoe UI",sans-serif`; c.textAlign='center'; c.textBaseline='middle'; c.lineJoin='round';
     const linhas=quebrarTextoReel(c, texto, W*0.8); const lh=fs*1.25, bh=linhas.length*lh+fs*0.9;
     const by= o.pos==='meio' ? (H-bh)/2 : o.pos==='baixo' ? H*0.72 : H*0.14;
@@ -6944,6 +6945,34 @@ function textoNaTelaReel(c,W,H,texto,a,ap){
         c.fillStyle=corTxt; c.fillText(l,W/2,y); c.shadowBlur=0; c.shadowOffsetY=0; });
     }
     c.restore();
+}
+/* 💬 legenda "palavra por palavra" (estilo dos Reels virais): as palavras vão aparecendo e a da vez fica destacada */
+let _palavraReel = { t:'', ini:0 };
+function textoPalavraReel(c,W,H,texto,a){
+  const o=reelOpc, agora=performance.now();
+  if(_palavraReel.t!==texto){ _palavraReel={ t:texto, ini:agora }; }
+  const ps=String(texto).split(/\s+/).filter(Boolean); if(!ps.length) return;
+  const vistas=Math.min(ps.length, Math.floor((agora-_palavraReel.ini)/280)+1);
+  c.save(); c.globalAlpha=a;
+  const fs=Math.round(W*0.075); c.font=`900 ${fs}px system-ui,-apple-system,"Segoe UI",sans-serif`; c.textBaseline='middle'; c.lineJoin='round';
+  const max=W*0.82, linhas=[]; let l=[], lw=0; const esp=c.measureText(' ').width;
+  ps.forEach((p,i)=>{ const w=c.measureText(p.toUpperCase()).width; if(l.length && lw+esp+w>max){ linhas.push(l); l=[]; lw=0; } l.push({p:p.toUpperCase(),i,w}); lw+=(l.length>1?esp:0)+w; });
+  if(l.length) linhas.push(l);
+  const lh=fs*1.2, bh=linhas.length*lh, by= o.pos==='meio' ? (H-bh)/2 : o.pos==='baixo' ? H*0.70 : H*0.16;
+  const dest = o.cor==='postou' ? '#facc15' : o.cor;
+  linhas.forEach((ln,k)=>{
+    const tw=ln.reduce((s,x)=>s+x.w,0)+esp*(ln.length-1); let x=(W-tw)/2; const y=by+lh*(k+0.5);
+    ln.forEach(wd=>{
+      if(wd.i<vistas){
+        const daVez = wd.i===vistas-1, esc = daVez ? 1+0.12*Math.max(0,1-((agora-_palavraReel.ini)-(vistas-1)*280)/180) : 1;
+        c.save(); c.translate(x+wd.w/2,y); c.scale(esc,esc);
+        c.lineWidth=fs*0.18; c.strokeStyle='#000'; c.textAlign='center'; c.strokeText(wd.p,0,0);
+        c.fillStyle= daVez ? dest : '#ffffff'; c.fillText(wd.p,0,0); c.restore();
+      }
+      x+=wd.w+esp;
+    });
+  });
+  c.restore();
 }
 function quebrarTextoReel(c, t, max){ const ps=t.split(/\s+/), ls=[]; let l=''; for(const p of ps){ const tt=l?l+' '+p:p; if(c.measureText(tt).width>max && l){ ls.push(l); l=p; } else l=tt; } if(l) ls.push(l); return ls.slice(0,3); }
 function arredondadoReel(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
