@@ -3579,7 +3579,8 @@ function abrirDia(iso){ mesAtual = dataFromISO(iso); calVisao = 'dia'; marcarBot
 function chipPost(p){
   const c = clientePorId(p.clienteId);
   const nome = c ? escapar(c.nome) : 'Post';
-  return `<button class="chip" style="background:${c?c.cor:'#999'}" onclick="event.stopPropagation();abrirModalPost(${p.id})" title="${nome}">${nome}</button>`;
+  const rot = (p.hora?escapar(p.hora)+' · ':'') + (p.titulo?escapar(p.titulo):nome);
+  return `<button class="chip" style="background:${c?c.cor:'#999'}" onclick="event.stopPropagation();abrirModalPost(${p.id})" title="${nome}${p.titulo?' — '+escapar(p.titulo):''}">${rot}</button>`;
 }
 function chipCompromisso(cm){
   const ehServico = cm.tipoCompromisso==='servico' || cm.tipoCompromisso==='atendimento';
@@ -6158,6 +6159,8 @@ function abrirTermos(){
 }
 function abrirModal(html){ document.getElementById('conteudoModal').innerHTML = html; document.getElementById('fundoModal').classList.add('aberto'); }
 function fecharModal(){ document.getElementById('fundoModal').classList.remove('aberto'); }
+/* ⌨️ Esc fecha a janela aberta (igual o botão Cancelar) */
+document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ const f=document.getElementById('fundoModal'); if(f && f.classList.contains('aberto')) fecharModal(); } });
 function alertaCampo(id){ const el=document.getElementById(id); el.style.borderColor='#b91c1c'; el.focus(); }
 
 function exportar(){
@@ -7005,6 +7008,7 @@ async function comprimirVideo(f, st){
 async function enviarMidias(input){
   const arquivos = [...(input.files||[])]; if(!arquivos.length) return;
   const st = document.getElementById('mMidiaStatus');
+  let okUp = 0; const antes = midiasTemp.length;
   for(let [i,f] of arquivos.entries()){
     f = await paraJpeg(f);
     if((f.type||'').startsWith('video') && f.size > LIMITE_MIDIA) f = await comprimirVideo(f, st);
@@ -7019,9 +7023,14 @@ async function enviarMidias(input){
     if(error){ if(st) st.textContent='⚠️ Não consegui enviar: '+(/exceeded|maximum|size/i.test(error.message)?'o arquivo é grande demais (máx. 48 MB). Exporte em 1080p e tente de novo 💜':error.message); continue; }
     const { data } = sb.storage.from('midias').getPublicUrl(caminho);
     midiasTemp.push({ url:data.publicUrl, tipo: (f.type||'').startsWith('video')?'video':'imagem', nome:f.name });
+    okUp++;
     desenharMidias();
   }
-  if(st) st.innerHTML = '✅ Pronto! Agora toque em <b>Salvar</b> lá embaixo 💜';
+  if(st){
+    if(okUp===arquivos.length && midiasTemp.length>antes) st.innerHTML = '✅ Pronto! Agora toque em <b>Salvar</b> lá embaixo 💜';
+    else if(okUp>0 && midiasTemp.length>antes) st.innerHTML = '⚠️ Entraram '+okUp+' de '+arquivos.length+' arquivos. Confira acima e mande de novo o que faltou. 💜';
+    else if(!/⚠️/.test(st.textContent)) st.innerHTML = '⚠️ O arquivo não entrou no post. Toque pra escolher de novo. 💜';
+  }
   input.value = '';
 }
 
