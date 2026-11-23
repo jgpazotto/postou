@@ -590,7 +590,8 @@ import { join } from 'node:path';
 async function prepararVideos(p, userId) {
   if (!Array.isArray(p.midias)) return;
   for (const m of p.midias) {
-    if (!m || m.tipo !== 'video' || !/^postou-reels-/.test(m.nome || '')) continue;
+    const cortes = (m && Array.isArray(m.cortes)) ? m.cortes.filter(c => Array.isArray(c) && c.length === 2 && isFinite(c[0]) && isFinite(c[1]) && c[1] > c[0]).slice(0, 200) : [];
+    if (!m || m.tipo !== 'video' || (!/^postou-reels-/.test(m.nome || '') && !cortes.length)) continue;
     const pasta = mkdtempSync(join(tmpdir(), 'reel-')), ent = join(pasta, 'entrada'), sai = join(pasta, 'saida.mp4');
     const r = await fetch(m.url); if (!r.ok) throw new Error('não baixei o vídeo (' + r.status + ')');
     writeFileSync(ent, Buffer.from(await r.arrayBuffer()));
@@ -599,8 +600,13 @@ async function prepararVideos(p, userId) {
     const codecs = execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_name', '-of', 'csv=p=0', ent]).toString();
     // sempre regrava: o Safari/iPad gera MP4 sem duração e o Instagram pode recusar
     log('   🎬 convertendo o Reels do Postou pra MP4 (' + codecs.replace(/\s+/g, ' ').trim() + ')');
-    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', ent, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-r', '30',
+    // ✂️ "tirar as pausas": fica só com os trechos que a pessoa aprovou no site
+    const sel = cortes.map(([a, b]) => `between(t,${(+a).toFixed(2)},${(+b).toFixed(2)})`).join('+');
+    const filtros = cortes.length ? ['-vf', `select='${sel}',setpts=N/FRAME_RATE/TB`, '-af', `aselect='${sel}',asetpts=N/SR/TB`] : [];
+    if (cortes.length) log('   ✂️ tirando as pausas (' + cortes.length + ' trechos)');
+    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', ent, ...filtros, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-r', '30',
       '-c:a', 'aac', '-b:a', '160k', '-ar', '44100', '-movflags', '+faststart', sai]);
+    if (cortes.length) delete m.cortes;
     const caminho = userId + '/reels-ig-' + Date.now() + '.mp4';
     const up = await fetch(SB_URL + '/storage/v1/object/midias/' + caminho, { method: 'POST',
       headers: { ...sbHeaders({ 'Content-Type': 'video/mp4', 'x-upsert': 'true' }) }, body: readFileSync(sai) });
