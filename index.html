@@ -1305,13 +1305,13 @@ async function carregarDono(){
   if(avisoDono){ html+=`<div class="vazio" style="border:1px solid #0a8a4a;color:#0a8a4a;border-radius:10px;padding:10px;margin-bottom:12px">${avisoDono}</div>`; avisoDono=''; }
   // 💬 dúvidas que o assistente não soube responder (de todas as contas)
   const duvidas = [];
-  (data||[]).forEach(row=>{ const c=row.conteudo||{}; const nm=(c.assinatura&&c.assinatura.nome)||'(sem nome)'; (c.duvidasChat||[]).forEach(d=>duvidas.push({nome:nm, q:d.q, em:d.em||''})); });
+  (data||[]).forEach(row=>{ const c=row.conteudo||{}; const nm=(c.assinatura&&c.assinatura.nome)||'(sem nome)'; (c.duvidasChat||[]).forEach(d=>{ const chave=String(d.em||'')+'|'+String(d.q||'').slice(0,60); if((dados.duvidasOk||[]).includes(chave) || joySabe(d.q)) return; duvidas.push({nome:nm, q:d.q, em:d.em||'', chave}); }); });
   duvidas.sort((a,b)=>String(b.em).localeCompare(String(a.em)));
   if(duvidas.length){
     html+=`<details style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:14px;padding:12px 16px;margin-bottom:14px">
       <summary style="font-weight:800;color:#0369a1;cursor:pointer">💬 Dúvidas que o assistente não soube responder (${duvidas.length})</summary>
       <div style="font-size:.8rem;color:var(--muted);margin:8px 0">Cada uma vira resposta nova no chat. Passe pra Coordenadora do App. 💜</div>
-      ${duvidas.slice(0,40).map(d=>`<div class="pag-linha" style="font-size:.84rem"><span style="flex:1">“${escapar(d.q)}” <span style="color:var(--muted)">— ${escapar(d.nome)}${d.em?' · '+escapar(String(d.em).slice(0,10).split('-').reverse().join('/')):''}</span></span></div>`).join('')}
+      ${(window._duvidas=duvidas.slice(0,40)).map((d,i)=>`<div class="pag-linha" style="font-size:.84rem"><span style="flex:1">“${escapar(d.q)}” <span style="color:var(--muted)">— ${escapar(d.nome)}${d.em?' · '+escapar(String(d.em).slice(0,10).split('-').reverse().join('/')):''}</span></span><button class="btn-mini" style="flex:none" title="Tira da lista" onclick="duvidaOk(${i})">✅ Já ensinei</button></div>`).join('')}
     </details>`;
   }
   const premiar = lista.filter(u=>u.indicadoPor && codigoParaUserId[u.indicadoPor] && !dados.premiosTratados.includes(u.userId));
@@ -4506,9 +4506,38 @@ function abrirOrganizador(){
 function fecharOrganizador(){ const ov=document.getElementById('orgTela'); if(ov) ov.remove(); document.body.style.overflow=''; }
 
 /* data da foto: EXIF DateTimeOriginal (JPEG) ou a data do arquivo */
+/* 📱 fotos do iPhone (HEIC) e vídeos (MOV/MP4): procura a data escrita dentro do arquivo */
+async function orgDataSolta(f){
+  try{
+    const tam = f.size||0, pedacos = [f.slice(0, 524288)]; if(tam > 524288) pedacos.push(f.slice(Math.max(524288, tam-524288)));
+    for(const pd of pedacos){
+      const u8 = new Uint8Array(await pd.arrayBuffer()); let t = ''; for(let i=0;i<u8.length;i++) t += String.fromCharCode(u8[i]);
+      let m = t.match(/(20\d\d|19\d\d)-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)[+-]\d\d:?\d\d/);  /* vídeo do iPhone (creationdate) */
+      if(m) return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]);
+      m = t.match(/(20\d\d|19\d\d):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/);  /* EXIF da foto */
+      if(m) return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]);
+    }
+  }catch(e){}
+  return null;
+}
+/* 📱 HEIC (foto do iPhone): o Chrome não abre sozinho — converte aqui mesmo, sem mandar pra lugar nenhum */
+let _heicLib = null;
+function ehHeic(f){ return /hei[cf]/i.test((f&&f.type)||'') || /\.(heic|heif)$/i.test((f&&f.name)||''); }
+function carregarHeic(){
+  if(_heicLib) return _heicLib;
+  _heicLib = new Promise((ok, nao)=>{ const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js'; s.onload = ()=>ok(window.heic2any); s.onerror = ()=>{ _heicLib = null; nao(new Error('não carregou o conversor')); }; document.head.appendChild(s); });
+  return _heicLib;
+}
+async function heicParaJpegBlob(f, q){ const h = await carregarHeic(); const r = await h({ blob: f, toType: 'image/jpeg', quality: q||0.85 }); return Array.isArray(r) ? r[0] : r; }
+async function abrirImagem(f){
+  try{ return await createImageBitmap(f); }catch(e){}
+  if(ehHeic(f)){ try{ return await createImageBitmap(await heicParaJpegBlob(f, 0.7)); }catch(e){} }
+  try{ const im = new Image(); const u = URL.createObjectURL(f); im.src = u; await new Promise(ok=>{ im.onload = ok; im.onerror = ok; }); setTimeout(()=>URL.revokeObjectURL(u), 1000); if(im.naturalWidth) return im; }catch(e){}
+  return null;
+}
 async function orgDataExif(f){
   try{
-    if(!/jpe?g/i.test(f.type) && !/\.jpe?g$/i.test(f.name)) return null;
+    if(!/jpe?g/i.test(f.type) && !/\.jpe?g$/i.test(f.name)) return await orgDataSolta(f);
     const b = new DataView(await f.slice(0, 131072).arrayBuffer());
     if(b.getUint16(0) !== 0xFFD8) return null;
     let o = 2;
@@ -4537,16 +4566,23 @@ async function orgMiniatura(f){
   let src, w, h, video = false;
   if((f.type||'').startsWith('video')){
     video = true;
-    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'metadata';
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto';
     const url = URL.createObjectURL(f); v.src = url;
     await new Promise((ok)=>{ v.onloadeddata = ok; v.onerror = ok; setTimeout(ok, 6000); });
-    try{ v.currentTime = Math.min(1, (v.duration||2)/2); await new Promise(ok=>{ v.onseeked = ok; setTimeout(ok, 3000); }); }catch(e){}
+    try{ v.currentTime = Math.min(1, (v.duration||2)/2); await new Promise(ok=>{ v.onseeked = ok; setTimeout(ok, 3000); }); await new Promise(ok=>{ if(v.requestVideoFrameCallback) v.requestVideoFrameCallback(()=>ok()); setTimeout(ok, 400); }); }catch(e){}
     src = v; w = v.videoWidth||9; h = v.videoHeight||16;
     var dur = v.duration||0;
     setTimeout(()=>URL.revokeObjectURL(url), 1000);
   } else {
-    try{ src = await createImageBitmap(f); }catch(e){ const im=new Image(); const u=URL.createObjectURL(f); im.src=u; await new Promise(ok=>{ im.onload=ok; im.onerror=ok; }); src=im; }
-    w = src.width||1; h = src.height||1;
+    src = await abrirImagem(f);
+    w = (src && (src.width||src.naturalWidth)) || 0; h = (src && (src.height||src.naturalHeight)) || 0;
+  }
+  if(!src || !(video ? (src.videoWidth>0) : (w>1 && h>1))){
+    /* não deu pra abrir aqui: cartão lilás com o nome, em vez de quadrado cinza */
+    cv.width = 120; cv.height = 150; const c0 = cv.getContext('2d'); c0.fillStyle = '#ede9fe'; c0.fillRect(0,0,120,150);
+    c0.fillStyle = '#6d28d9'; c0.font = '28px sans-serif'; c0.textAlign = 'center'; c0.fillText('🙈', 60, 62); c0.font = '10px sans-serif';
+    const nm = String(f.name||''); c0.fillText(nm.slice(0,18), 60, 92); if(nm.length>18) c0.fillText(nm.slice(18,36), 60, 106);
+    return { thumb: cv.toDataURL('image/jpeg', .8), brilho: -1, nit: 0, hash: '', video, dur: typeof dur==='number'?dur:0, falhou: true };
   }
   const esc = W / Math.max(w, h); cv.width = Math.max(1, Math.round(w*esc)); cv.height = Math.max(1, Math.round(h*esc));
   const cx = cv.getContext('2d'); try{ cx.drawImage(src, 0, 0, cv.width, cv.height); }catch(e){}
@@ -4594,8 +4630,8 @@ function orgAnalisar(){
     for(let b=a+1;b<orgItens.length;b++){ const B = orgItens[b]; if(B.quando-A.quando > 120000) break; if(!B.video && !B.marca && orgDist(A.hash,B.hash) <= 10) grupo.push(B); }
     if(grupo.length > 1){ const melhor = grupo.reduce((x,y)=>y.nit>x.nit?y:x); grupo.forEach(g=>{ if(g!==melhor) g.marca='parecida'; }); melhor.marca = 'melhor'; }
   }
-  const nits = orgItens.filter(x=>!x.video).map(x=>x.nit).sort((a,b)=>a-b), med = nits.length ? nits[Math.floor(nits.length/2)] : 0;
-  orgItens.forEach(it=>{ if(it.marca==='parecida' || it.video) return; if(it.brilho < 45) it.marca = it.marca==='melhor'?'melhor':'escura'; else if(med && it.nit < med*0.18) it.marca = it.marca==='melhor'?'melhor':'tremida'; });
+  const nits = orgItens.filter(x=>!x.video && !x.falhou).map(x=>x.nit).sort((a,b)=>a-b), med = nits.length ? nits[Math.floor(nits.length/2)] : 0;
+  orgItens.forEach(it=>{ if(it.falhou){ it.marca='semver'; return; } if(it.marca==='parecida' || it.video) return; if(it.brilho < 45) it.marca = it.marca==='melhor'?'melhor':'escura'; else if(med && it.nit < med*0.18) it.marca = it.marca==='melhor'?'melhor':'tremida'; });
 }
 function orgDesenhar(){
   const lista = document.getElementById('orgLista'), barra = document.getElementById('orgBarra'); if(!lista) return;
@@ -4617,7 +4653,7 @@ function orgDesenhar(){
     const dia = `${DIAS[d.getDay()]}, ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
     if(dia !== dAnt){ if(dAnt) html += '</div>'; html += `<h3 style="margin:16px 0 4px">📅 ${dia}</h3>`; dAnt = dia; mAnt = 0; html += '<div>'; }
     if(it.momento !== mAnt){ const doMom = vis.filter(x=>x.momento===it.momento); html += `<div style="font-size:.82rem;color:var(--muted);margin:10px 0 6px;font-weight:700">🕐 Momento das ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} · ${doMom.length} item(ns)</div>`; mAnt = it.momento; }
-    const etq = {parecida:'🔁 parecida', escura:'🌑 escura', tremida:'〰️ tremida', melhor:'👍 melhor do grupo'}[it.marca] || '';
+    const etq = {semver:'🙈 não abriu aqui', parecida:'🔁 parecida', escura:'🌑 escura', tremida:'〰️ tremida', melhor:'👍 melhor do grupo'}[it.marca] || '';
     const cor = it.marca==='melhor' ? '#16a34a' : it.marca ? '#b45309' : '';
     html += `<div style="display:inline-block;vertical-align:top;width:120px;margin:0 6px 8px 0;position:relative">
       <img src="${it.thumb}" alt="" style="width:120px;height:150px;object-fit:cover;border-radius:10px;border:3px solid ${it.estrela?'#f59e0b':'transparent'};cursor:pointer;${['parecida','escura','tremida'].includes(it.marca)?'opacity:.55;':''}" onclick="orgEstrela(${it.id})">
@@ -4741,11 +4777,17 @@ function abrirModalPost(id, dataPre){
   if(!dados.clientes.length){ abrirModal('<h3>Ops!</h3><p>Cadastre um usuário primeiro, na aba Usuários.</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>'); return; }
   const p = id?dados.posts.find(x=>x.id===id):null;
   window._postNovo = !p;
-  const cliInicial = p ? clientePorId(p.clienteId) : dados.clientes[0];
+  const cliInicial = p ? clientePorId(p.clienteId) : (()=>{
+    const ativos = dados.clientes.filter(c=>!c.arquivado);
+    const f = (typeof filtroAtivo==='function') ? filtroAtivo() : null;
+    if(f){ const c = clientePorId(f); if(c) return c; }
+    const ult = dados.posts.slice().sort((a,b)=>(b.id||0)-(a.id||0)).map(x=>clientePorId(x.clienteId)).find(c=>c && !c.arquivado);
+    return ult || ativos.find(c=>c.igConta||c.metaPageId) || ativos[0] || dados.clientes[0];
+  })();
   abrirModal(`
     <h3>${p?'Editar postagem':'Nova postagem'}</h3>
     <label>Usuário</label>
-    <select id="mCliente" onchange="trocaClientePost()">${dados.clientes.filter(x=>!x.arquivado || (p&&p.clienteId===x.id)).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<option value="${x.id}" ${p&&p.clienteId===x.id?'selected':''}>${escapar(x.nome)}</option>`).join('')}</select>
+    <select id="mCliente" onchange="trocaClientePost()">${dados.clientes.filter(x=>!x.arquivado || (p&&p.clienteId===x.id)).slice().sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt')).map(x=>`<option value="${x.id}" ${(p?p.clienteId===x.id:(cliInicial&&cliInicial.id===x.id))?'selected':''}>${escapar(x.nome)}</option>`).join('')}</select>
     <label>Publicar em quais redes?</label>
     <div class="check-redes" id="mChkRedes" onchange="aoMudarRedes()">${checkboxesRedes(cliInicial, p?p.redes:null)}</div>
     <div id="mOndeSai" style="font-size:.8rem;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:7px 10px;margin-top:6px;color:#166534"></div>
@@ -6630,6 +6672,20 @@ function responderChat(pergunta){
   if(window._joyNaoSei > 1) return 'Hmm, essa eu ainda não sei responder! 😅 Já anotei sua pergunta pra Joice me ensinar. Enquanto isso, olha o mapinha do Postou aqui embaixo — toque onde quer ir — ou pergunte "onde fica…" (ex.: "onde fica o motor?", "onde vejo quem me deve?").';
   return 'Hmm, essa eu ainda não sei responder! 😅 Posso ajudar com qualquer parte do app e também com dicas de marketing: melhor horário para postar, hashtags, engajamento, o que postar, quanto cobrar... Pergunte de outro jeito (ex.: "como agendo um post?", "como ter mais seguidores?") ou veja a aba ❓ Ajuda.';
 }
+/* a Joy já sabe responder isso? (sem anotar nada) — usado pra limpar a lista de dúvidas do 👑 Dono */
+function joySabe(pergunta){
+  try{
+    if(joyEntendeAgenda(pergunta)) return true;
+    const p = normalizarTexto(pergunta);
+    if(/(onde|como|aonde|qual|cade|nao acho|nao encontro|botao)/.test(p) && /(post|public|story|stories|storys|reel|video|foto|add|adicion|colocar|subir|agend)/.test(p) && !/(horario|hashtag|legenda|ideia|engaj|o que e|o que postar)/.test(p)) return true;
+    return BASE_CONHECIMENTO.some(item=>item.k.some(kw=>{ const nk=normalizarTexto(kw); return temPalavra(p, nk) || (!nk.includes(' ') && nk.length>=6 && new RegExp('(^|[^a-z0-9])'+nk.slice(0,-2)).test(p)); }));
+  }catch(e){ return false; }
+}
+function duvidaOk(i){
+  const d = (window._duvidas||[])[i]; if(!d) return;
+  dados.duvidasOk = (dados.duvidasOk||[]).concat(d.chave).slice(-300); tocar();
+  try{ carregarDono(); }catch(e){}
+}
 /* 💬 dúvidas que o assistente não soube responder: ficam guardadas pra dona ver no 👑 Dono e virar resposta nova */
 function guardarDuvidaChat(pergunta){
   try{
@@ -6666,9 +6722,92 @@ function alternarChat(){
 }
 function msgBot(t){ const d=document.createElement('div'); d.className='msg bot'; d.textContent=t; document.getElementById('chatMsgs').appendChild(d); d.scrollIntoView(); }
 function msgEu(t){ const d=document.createElement('div'); d.className='msg eu'; d.textContent=t; document.getElementById('chatMsgs').appendChild(d); d.scrollIntoView(); }
+/* 📅 Joy anota na agenda: "agenda pra mim dia 2 de fevereiro a 5 de fevereiro viagem para LA" */
+const JOY_MESES = ['jan','fe','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function joyNorm(t){ return String(t||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''); }
+function joyMesDe(txt){ const t=joyNorm(txt); if(/^fe[vb]/.test(t)) return 1; const i=JOY_MESES.findIndex(m=>m!=='fe' && t.startsWith(m)); return i; }
+function joyISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function joyEntendeAgenda(q, hojeRef){
+  const n = joyNorm(q);
+  const pedido = /\b(agend\w*|marc\w*|anot\w*|coloc\w*|bot\w*|poe|cri\w*|lembr\w*|adicion\w*|salv\w*)\b/.test(n);
+  const daAgenda = /\b(na|minha|pra|para|da) (agenda|calendario)\b|\b(compromisso|lembrete)\b/.test(n);
+  if(!pedido) return null;
+  if(/\b(post\w*|story|stories|storys|reels?|publica\w*|legenda|carrossel)\b/.test(n) && !daAgenda) return null;
+  if(/^(como|onde|aonde|qual|quais|o que|pra que|por que|porque|da pra|consigo)\b/.test(n.trim())) return null;
+  const hoje = hojeRef ? new Date(hojeRef) : new Date(); hoje.setHours(0,0,0,0);
+  const MES = '(jan\\w*|fe[vb]\\w*|mar\\w*|abr\\w*|mai\\w*|jun\\w*|jul\\w*|ago\\w*|set\\w*|out\\w*|nov\\w*|dez\\w*)';
+  const datas = []; let resto = q;
+  const tira = (re)=>{ resto = resto.replace(re, ' '); };
+  const fazer = (d, m, a)=>{ let ano = a ? (a<100 ? 2000+a : a) : hoje.getFullYear(); let dt = new Date(ano, m, d); if(dt.getMonth()!==m) return null; if(!a && dt < hoje) dt = new Date(ano+1, m, d); return dt; };
+  let m;
+  /* "de 2 a 5 de fevereiro" */
+  const reFaixa = new RegExp('(\\d{1,2})\\s*(?:a|ate|até|-|e)\\s*(\\d{1,2})\\s*(?:de\\s+)?'+MES+'(?:\\s*(?:de\\s+)?(\\d{4}))?','i');
+  if((m = joyNorm(resto).match(reFaixa))){ const mes=joyMesDe(m[3]); const a=m[4]?+m[4]:0; const d1=fazer(+m[1],mes,a), d2=fazer(+m[2],mes,a); if(d1&&d2){ datas.push(d1,d2); resto = resto.slice(0,m.index)+' '+resto.slice(m.index+m[0].length); } }
+  if(!datas.length){
+    const reDia = new RegExp('(\\d{1,2})\\s*(?:de\\s+)?'+MES+'(?:\\s*(?:de\\s+)?(\\d{4}))?','gi');
+    const alvo = joyNorm(resto); let mm; const achados=[];
+    while((mm = reDia.exec(alvo))){ const d=fazer(+mm[1], joyMesDe(mm[2]), mm[3]?+mm[3]:0); if(d) achados.push({d, i:mm.index, len:mm[0].length}); }
+    const reNum = /(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/g;
+    while((mm = reNum.exec(alvo))){ const d=fazer(+mm[1], +mm[2]-1, mm[3]?+mm[3]:0); if(d) achados.push({d, i:mm.index, len:mm[0].length}); }
+    achados.sort((a,b)=>a.i-b.i).slice(0,2).forEach(x=>datas.push(x.d));
+    /* tira as datas do texto (de trás pra frente, pra não bagunçar as posições) */
+    achados.sort((a,b)=>b.i-a.i).forEach(x=>{ resto = resto.slice(0,x.i) + ' ' + resto.slice(x.i+x.len); });
+  }
+  if(!datas.length){
+    const a = joyNorm(resto);
+    if(/depois de amanha/.test(a)){ const d=new Date(hoje); d.setDate(d.getDate()+2); datas.push(d); resto = resto.replace(/depois de amanh[ãa]/i,' '); }
+    else if(/\bamanha\b/.test(a)){ const d=new Date(hoje); d.setDate(d.getDate()+1); datas.push(d); resto = resto.replace(/amanh[ãa]/i,' '); }
+    else if(/\bhoje\b/.test(a)){ datas.push(new Date(hoje)); resto = resto.replace(/hoje/i,' '); }
+    else if((m = a.match(/\bdia\s+(\d{1,2})\b/))){ let d=new Date(hoje.getFullYear(), hoje.getMonth(), +m[1]); if(d<hoje) d=new Date(hoje.getFullYear(), hoje.getMonth()+1, +m[1]); datas.push(d); resto = resto.replace(/\bdia\s+\d{1,2}\b/i,' '); }
+  }
+  if(!datas.length) return null;
+  if(!pedido && !daAgenda) return null;
+  /* hora: "às 15h", "15:30", "9h30" */
+  let hora = '';
+  const rh = joyNorm(resto).match(/\b(\d{1,2})\s*(?:h|:)\s*(\d{2})?\b/);
+  if(rh && +rh[1] < 24){ hora = String(+rh[1]).padStart(2,'0')+':'+String(rh[2]?+rh[2]:0).padStart(2,'0'); resto = resto.replace(/\b(?:[àa]s\s+)?\d{1,2}\s*(?:h|:)\s*(?:\d{2})?\b/i,' '); }
+  /* título: o que sobrou, sem as palavras do pedido */
+  let t = ' '+resto+' ';
+  t = t.replace(/\b(joy|por favor|pfv|pf|obrigad[ao])\b[,!.]?/gi,' ');
+  t = t.replace(/\b(agend\w*|marc\w*|anot\w*|coloc\w*|bot\w*|p[õo]e|cri\w*|lembr\w*|adicion\w*|salv\w*)\b/gi,' ');
+  t = t.replace(/\b(na|no|minha|meu)\s+(agenda|calend[áa]rio)\b/gi,' ').replace(/\b(agenda|calend[áa]rio|compromisso|lembrete)\b/gi,' ');
+  t = t.replace(/\s+/g,' ').trim();
+  const cola = /^(me|pra|para|mim|nos|n[óo]s|a gente|dia|dias|de|do|da|dos|das|a|at[ée]|e|o|um|uma|no|na|em|[àa]s|que|isso|esse|essa|,|-|:)\s+/i;
+  const colaFim = /\s+(pra|para|de|do|da|a|e|no|na|em|[àa]s|dia|-|,)$/i;
+  for(let k=0;k<8;k++){ const a=t; t=t.replace(cola,'').replace(colaFim,'').replace(/^[\s,.:;!-]+|[\s,.:;!-]+$/g,''); if(t===a) break; }
+  if(/^(pra|para|mim|dia|de|a|e)$/i.test(t)) t='';
+  const titulo = t ? t.charAt(0).toUpperCase()+t.slice(1) : 'Compromisso';
+  datas.sort((a,b)=>a-b);
+  const ini = joyISO(datas[0]), fim = datas[1] && joyISO(datas[1])!==ini ? joyISO(datas[1]) : '';
+  return { data: ini, dataFim: fim, hora, titulo };
+}
+function joyDataBonita(iso){ const [a,m,d]=iso.split('-'); const DS=['dom','seg','ter','qua','qui','sex','sáb']; const dt=new Date(+a,+m-1,+d); return DS[dt.getDay()]+' '+d+'/'+m+(+a!==new Date().getFullYear()?'/'+a:''); }
+function joyOferecerAgenda(ag){
+  const quando = ag.dataFim ? `de ${joyDataBonita(ag.data)} até ${joyDataBonita(ag.dataFim)}` : joyDataBonita(ag.data);
+  msgBot(`📅 Entendi! Quer que eu coloque na sua agenda? “${ag.titulo}” — ${quando}${ag.hora?' às '+ag.hora:''}`);
+  const caixa = document.createElement('div'); caixa.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;margin:2px 0 8px';
+  const bt = (txt, fundo, fn)=>{ const b=document.createElement('button'); b.textContent=txt; b.style.cssText='padding:7px 12px;border-radius:10px;border:0;font-weight:700;font-size:.8rem;cursor:pointer;'+fundo; b.onclick=()=>{ caixa.querySelectorAll('button').forEach(x=>x.disabled=true); fn(); }; caixa.appendChild(b); };
+  bt('✅ Sim, coloca', 'background:linear-gradient(135deg,var(--g1),var(--g2));color:#fff', ()=>{
+    if(!dados.compromissos) dados.compromissos = [];
+    const nv = { id: novoId(), data: ag.data, dataFim: ag.dataFim||'', hora: ag.hora||'', titulo: ag.titulo, obs: '' };
+    dados.compromissos.push(nv); tocar();
+    msgBot('Pronto, anotei! ✈️💜 Tá no 📅 Calendário' + (ag.dataFim ? ' (todos os dias da viagem)' : '') + '.');
+    const ir = document.createElement('button'); ir.textContent = '👉 Ver no calendário';
+    ir.style.cssText = 'display:inline-block;margin:2px 0 8px;padding:7px 12px;border-radius:10px;background:linear-gradient(135deg,var(--g1),var(--g2));border:0;color:#fff;font-weight:700;font-size:.8rem;cursor:pointer';
+    ir.onclick = ()=>{ try{ if(window.innerWidth<700) document.getElementById('chatCaixa').classList.remove('aberto'); mesAtual = dataFromISO(ag.data); trocarAba('calendario'); }catch(e){} };
+    document.getElementById('chatMsgs').appendChild(ir); ir.scrollIntoView();
+  });
+  bt('✏️ Ajustar antes', 'background:var(--t2);color:var(--g1)', ()=>{
+    try{ if(window.innerWidth<700) document.getElementById('chatCaixa').classList.remove('aberto'); }catch(e){}
+    abrirModalCompromisso(ag.data);
+    setTimeout(()=>{ const s=(id,v)=>{ const el=document.getElementById(id); if(el && v) el.value=v; }; s('cmDataFim', ag.dataFim); s('cmHora', ag.hora); s('cmTitulo', ag.titulo); }, 60);
+  });
+  bt('Não', 'background:#f3f4f6;color:#374151', ()=>msgBot('Tudo bem! 💜 Se quiser, é só me pedir de novo.'));
+  document.getElementById('chatMsgs').appendChild(caixa); caixa.scrollIntoView();
+}
 function perguntar(q){
   msgEu(q);
-  setTimeout(()=>{ const r = responderChat(q); msgBot(r); if(/^Hmm, essa eu ainda/.test(r)){ joyMapaChips(); botaoFalarPessoa(); } else { const u=window._joyUltimo; if(u && u.ir) joyBotaoIr(u.ir, u.bt); } }, 350);
+  setTimeout(()=>{ try{ const ag = joyEntendeAgenda(q); if(ag){ joyOferecerAgenda(ag); return; } }catch(e){} const r = responderChat(q); msgBot(r); if(/^Hmm, essa eu ainda/.test(r)){ joyMapaChips(); botaoFalarPessoa(); } else { const u=window._joyUltimo; if(u && u.ir) joyBotaoIr(u.ir, u.bt); } }, 350);
 }
 function enviarChat(){
   const inp = document.getElementById('chatInput');
@@ -7297,6 +7436,7 @@ async function ajustarArte45(){
 }
 // Instagram só aceita foto em JPEG: converte PNG/WebP/HEIC etc. antes de enviar
 function paraJpeg(f){
+  if(ehHeic(f)) return heicParaJpegBlob(f, 0.92).then(b=> b ? new File([b], (f.name||'foto').replace(/\.[^.]+$/,'')+'.jpg', {type:'image/jpeg'}) : f).catch(()=>f);
   return new Promise((ok)=>{
     if(!(f.type||'').startsWith('image/') || f.type==='image/jpeg') return ok(f);
     const url=URL.createObjectURL(f); const img=new Image();
