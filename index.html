@@ -4772,6 +4772,8 @@ function abrirModalPost(id, dataPre){
     ${(()=>{ const outros=(dados.clientes||[]).filter(c=>c.igConta||c.metaPageId); if(outros.length<2) return ''; const sel=(p&&p.storyEm)||[]; return `<details ${sel.length?'open':''} style="background:var(--t2);border:1px solid var(--t2b);border-radius:10px;padding:7px 11px;margin-top:6px"><summary style="cursor:pointer;font-weight:600;font-size:.88rem">📲 Story também em outro perfil <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô repete a arte nos stories deles)</span>${sel.length?` <span style="font-weight:600;color:var(--roxo,#7c3aed);font-size:.78rem">· ✅ ${sel.length} marcado${sel.length>1?'s':''}: ${escapar(outros.filter(c=>sel.map(String).includes(String(c.id))).map(c=>c.nome).join(', '))}</span>`:''}</summary><div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px">${outros.map(c=>`<label style="display:flex;align-items:center;gap:5px;font-size:.86rem;cursor:pointer;margin:0"><input type="checkbox" class="mStoryEm" value="${c.id}" ${sel.map(String).includes(String(c.id))?'checked':''} style="width:16px;height:16px;margin:0"> ${escapar(c.nome)}</label>`).join('')}</div><div style="font-size:.74rem;color:var(--muted);margin-top:4px">Só sai se 🤖 Publicar sozinho estiver marcado e o perfil tiver Instagram ligado no 🔗 Conexões.</div></details>`; })()}
     <label style="margin-top:8px">🤝 Collab no Instagram <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô convida sozinho — até 3 @, separados por espaço)</span></label>
     <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="ex.: @perfil1 @perfil2 — deixe vazio se não for collab">
+    <label style="margin-top:8px">🏷️ Marcar @ no story <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô marca no story — a pessoa recebe aviso e pode repostar; até 5 @)</span></label>
+    <input id="mStoryMarcar" value="${p&&p.storyMarcar?escapar(p.storyMarcar.map(u=>'@'+u).join(' ')):''}" placeholder="ex.: @joicepazotto — vale pro story (ou pro 📱 Post vira story)">
     <label>📝 Observações <span style="font-weight:400;color:var(--muted);font-size:.78rem">(só pra você — não vai na legenda)</span></label>
     <textarea id="mObs" rows="2" placeholder="Ex.: editar no CapCut, capa pelo Meta">${p&&p.obs?escapar(p.obs):''}</textarea>
     <details ${p&&p.resultado?'open':''} style="margin:6px 0 4px"><summary style="cursor:pointer;font-weight:600;font-size:.88rem">📊 Resultado do post <span style="font-weight:400;color:var(--muted);font-size:.78rem">(preencha depois de publicado)</span></summary>
@@ -4886,6 +4888,7 @@ function salvarPost(id){
   { const num=id=>{ const el=document.getElementById(id); if(!el) return null; const v=String(el.value||'').replace(/[^\d]/g,''); return v===''?null:parseInt(v); };
     const r={ views:num('mResViews'), curtidas:num('mResCurt'), comentarios:num('mResCom') };
     novo.resultado = (r.views!=null||r.curtidas!=null||r.comentarios!=null) ? r : undefined; }
+  { const sm=document.getElementById('mStoryMarcar'); const l=sm?[...new Set((sm.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()))].slice(0,5):[]; novo.storyMarcar = l.length ? l : undefined; }
   { const ci=document.getElementById('mCollabIG'); const lista=ci?(ci.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()).slice(0,3):[]; novo.collabIG = lista.length ? lista : undefined; }
   if(novo.autoPublicar && novo.status!=='publicado') novo.status = 'agendado';
   const salvos = [];
@@ -4905,7 +4908,7 @@ function salvarPost(id){
   if(irmaos.length) setTimeout(()=>perguntarAplicarGrupo(id, irmaos.map(x=>x.id)), 80);
 }
 /* 📋 posts copiados pra vários perfis ficam ligados (grupo): ao editar um, pergunta se aplica nos outros */
-const CAMPOS_GRUPO=['titulo','data','hora','tipo','legenda','legendas','midias','autoPublicar','virarStory','obs','collabIG'];
+const CAMPOS_GRUPO=['titulo','data','hora','tipo','legenda','legendas','midias','autoPublicar','virarStory','obs','collabIG','storyMarcar'];
 function perguntarAplicarGrupo(id, ids){
   const nomes = ids.map(i=>{ const q=dados.posts.find(x=>x.id===i); const c=q&&clientePorId(q.clienteId); return c?escapar(c.nome):''; }).filter(Boolean).join(', ');
   abrirModal(`<h3>📋 Aplicar nos outros perfis?</h3><p>Este post também foi feito pra <b>${ids.length}</b> outro(s) perfil(is): ${nomes}.</p><p style="font-size:.88rem;color:var(--muted)">Quer que a mudança (título, legenda, data, hora, arte…) vá pra eles também? Posts já publicados não mudam.</p><div class="rodape"><button class="btn-claro" onclick="fecharModal()">Não, só este</button><button class="btn" onclick="aplicarNoGrupo(${Number(id)},[${ids.map(Number).join(',')}])">✅ Sim, em todos</button></div>`);
