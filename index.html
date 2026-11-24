@@ -4529,9 +4529,13 @@ function carregarHeic(){
   return _heicLib;
 }
 async function heicParaJpegBlob(f, q){ const h = await carregarHeic(); const r = await h({ blob: f, toType: 'image/jpeg', quality: q||0.85 }); return Array.isArray(r) ? r[0] : r; }
+async function pareceHeic(f){
+  try{ const u = new Uint8Array(await f.slice(0, 16).arrayBuffer()); const t = String.fromCharCode(...u.slice(4, 12)); return /^ftyp(heic|heix|hevc|hevx|mif1|msf1|heim|heis|avif)/.test(t); }
+  catch(e){ f._nuvem = true; return false; }
+}
 async function abrirImagem(f){
   try{ return await createImageBitmap(f); }catch(e){}
-  if(ehHeic(f)){ try{ return await createImageBitmap(await heicParaJpegBlob(f, 0.7)); }catch(e){} }
+  if(ehHeic(f) || await pareceHeic(f)){ try{ return await createImageBitmap(await heicParaJpegBlob(f, 0.7)); }catch(e){} }
   try{ const im = new Image(); const u = URL.createObjectURL(f); im.src = u; await new Promise(ok=>{ im.onload = ok; im.onerror = ok; }); setTimeout(()=>URL.revokeObjectURL(u), 1000); if(im.naturalWidth) return im; }catch(e){}
   return null;
 }
@@ -4580,9 +4584,9 @@ async function orgMiniatura(f){
   if(!src || !(video ? (src.videoWidth>0) : (w>1 && h>1))){
     /* não deu pra abrir aqui: cartão lilás com o nome, em vez de quadrado cinza */
     cv.width = 120; cv.height = 150; const c0 = cv.getContext('2d'); c0.fillStyle = '#ede9fe'; c0.fillRect(0,0,120,150);
-    c0.fillStyle = '#6d28d9'; c0.font = '28px sans-serif'; c0.textAlign = 'center'; c0.fillText('🙈', 60, 62); c0.font = '10px sans-serif';
+    c0.fillStyle = '#6d28d9'; c0.font = '28px sans-serif'; c0.textAlign = 'center'; c0.fillText(f._nuvem ? '☁️' : '🙈', 60, 62); c0.font = '10px sans-serif';
     const nm = String(f.name||''); c0.fillText(nm.slice(0,18), 60, 92); if(nm.length>18) c0.fillText(nm.slice(18,36), 60, 106);
-    return { thumb: cv.toDataURL('image/jpeg', .8), brilho: -1, nit: 0, hash: '', video, dur: typeof dur==='number'?dur:0, falhou: true };
+    return { thumb: cv.toDataURL('image/jpeg', .8), brilho: -1, nit: 0, hash: '', video, dur: typeof dur==='number'?dur:0, falhou: true, nuvem: !!f._nuvem };
   }
   const esc = W / Math.max(w, h); cv.width = Math.max(1, Math.round(w*esc)); cv.height = Math.max(1, Math.round(h*esc));
   const cx = cv.getContext('2d'); try{ cx.drawImage(src, 0, 0, cv.width, cv.height); }catch(e){}
@@ -4631,7 +4635,7 @@ function orgAnalisar(){
     if(grupo.length > 1){ const melhor = grupo.reduce((x,y)=>y.nit>x.nit?y:x); grupo.forEach(g=>{ if(g!==melhor) g.marca='parecida'; }); melhor.marca = 'melhor'; }
   }
   const nits = orgItens.filter(x=>!x.video && !x.falhou).map(x=>x.nit).sort((a,b)=>a-b), med = nits.length ? nits[Math.floor(nits.length/2)] : 0;
-  orgItens.forEach(it=>{ if(it.falhou){ it.marca='semver'; return; } if(it.marca==='parecida' || it.video) return; if(it.brilho < 45) it.marca = it.marca==='melhor'?'melhor':'escura'; else if(med && it.nit < med*0.18) it.marca = it.marca==='melhor'?'melhor':'tremida'; });
+  orgItens.forEach(it=>{ if(it.falhou){ it.marca = it.nuvem ? 'nuvem' : 'semver'; return; } if(it.marca==='parecida' || it.video) return; if(it.brilho < 45) it.marca = it.marca==='melhor'?'melhor':'escura'; else if(med && it.nit < med*0.18) it.marca = it.marca==='melhor'?'melhor':'tremida'; });
 }
 function orgDesenhar(){
   const lista = document.getElementById('orgLista'), barra = document.getElementById('orgBarra'); if(!lista) return;
@@ -4653,7 +4657,7 @@ function orgDesenhar(){
     const dia = `${DIAS[d.getDay()]}, ${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
     if(dia !== dAnt){ if(dAnt) html += '</div>'; html += `<h3 style="margin:16px 0 4px">📅 ${dia}</h3>`; dAnt = dia; mAnt = 0; html += '<div>'; }
     if(it.momento !== mAnt){ const doMom = vis.filter(x=>x.momento===it.momento); html += `<div style="font-size:.82rem;color:var(--muted);margin:10px 0 6px;font-weight:700">🕐 Momento das ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} · ${doMom.length} item(ns)</div>`; mAnt = it.momento; }
-    const etq = {semver:'🙈 não abriu aqui', parecida:'🔁 parecida', escura:'🌑 escura', tremida:'〰️ tremida', melhor:'👍 melhor do grupo'}[it.marca] || '';
+    const etq = {nuvem:'☁️ só no iCloud — baixe antes', semver:'🙈 não abriu aqui', parecida:'🔁 parecida', escura:'🌑 escura', tremida:'〰️ tremida', melhor:'👍 melhor do grupo'}[it.marca] || '';
     const cor = it.marca==='melhor' ? '#16a34a' : it.marca ? '#b45309' : '';
     html += `<div style="display:inline-block;vertical-align:top;width:120px;margin:0 6px 8px 0;position:relative">
       <img src="${it.thumb}" alt="" style="width:120px;height:150px;object-fit:cover;border-radius:10px;border:3px solid ${it.estrela?'#f59e0b':'transparent'};cursor:pointer;${['parecida','escura','tremida'].includes(it.marca)?'opacity:.55;':''}" onclick="orgEstrela(${it.id})">
@@ -6675,7 +6679,7 @@ function responderChat(pergunta){
 /* a Joy já sabe responder isso? (sem anotar nada) — usado pra limpar a lista de dúvidas do 👑 Dono */
 function joySabe(pergunta){
   try{
-    if(joyEntendeAgenda(pergunta)) return true;
+    if(joyEhConsulta(pergunta) || joyEntendeAgenda(pergunta)) return true;
     const p = normalizarTexto(pergunta);
     if(/(onde|como|aonde|qual|cade|nao acho|nao encontro|botao)/.test(p) && /(post|public|story|stories|storys|reel|video|foto|add|adicion|colocar|subir|agend)/.test(p) && !/(horario|hashtag|legenda|ideia|engaj|o que e|o que postar)/.test(p)) return true;
     return BASE_CONHECIMENTO.some(item=>item.k.some(kw=>{ const nk=normalizarTexto(kw); return temPalavra(p, nk) || (!nk.includes(' ') && nk.length>=6 && new RegExp('(^|[^a-z0-9])'+nk.slice(0,-2)).test(p)); }));
@@ -6728,6 +6732,7 @@ function joyNorm(t){ return String(t||'').toLowerCase().normalize('NFD').replace
 function joyMesDe(txt){ const t=joyNorm(txt); if(/^fe[vb]/.test(t)) return 1; const i=JOY_MESES.findIndex(m=>m!=='fe' && t.startsWith(m)); return i; }
 function joyISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function joyEntendeAgenda(q, hojeRef){
+  if(typeof joyEhConsulta==='function' && joyEhConsulta(q)) return null;
   const n = joyNorm(q);
   const pedido = /\b(agend\w*|marc\w*|anot\w*|coloc\w*|bot\w*|poe|cri\w*|lembr\w*|adicion\w*|salv\w*)\b/.test(n);
   const daAgenda = /\b(na|minha|pra|para|da) (agenda|calendario)\b|\b(compromisso|lembrete)\b/.test(n);
@@ -6805,9 +6810,57 @@ function joyOferecerAgenda(ag){
   bt('Não', 'background:#f3f4f6;color:#374151', ()=>msgBot('Tudo bem! 💜 Se quiser, é só me pedir de novo.'));
   document.getElementById('chatMsgs').appendChild(caixa); caixa.scrollIntoView();
 }
+/* 🔎 Joy olha a agenda: "temos algo marcado pra hoje?", "tem alguma coisa em fevereiro?", "tenho hora livre amanhã?" */
+function joyPeriodo(q, hojeRef){
+  const n = joyNorm(q), hoje = hojeRef ? new Date(hojeRef) : new Date(); hoje.setHours(0,0,0,0);
+  const d0 = new Date(hoje), mais = k=>{ const d=new Date(hoje); d.setDate(d.getDate()+k); return d; };
+  if(/depois de amanha/.test(n)) return { ini: mais(2), fim: mais(2), nome: 'depois de amanhã' };
+  if(/\bamanha\b/.test(n)) return { ini: mais(1), fim: mais(1), nome: 'amanhã' };
+  if(/\bhoje\b/.test(n)) return { ini: d0, fim: d0, nome: 'hoje' };
+  if(/(proxima|que vem).{0,8}semana|semana que vem/.test(n)){ const dw=hoje.getDay(); const ini=mais(7-dw); const fim=new Date(ini); fim.setDate(fim.getDate()+6); return { ini, fim, nome: 'semana que vem' }; }
+  if(/(essa|esta|nessa|nesta|da) semana/.test(n)){ return { ini: d0, fim: mais(6-hoje.getDay()), nome: 'essa semana' }; }
+  if(/(proximo|que vem).{0,4}mes|mes que vem/.test(n)){ const ini=new Date(hoje.getFullYear(), hoje.getMonth()+1, 1); return { ini, fim: new Date(ini.getFullYear(), ini.getMonth()+1, 0), nome: 'mês que vem' }; }
+  if(/(esse|este|nesse|neste) mes/.test(n)){ return { ini: d0, fim: new Date(hoje.getFullYear(), hoje.getMonth()+1, 0), nome: 'esse mês' }; }
+  const ag = joyEntendeAgenda('agenda '+q, hojeRef);
+  const temDia = /\b\d{1,2}\b/.test(n);
+  const mm = n.match(/\b(jan\w*|fe[vb]\w*|mar(co|ço)?\b|abr\w*|mai\w*|jun\w*|jul\w*|ago\w*|set\w*|out\w*|nov\w*|dez\w*)/);
+  if(mm && !temDia){ const mes = joyMesDe(mm[1]); let ano = hoje.getFullYear(); if(mes < hoje.getMonth()) ano++; const ini=new Date(ano, mes, 1); const NM=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro']; return { ini, fim: new Date(ano, mes+1, 0), nome: 'em '+NM[mes] }; }
+  if(ag){ const ini=new Date(ag.data+'T00:00:00'); const fim=ag.dataFim?new Date(ag.dataFim+'T00:00:00'):ini; return { ini, fim, nome: ag.dataFim ? 'de '+joyDataBonita(ag.data)+' a '+joyDataBonita(ag.dataFim) : 'no dia '+joyDataBonita(ag.data) }; }
+  return null;
+}
+function joyEhConsulta(q){
+  const n = joyNorm(q).trim().replace(/^joy[, ]+/,'');
+  if(!/^(tem|temos|tenho|teremos|existe|ha|o que|que|qual|quais|quando|algum|alguma|algo|to|estou|estamos|vou|tô)\b/.test(n)) return false;
+  if(/(agend|marcad|compromiss|programad|livre|ocupad|agenda|calendario|lembrete|tenho que|temos que)/.test(n)) return true;
+  return /(algo|alguma coisa|post|o que tem)/.test(n) && !!joyPeriodo(q);
+}
+function joyConsultaAgenda(q){
+  if(!joyEhConsulta(q)) return false;
+  const per = joyPeriodo(q) || { ini: (()=>{const d=new Date(); d.setHours(0,0,0,0); return d;})(), fim: (()=>{const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()+6); return d;})(), nome: 'nos próximos 7 dias' };
+  const a = joyISO(per.ini), b = joyISO(per.fim), um = a===b;
+  const comp = (dados.compromissos||[]).filter(c=>c.data && c.data <= b && (c.dataFim||c.data) >= a)
+    .map(c=>({ data: c.data < a ? a : c.data, hora: c.hora||'', txt: '📌 '+(c.titulo||'Compromisso')+(c.dataFim?` (${joyDataBonita(c.data)} a ${joyDataBonita(c.dataFim)})`:'') }));
+  const posts = (dados.posts||[]).filter(p=>p.data>=a && p.data<=b && p.status!=='ideia')
+    .map(p=>{ const c=clientePorId(p.clienteId); return { data: p.data, hora: p.hora||'', txt: '📲 '+(p.titulo||'Post')+(c?' · '+c.nome:'')+(p.status==='publicado'?' ✅':p.autoPublicar?' 🤖':'') }; });
+  const tudo = comp.concat(posts).sort((x,y)=>(x.data+(x.hora||'99')).localeCompare(y.data+(y.hora||'99')));
+  const livre = /livre|ocupad|hora vaga|horario vago/.test(joyNorm(q));
+  if(!tudo.length){
+    msgBot(`🗓️ Nada marcado ${per.nome}! ${livre?'Agenda livrinha — o dia é seu 💜':'Quer que eu anote alguma coisa? É só me dizer, tipo "agenda dentista amanhã às 15h".'}`);
+  } else {
+    const linhas = tudo.slice(0, 12).map(x=>`${um?'':joyDataBonita(x.data)+' '}${x.hora?x.hora+' ':''}${x.txt}`);
+    let txt = `🗓️ ${per.nome.charAt(0).toUpperCase()+per.nome.slice(1)} tem ${tudo.length} coisa${tudo.length>1?'s':''}: ` + linhas.join(' · ') + (tudo.length>12?' · …':'');
+    if(livre && um){ const horas = tudo.filter(x=>x.hora && x.txt.startsWith('📌')).map(x=>x.hora); txt += horas.length ? ` — fora desses horários (${horas.join(', ')}), tá livre 💜` : ' — nenhum compromisso com hora marcada, então o dia tá livre pra você (os posts o robô cuida 🤖) 💜'; }
+    msgBot(txt);
+  }
+  const ir = document.createElement('button'); ir.textContent = '👉 Ver no calendário';
+  ir.style.cssText = 'display:inline-block;margin:2px 0 8px;padding:7px 12px;border-radius:10px;background:linear-gradient(135deg,var(--g1),var(--g2));border:0;color:#fff;font-weight:700;font-size:.8rem;cursor:pointer';
+  ir.onclick = ()=>{ try{ if(window.innerWidth<700) document.getElementById('chatCaixa').classList.remove('aberto'); mesAtual = new Date(per.ini); trocarAba('calendario'); }catch(e){} };
+  document.getElementById('chatMsgs').appendChild(ir); ir.scrollIntoView();
+  return true;
+}
 function perguntar(q){
   msgEu(q);
-  setTimeout(()=>{ try{ const ag = joyEntendeAgenda(q); if(ag){ joyOferecerAgenda(ag); return; } }catch(e){} const r = responderChat(q); msgBot(r); if(/^Hmm, essa eu ainda/.test(r)){ joyMapaChips(); botaoFalarPessoa(); } else { const u=window._joyUltimo; if(u && u.ir) joyBotaoIr(u.ir, u.bt); } }, 350);
+  setTimeout(()=>{ try{ if(joyConsultaAgenda(q)) return; const ag = joyEntendeAgenda(q); if(ag){ joyOferecerAgenda(ag); return; } }catch(e){} const r = responderChat(q); msgBot(r); if(/^Hmm, essa eu ainda/.test(r)){ joyMapaChips(); botaoFalarPessoa(); } else { const u=window._joyUltimo; if(u && u.ir) joyBotaoIr(u.ir, u.bt); } }, 350);
 }
 function enviarChat(){
   const inp = document.getElementById('chatInput');
@@ -7435,8 +7488,8 @@ async function ajustarArte45(){
   }catch(e){ if(box) box.innerHTML = '<div style="font-size:.8rem;color:#b91c1c">Não consegui ajustar: '+escapar(e.message||String(e))+'</div>'; }
 }
 // Instagram só aceita foto em JPEG: converte PNG/WebP/HEIC etc. antes de enviar
-function paraJpeg(f){
-  if(ehHeic(f)) return heicParaJpegBlob(f, 0.92).then(b=> b ? new File([b], (f.name||'foto').replace(/\.[^.]+$/,'')+'.jpg', {type:'image/jpeg'}) : f).catch(()=>f);
+async function paraJpeg(f){
+  if(ehHeic(f) || ((f.type||'')==='image/jpeg' && await pareceHeic(f))) return heicParaJpegBlob(f, 0.92).then(b=> b ? new File([b], (f.name||'foto').replace(/\.[^.]+$/,'')+'.jpg', {type:'image/jpeg'}) : f).catch(()=>f);
   return new Promise((ok)=>{
     if(!(f.type||'').startsWith('image/') || f.type==='image/jpeg') return ok(f);
     const url=URL.createObjectURL(f); const img=new Image();
