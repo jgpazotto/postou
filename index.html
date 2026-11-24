@@ -1667,6 +1667,7 @@ async function carregarDados(){
     if(!contaEmpresaId && usuarioMeta.email && dados.assinatura.email!==usuarioMeta.email){ dados.assinatura.email=usuarioMeta.email; mudou=true; }
     if(usuarioMeta.indicadoPor && !dados.assinatura.indicadoPor){ dados.assinatura.indicadoPor=usuarioMeta.indicadoPor; mudou=true; }
     ultimaAtualizacao = data.atualizado;
+    try{ baseSync = JSON.stringify(dados); }catch(e){ baseSync = null; }
     setSync('salvo');
     if(mudou) await salvarAgora();
   } else {
@@ -1680,9 +1681,76 @@ function agendarSalvar(){
   clearTimeout(timerSalvar);
   timerSalvar = setTimeout(salvarAgora, 800);
 }
+/* 🔀 dois aparelhos/abas salvando ao mesmo tempo: em vez de um apagar o que o outro fez, junta os dois */
+let baseSync = null; /* como os dados estavam na última vez que lemos/salvamos (texto) */
+function _igual(a,b){ return JSON.stringify(a)===JSON.stringify(b); }
+function _ehObj(x){ return x && typeof x==='object' && !Array.isArray(x); }
+function _listaComId(a){ if(!Array.isArray(a)) return false; const s=new Set(); for(const x of a){ if(!_ehObj(x) || x.id===undefined || x.id===null || s.has(String(x.id))) return false; s.add(String(x.id)); } return true; }
+function mesclarObj(b,l,r,_fora){
+  b=_ehObj(b)?b:{}; const out={};
+  const chaves=new Set([...Object.keys(b),...Object.keys(l||{}),...Object.keys(r||{})]);
+  for(const k of chaves){
+    const vb=b[k], vl=l?l[k]:undefined, vr=r?r[k]:undefined;
+    if(k==='prox' && typeof vl==='number' && typeof vr==='number'){ out[k]=Math.max(vl,vr); continue; }
+    if(_igual(vl,vb)){ if(vr!==undefined) out[k]=vr; continue; }      /* só o outro mexeu */
+    if(_igual(vr,vb)){ if(vl!==undefined) out[k]=vl; continue; }      /* só eu mexi */
+    if(_listaComId(vl) && _listaComId(vr) && (vb===undefined || _listaComId(vb))) out[k]=mesclarLista(vb||[],vl,vr,_fora);
+    else if(_ehObj(vl) && _ehObj(vr)) out[k]=mesclarObj(vb,vl,vr,_fora);
+    else if(vl!==undefined) out[k]=vl; else out[k]=vr;               /* os dois mexeram: fica o meu */
+  }
+  return out;
+}
+function mesclarLista(b,l,r,fora){
+  const id=x=>String(x.id);
+  const mB=new Map(b.map(x=>[id(x),x])), mL=new Map(l.map(x=>[id(x),x])), mR=new Map(r.map(x=>[id(x),x]));
+  const out=[], novosMeus=[];
+  for(const ir of r){ const k=id(ir), il=mL.get(k), ib=mB.get(k);
+    if(!il){ if(ib && _igual(ib,ir)) continue; out.push(ir); continue; }  /* eu apaguei (e o outro não mexeu) · ou é novo do outro */
+    if(!ib && !_igual(il,ir)){ out.push(ir); novosMeus.push(il); continue; } /* os dois criaram com o mesmo número */
+    out.push(_igual(il,ib)?ir:_igual(ir,ib)?il:mesclarObj(ib,il,ir,fora));
+  }
+  for(const il of l){ const k=id(il); if(mR.has(k)) continue; const ib=mB.get(k);
+    if(ib && _igual(ib,il)) continue;  /* o outro apagou e eu não mexi */
+    out.push(il);                      /* novo meu (ou eu mexi e o outro apagou: guarda) */
+  }
+  if(novosMeus.length && fora) fora.push(...novosMeus.map(x=>({lista:out, item:x})));
+  return out;
+}
+function mesclarDados(base, local, remoto){
+  const fora=[];
+  const out=mesclarObj(base, local, remoto, fora);
+  /* números repetidos (o mesmo número usado nos dois aparelhos): o meu item novo ganha número novo */
+  const listas=o=>Object.keys(o||{}).filter(k=>_listaComId(o[k]));
+  const idsB=new Set(), idsR=new Set();
+  listas(base).forEach(k=>base[k].forEach(x=>idsB.add(String(x.id))));
+  listas(remoto).forEach(k=>remoto[k].forEach(x=>idsR.add(String(x.id))));
+  const meusNovos=new Set(); /* objetos que só existem no meu aparelho */
+  listas(local).forEach(k=>local[k].forEach(x=>{ if(!idsB.has(String(x.id))) meusNovos.add(x); }));
+  const trocar=[];
+  fora.forEach(f=>{ const c=JSON.parse(JSON.stringify(f.item)); f.lista.push(c); meusNovos.add(c); trocar.push(c); });
+  Object.keys(out).forEach(k=>{ if(Array.isArray(out[k])) out[k].forEach(x=>{ if(meusNovos.has(x) && !trocar.includes(x) && idsR.has(String(x.id))) trocar.push(x); }); });
+  if(trocar.length){
+    let prox=Math.max(Number(out.prox)||1000, ...[...idsB,...idsR].map(Number).filter(isFinite), ...[...meusNovos].map(x=>Number(x.id)).filter(isFinite))+1;
+    const trocaCli={};
+    trocar.forEach(x=>{ const antigo=String(x.id); x.id=prox++; if((out.clientes||[]).includes(x)) trocaCli[antigo]=x.id; });
+    (out.posts||[]).forEach(p=>{ if(meusNovos.has(p) && trocaCli[String(p.clienteId)]!==undefined) p.clienteId=trocaCli[String(p.clienteId)]; });
+    out.prox=prox;
+  }
+  return out;
+}
 async function salvarAgora(){
   salvando = true;
   try{ dados.fuso = Intl.DateTimeFormat().resolvedOptions().timeZone || dados.fuso; }catch(e){}
+  let juntou = false;
+  try{
+    if(baseSync && ultimaAtualizacao){
+      const { data:rem, error:e1 } = await sb.from('organizador').select('atualizado').eq('user_id', idDados()).maybeSingle();
+      if(!e1 && rem && rem.atualizado && Date.parse(rem.atualizado) > Date.parse(ultimaAtualizacao)){
+        const { data:remC, error:e2 } = await sb.from('organizador').select('conteudo,atualizado').eq('user_id', idDados()).maybeSingle();
+        if(!e2 && remC && remC.conteudo){ dados = mesclarDados(JSON.parse(baseSync), dados, migrar(remC.conteudo)); juntou = true; }
+      }
+    }
+  }catch(e){ console.warn('mescla', e); }
   const agora = new Date().toISOString();
   const { error } = contaEmpresaId
     ? await sb.from('organizador').update({ conteudo:dados, atualizado:agora }).eq('user_id', contaEmpresaId)
@@ -1690,18 +1758,21 @@ async function salvarAgora(){
   salvando = false;
   if(error){ setSync('erro'); setTimeout(salvarAgora, 5000); return; }
   ultimaAtualizacao = agora;
+  try{ baseSync = JSON.stringify(dados); }catch(e){ baseSync = null; }
   setSync('salvo');
+  if(juntou){ try{ render(); }catch(e){} }
 }
 async function verificarRemoto(){
   if(salvando) return;
   const { data, error } = await sb.from('organizador').select('atualizado').eq('user_id', idDados()).maybeSingle();
-  if(!error && data && ultimaAtualizacao && data.atualizado > ultimaAtualizacao){
+  if(!error && data && ultimaAtualizacao && Date.parse(data.atualizado) > Date.parse(ultimaAtualizacao)){
     await carregarDados();
     render();
   }
 }
 setInterval(verificarRemoto, 20000);
 window.addEventListener('focus', verificarRemoto);
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='visible') verificarRemoto(); });
 
 function tocar(){ render(); agendarSalvar(); }
 
@@ -4698,7 +4769,7 @@ function abrirModalPost(id, dataPre){
     <div id="mFormatoAviso"></div>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:var(--t1);border:1px solid var(--t1b);border-radius:10px;padding:9px 11px;margin-top:8px;cursor:pointer"><input type="checkbox" id="mAuto" ${p&&p.autoPublicar?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 🤖 Publicar sozinho no horário (Instagram e Facebook)</label>
     <label style="display:flex;align-items:center;gap:8px;font-weight:600;background:var(--t2);border:1px solid var(--t2b);border-radius:10px;padding:9px 11px;margin-top:6px;cursor:pointer" title="Depois de publicar no feed, o robô posta a mesma arte/vídeo nos stories do Instagram"><input type="checkbox" id="mVirarStory" ${p&&p.virarStory?'checked':''} style="width:18px;height:18px;flex:none;margin:0"> 📱 Post vira story (posta também nos stories do Instagram)</label>
-    ${(()=>{ const outros=(dados.clientes||[]).filter(c=>c.igConta||c.metaPageId); if(outros.length<2) return ''; const sel=(p&&p.storyEm)||[]; return `<details ${sel.length?'open':''} style="background:var(--t2);border:1px solid var(--t2b);border-radius:10px;padding:7px 11px;margin-top:6px"><summary style="cursor:pointer;font-weight:600;font-size:.88rem">📲 Story também em outro perfil <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô repete a arte nos stories deles)</span></summary><div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px">${outros.map(c=>`<label style="display:flex;align-items:center;gap:5px;font-size:.86rem;cursor:pointer;margin:0"><input type="checkbox" class="mStoryEm" value="${c.id}" ${sel.map(String).includes(String(c.id))?'checked':''} style="width:16px;height:16px;margin:0"> ${escapar(c.nome)}</label>`).join('')}</div><div style="font-size:.74rem;color:var(--muted);margin-top:4px">Só sai se 🤖 Publicar sozinho estiver marcado e o perfil tiver Instagram ligado no 🔗 Conexões.</div></details>`; })()}
+    ${(()=>{ const outros=(dados.clientes||[]).filter(c=>c.igConta||c.metaPageId); if(outros.length<2) return ''; const sel=(p&&p.storyEm)||[]; return `<details ${sel.length?'open':''} style="background:var(--t2);border:1px solid var(--t2b);border-radius:10px;padding:7px 11px;margin-top:6px"><summary style="cursor:pointer;font-weight:600;font-size:.88rem">📲 Story também em outro perfil <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô repete a arte nos stories deles)</span>${sel.length?` <span style="font-weight:600;color:var(--roxo,#7c3aed);font-size:.78rem">· ✅ ${sel.length} marcado${sel.length>1?'s':''}: ${escapar(outros.filter(c=>sel.map(String).includes(String(c.id))).map(c=>c.nome).join(', '))}</span>`:''}</summary><div style="display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px">${outros.map(c=>`<label style="display:flex;align-items:center;gap:5px;font-size:.86rem;cursor:pointer;margin:0"><input type="checkbox" class="mStoryEm" value="${c.id}" ${sel.map(String).includes(String(c.id))?'checked':''} style="width:16px;height:16px;margin:0"> ${escapar(c.nome)}</label>`).join('')}</div><div style="font-size:.74rem;color:var(--muted);margin-top:4px">Só sai se 🤖 Publicar sozinho estiver marcado e o perfil tiver Instagram ligado no 🔗 Conexões.</div></details>`; })()}
     <label style="margin-top:8px">🤝 Collab no Instagram <span style="font-weight:400;color:var(--muted);font-size:.78rem">(o robô convida sozinho — até 3 @, separados por espaço)</span></label>
     <input id="mCollabIG" value="${p&&p.collabIG?escapar(p.collabIG.map(u=>'@'+u).join(' ')):''}" placeholder="ex.: @perfil1 @perfil2 — deixe vazio se não for collab">
     <label>📝 Observações <span style="font-weight:400;color:var(--muted);font-size:.78rem">(só pra você — não vai na legenda)</span></label>
@@ -4722,6 +4793,7 @@ function abrirModalPost(id, dataPre){
       <button class="btn" onclick="salvarPost(${p?p.id:0})">Salvar</button>
     </div>`);
   legendasTemp = p && p.legendas ? JSON.parse(JSON.stringify(p.legendas)) : {};
+  midiaSessao++;
   midiasTemp = p && Array.isArray(p.midias) ? JSON.parse(JSON.stringify(p.midias)) : (p && p.midiaUrl ? [{url:p.midiaUrl,tipo:p.midiaTipo||'imagem'}] : []);
   desenharMidias();
   atualizarContadores();
@@ -4773,6 +4845,7 @@ function duplicarPost(id){
   abrirModalPost(c.id);
 }
 function salvarPost(id){
+  if(midiasSubindo.size){ const st=document.getElementById('mMidiaStatus'); if(st) st.innerHTML='⏳ <b>Espera a foto/vídeo terminar de subir</b> e depois toca em Salvar de novo 💜'; if(typeof alertaSuave==='function') alertaSuave('⏳ Ainda subindo a mídia… espera o ✅ Pronto e salva de novo 💜'); return; }
   const titulo = document.getElementById('mTitulo').value.trim();
   if(!titulo){ alertaCampo('mTitulo'); return; }
   const redes = [...document.querySelectorAll('.chk-rede:checked')].map(c=>c.value);
@@ -6612,6 +6685,7 @@ const META_ESCOPOS = 'pages_show_list,pages_manage_posts,pages_read_engagement,i
 let conexaoMeta = null;          // linha de conexoes_meta do usuário
 let publicacoesMapa = {};        // "postId|rede" -> {status, resultado}
 let midiasTemp = [];
+let midiaSessao = 0; const midiasSubindo = new Set(); /* arquivos ainda subindo (evita o mesmo vídeo 2x) */
 
 function nomeFuso(){
   const tz = dados.fuso || 'America/Sao_Paulo';
@@ -7264,10 +7338,20 @@ async function comprimirVideo(f, st){
   finally{ try{ v.pause(); }catch(e){} v.remove(); URL.revokeObjectURL(url); }
 }
 async function enviarMidias(input){
-  const arquivos = [...(input.files||[])]; if(!arquivos.length) return;
+  const todos = [...(input.files||[])]; if(!todos.length) return;
+  const chave = f => (f.name||'')+'|'+(f.size||0)+'|'+(f.lastModified||0);
+  const st0 = document.getElementById('mMidiaStatus');
+  const arquivos = todos.filter(f => !midiasSubindo.has(chave(f)) && !midiasTemp.some(m => m.chave===chave(f)));
+  if(!arquivos.length){ if(st0) st0.innerHTML = midiasSubindo.size ? '⏳ Esse arquivo <b>ainda está subindo</b> — não precisa mandar de novo, é só esperar o ✅ 💜' : '✅ Esse arquivo já está no post (não coloquei repetido) 💜'; try{ input.value=''; }catch(e){} return; }
+  arquivos.forEach(f => midiasSubindo.add(chave(f)));
+  try{ return await enviarMidiasDe(input, arquivos, midiaSessao, chave); }
+  finally{ arquivos.forEach(f => midiasSubindo.delete(chave(f))); }
+}
+async function enviarMidiasDe(input, arquivos, sessao, chave){
   const st = document.getElementById('mMidiaStatus');
   let okUp = 0; const antes = midiasTemp.length;
   for(let [i,f] of arquivos.entries()){
+    const ch = chave(f);
     f = await paraJpeg(f);
     if((f.type||'').startsWith('video') && f.size > LIMITE_MIDIA) f = await comprimirVideo(f, st);
     if(f.size > LIMITE_MIDIA){ if(st) st.innerHTML='⚠️ "'+f.name+'" ficou grande demais pra subir ('+Math.round(f.size/1048576)+' MB, máx. 48 MB).<br>Dica: no Edits/CapCut, exporte em <b>1080p</b> (não 4K) ou corte um pedacinho. 💜'; continue; }
@@ -7280,11 +7364,13 @@ async function enviarMidias(input){
     if(ph) ph.remove();
     if(error){ if(st) st.textContent='⚠️ Não consegui enviar: '+(/exceeded|maximum|size/i.test(error.message)?'o arquivo é grande demais (máx. 48 MB). Exporte em 1080p e tente de novo 💜':error.message); continue; }
     const { data } = sb.storage.from('midias').getPublicUrl(caminho);
-    midiasTemp.push({ url:data.publicUrl, tipo: (f.type||'').startsWith('video')?'video':'imagem', nome:f.name });
+    if(sessao!==midiaSessao) continue; /* o post foi fechado/trocado: não joga essa mídia em outro post */
+    if(midiasTemp.some(m=>m.url===data.publicUrl || m.chave===ch)) continue;
+    midiasTemp.push({ url:data.publicUrl, tipo: (f.type||'').startsWith('video')?'video':'imagem', nome:f.name, chave:ch });
     okUp++;
     desenharMidias();
   }
-  if(st){
+  if(st && sessao===midiaSessao){
     if(okUp===arquivos.length && midiasTemp.length>antes) st.innerHTML = '✅ Pronto! Agora toque em <b>Salvar</b> lá embaixo 💜';
     else if(okUp>0 && midiasTemp.length>antes) st.innerHTML = '⚠️ Entraram '+okUp+' de '+arquivos.length+' arquivos. Confira acima e mande de novo o que faltou. 💜';
     else if(!/⚠️/.test(st.textContent)) st.innerHTML = '⚠️ O arquivo não entrou no post. Toque pra escolher de novo. 💜';
