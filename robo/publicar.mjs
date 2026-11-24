@@ -521,7 +521,14 @@ async function publicarInstagram(p, pagina) {
     const params = m.tipo === 'video'
       ? { media_type: 'REELS', video_url: m.url, caption, share_to_feed: 'true', access_token: tk }
       : { image_url: m.url, caption, access_token: tk };
-    creation = (await criarComCollab(params)).id;
+    // 🧪 reel de teste: o Instagram mostra primeiro pra quem não segue (se recusar, publica normal)
+    if (m.tipo === 'video' && (p.reelTeste === 'auto' || p.reelTeste === 'manual')) {
+      try {
+        creation = (await criarComCollab({ ...params, trial_params: JSON.stringify({ graduation_strategy: p.reelTeste === 'auto' ? 'SS_PERFORMANCE' : 'MANUAL' }) })).id;
+        log('   🧪 reel de teste (primeiro pra quem não segue)');
+      } catch (e) { log('   ⚠️ reel de teste recusado (' + e.message + ') — publicando normal'); creation = null; }
+    }
+    if (!creation) creation = (await criarComCollab(params)).id;
     await esperarContainer(creation, tk, 300, B);
   } else {
     const filhos = [];
