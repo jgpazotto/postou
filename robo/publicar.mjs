@@ -471,19 +471,27 @@ async function publicarInstagram(p, pagina) {
   // 📱 Story: cada foto/vídeo vira um story (a API não põe enquete, música, link nem figurinha)
   if (p.tipo === 'story') {
     let ultimo = null;
+    // 🏷️ "marcar @ no story": a pessoa recebe o aviso e pode repostar (se o Instagram recusar a marcação, posta sem)
+    const marca = Array.isArray(p.storyMarcar) ? p.storyMarcar.map(u => String(u).toLowerCase()).filter(u => /^[a-z0-9._]{1,30}$/.test(u)).slice(0, 5) : [];
+    let comMarca = marca.length > 0;
+    const criarStory = async (params) => {
+      if (!comMarca) return graph('POST', ig + '/media', params);
+      try { return await graph('POST', ig + '/media', { ...params, user_tags: JSON.stringify(marca.map(username => ({ username }))) }); }
+      catch (e) { if (/Only photo or video/i.test(e.message)) throw e; comMarca = false; log('   ⚠️ marcação no story recusada (' + e.message + ') — posto sem marcar'); return graph('POST', ig + '/media', params); }
+    };
     for (const [k, m] of midias.slice(0, 10).entries()) {
       const params = m.tipo === 'video'
         ? { media_type: 'STORIES', video_url: m.url, access_token: tk }
         : { media_type: 'STORIES', image_url: m.url, access_token: tk };
       let id;
-      try { id = (await graph('POST', ig + '/media', params)).id; }
+      try { id = (await criarStory(params)).id; }
       catch (e) {
         // "Only photo or video can be accepted as media type" = o Instagram não conseguiu baixar a mídia naquele momento
         if (!/Only photo or video/i.test(e.message)) throw e;
         log('   ↻ o Instagram não conseguiu baixar a mídia do story — tento de novo em 10s');
         await sleep(10000);
         const alt = (k === 0 && Array.isArray(p._alt) && p._alt[0] && p._alt[0].url !== m.url) ? p._alt[0] : null;
-        try { id = (await graph('POST', ig + '/media', params)).id; }
+        try { id = (await criarStory(params)).id; }
         catch (e2) {
           if (!alt || !/Only photo or video/i.test(e2.message)) throw e2;
           log('   ↻ usando a foto original do post no story');
