@@ -4645,6 +4645,7 @@ function orgDesenhar(){
     ${[['todas','Todas ('+orgItens.length+')'],['estrelas','⭐ Favoritas ('+est.length+')'],['apagar','🗑️ Pra apagar ('+ruins.length+')']].map(([k,t])=>`<button class="${orgFiltro===k?'btn':'btn-claro'}" style="padding:6px 12px;font-size:.82rem" onclick="orgFiltro='${k}';orgDesenhar()">${t}</button>`).join('')}
     <span style="flex:1"></span>
     <button class="btn" style="padding:6px 12px;font-size:.82rem" onclick="orgVirarPost()" ${est.length?'':'disabled'}>🚀 Virar post (${Math.min(est.length,10)})</button>
+    <button class="btn-claro" style="padding:6px 12px;font-size:.82rem" onclick="orgSalvarPasta()" title="Copia tudo organizado por dia numa pasta do computador — os originais ficam">📁 Salvar organizado numa pasta</button>
     <button class="btn-claro" style="padding:6px 12px;font-size:.82rem" onclick="orgListaApagar()">📋 Lista do que apagar</button>
     <button class="btn-claro" style="padding:6px 12px;font-size:.82rem" onclick="orgItens=[];orgDesenhar();document.getElementById('orgStatus').textContent=''">↺ Recomeçar</button>
   </div>`;
@@ -4707,12 +4708,51 @@ function orgListaApagar(){
     <textarea readonly style="width:100%;min-height:220px;font-size:.78rem">${escapar(txt||'Nenhuma foto ruim encontrada! 🎉')}</textarea>
     <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="navigator.clipboard&&navigator.clipboard.writeText(document.querySelector('#conteudoModal textarea').value);this.textContent='✅ Copiado'">📋 Copiar</button><button class="btn-claro" onclick="fecharModal()">Fechar</button></div>`);
 }
+
+/* 📁 Salvar organizado numa pasta (Chrome/Edge no computador): copia por dia, ⭐ Favoritas e 🗑️ talvez apagar — os originais ficam onde estão */
+async function orgSalvarPasta(){
+  if(!orgItens.length) return;
+  if(!window.showDirectoryPicker){
+    abrirModal(`<h3>📁 Salvar organizado numa pasta</h3><p style="font-size:.9rem;line-height:1.5">Esse botão funciona no <b>Chrome ou Edge do computador</b> (o celular e o Safari não deixam um site criar pastas). 💜 Abra o Postou no computador e tente de novo.</p><div class="rodape"><button class="btn" onclick="fecharModal()">Ok</button></div>`);
+    return;
+  }
+  let raiz;
+  try{ raiz = await window.showDirectoryPicker({ mode: 'readwrite' }); }catch(e){ return; }
+  const st = document.getElementById('orgStatus');
+  const DIAS = ['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+  const dois = n=>String(n).padStart(2,'0');
+  const limpar = s=>String(s||'arquivo').replace(/[\\/:*?"<>|]/g,'-');
+  const existe = async (dir, nome)=>{ try{ await dir.getFileHandle(nome); return true; }catch(e){ return false; } };
+  let ok = 0, falha = 0, i = 0;
+  try{
+    const base = await raiz.getDirectoryHandle('Organizado pelo Postou', { create: true });
+    for(const it of orgItens){
+      i++; if(st) st.textContent = `⏳ Salvando ${i} de ${orgItens.length}… (os originais ficam onde estão)`;
+      try{
+        const d = it.quando || new Date(it.f.lastModified||Date.now());
+        let dir = await base.getDirectoryHandle(`${d.getFullYear()}-${dois(d.getMonth()+1)}-${dois(d.getDate())} (${DIAS[d.getDay()]})`, { create: true });
+        if(it.estrela) dir = await dir.getDirectoryHandle('⭐ Favoritas', { create: true });
+        else if(['parecida','escura','tremida'].includes(it.marca)) dir = await dir.getDirectoryHandle('🗑️ talvez apagar', { create: true });
+        const nomeBase = `${dois(d.getHours())}h${dois(d.getMinutes())} - ${limpar(it.f.name)}`;
+        let nome = nomeBase, n = 2;
+        while(await existe(dir, nome)){ const p = nomeBase.lastIndexOf('.'); nome = p>0 ? `${nomeBase.slice(0,p)} (${n})${nomeBase.slice(p)}` : `${nomeBase} (${n})`; n++; if(n>50) break; }
+        if(n>50) { falha++; continue; }
+        const fh = await dir.getFileHandle(nome, { create: true });
+        const w = await fh.createWritable();
+        await w.write(it.f); await w.close();
+        ok++;
+      }catch(e){ falha++; }
+    }
+  }catch(e){ if(st) st.textContent = '🙈 Não consegui criar a pasta: ' + (e.message||e); return; }
+  if(st) st.innerHTML = `✅ Pronto! ${ok} arquivo(s) copiados pra pasta <b>"Organizado pelo Postou"</b> (uma pasta por dia, com ⭐ Favoritas e 🗑️ talvez apagar dentro). Os originais ficaram onde estavam.` + (falha ? ` ⚠️ ${falha} não deu pra copiar (podem estar só no iCloud — baixe e tente de novo).` : '');
+}
 function orgVirarPost(){
   const sel = orgItens.filter(x=>x.estrela).slice(0, 10);
   if(!sel.length) return;
-  const temVideo = sel.some(x=>x.video);
+  /* tipo certo: 1 foto = foto, 1 vídeo = reel, várias = carrossel */
+  const tipo = sel.length > 1 ? 'carrossel' : (sel[0].video ? 'reel' : 'foto');
   fecharOrganizador();
-  postarJa(temVideo && sel.length===1 ? 'reel' : 'post');
+  postarJa(tipo);
   setTimeout(()=>{ try{ enviarMidias({ files: sel.map(x=>x.f), value: '' }); }catch(e){} }, 900);
 }
 function abrirDesafio21(){
@@ -6588,7 +6628,7 @@ const JOY_ACOES = {
   status:()=>trocarAba('quadro'), vendas:()=>trocarAba('vendas'), ajuda:()=>trocarAba('ajuda'), equipe:()=>trocarAba('equipe'),
   motor:()=>abrirMotor(), desafio:()=>abrirDesafio21(), organizador:()=>abrirOrganizador(), nicho:()=>{trocarAba('ideias'); abrirSugestoes();}, tendencias:()=>{trocarAba('ideias'); abrirTendencias();},
   respostas:()=>abrirRespostas(), naosegue:()=>abrirNaoSegue(), indicar:()=>abrirIndicar(), conta:()=>abrirConfig(), tour:()=>iniciarTour(),
-  post:()=>postarJa('post'), reels:()=>postarJa('reel')
+  post:()=>postarJa('foto'), reels:()=>postarJa('reel')
 };
 const JOY_MAPA = [
   {k:['motor','motor do postou','1 ideia vira 3','uma ideia vira','roteiro','carrossel pronto','montar post'], ir:'motor', bt:'🚀 Abrir o Motor', r:'🚀 O Motor fica na aba 🏠 Hoje, no quadro "➕ Postar agora" (botão rosa "Motor: 1 ideia vira 3 posts"). Você escreve a ideia, escolhe o perfil, pode subir SUAS fotos (vira carrossel) ou SEU vídeo (vira Reels) e ele monta os posts com legenda e já agenda pra você aprovar.'},
