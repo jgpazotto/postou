@@ -270,32 +270,74 @@ async function publicarYouTube(p, conta) {
 // vai sozinho pros stories dos perfis escolhidos em cliente.espelhoPara (desde cliente.espelhoDesde).
 function contaDoPerfil(cli, con, igs) {
   const pg = (con.paginas || []).find(p => p.id === cli.metaPageId && p.ig_id);
-  if (pg) return { ig_id: pg.ig_id, token: pg.token, base: '' };
+  if (pg) return { ig_id: pg.ig_id, token: pg.token, base: '', username: pg.ig_user || null };
   const a = cli.igConta ? igs.find(x => x.api !== 'threads' && x.api !== 'youtube' && x.ig_id === cli.igConta) : null;
-  if (a) return { ig_id: a.ig_id, token: a.token, base: a.api === 'ig' ? GRAPH_IG : '' };
+  if (a) return { ig_id: a.ig_id, token: a.token, base: a.api === 'ig' ? GRAPH_IG : '', username: a.username || null };
   return null;
 }
+// 🔍 "impressão digital" da mídia (duração + desenho de um quadro): pega o MESMO vídeo/foto repostado em outro perfil
+async function impressaoMidia(url, tipo) {
+  try {
+    const pasta = mkdtempSync(join(tmpdir(), 'fp-')), ent = join(pasta, 'm');
+    const r = await fetch(url); if (!r.ok) return null;
+    writeFileSync(ent, Buffer.from(await r.arrayBuffer()));
+    try { execFileSync('ffprobe', ['-version'], { stdio: 'ignore' }); }
+    catch { execFileSync('bash', ['-c', 'sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg'], { stdio: 'ignore' }); }
+    let dur = 0;
+    if (tipo === 'video') dur = parseFloat(execFileSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', ent]).toString()) || 0;
+    const quadro = execFileSync('ffmpeg', ['-v', 'error', ...(tipo === 'video' ? ['-ss', String(Math.min(1, dur / 2 || 0))] : []), '-i', ent, '-frames:v', '1', '-vf', 'scale=9:8,format=gray', '-f', 'rawvideo', '-'], { maxBuffer: 1e6 });
+    if (quadro.length < 72) return null;
+    let h = ''; for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) h += quadro[y * 9 + x] > quadro[y * 9 + x + 1] ? '1' : '0';
+    return { dur: Math.round(dur * 10) / 10, h };
+  } catch (e) { log('   (sem impressão da mídia:', e.message + ')'); return null; }
+}
+function mesmaMidia(a, b) {
+  if (!a || !b || !a.h || !b.h || a.h.length !== b.h.length) return false;
+  let d = 0; for (let i = 0; i < a.h.length; i++) if (a.h[i] !== b.h[i]) d++;
+  if (d > 12) return false;
+  if ((a.dur || 0) > 0 || (b.dur || 0) > 0) return Math.abs((a.dur || 0) - (b.dur || 0)) <= 1.2;
+  return true;
+}
+// 🏷️ marcou um perfil nosso na legenda (ex.: @pugsaventuras) → vai pro story dele. Só vale do deploy em diante.
+const MARCA_DESDE = Date.parse('2026-11-25T02:30:00Z');
 async function espelhar(row, dados, con, igs, feito, doRobo) {
   let n = 0;
   const storiesDoAlvo = new Map(); // horários dos stories que o próprio perfil-alvo já postou
+  const impressoesDoAlvo = new Map(); // rede → impressões do que já foi espelhado nas últimas 36h
   const clientes = dados.clientes || [];
   for (const cli of clientes) {
-    const alvos = (Array.isArray(cli.espelhoPara) ? cli.espelhoPara : []).map(String).filter(x => x !== String(cli.id));
-    if (!alvos.length || !cli.espelhoDesde) continue;
+    const alvos = (cli.espelhoDesde && Array.isArray(cli.espelhoPara) ? cli.espelhoPara : []).map(String).filter(x => x !== String(cli.id));
     const fonte = contaDoPerfil(cli, con, igs);
     if (!fonte) continue;
+    const marcaveis = clientes.filter(c => String(c.id) !== String(cli.id) && c.recebeMarcacao !== false && !c.arquivado)
+      .map(c => ({ c, conta: contaDoPerfil(c, con, igs) })).filter(x => x.conta && x.conta.username && x.conta.ig_id !== fonte.ig_id);
+    if (!alvos.length && !marcaveis.length) continue;
     const B = fonte.base || GRAPH;
-    const desde = Math.max(new Date(cli.espelhoDesde).getTime() || 0, Date.now() - 24 * 36e5);
+    const desdeFixo = alvos.length ? Math.max(new Date(cli.espelhoDesde).getTime() || 0, Date.now() - 24 * 36e5) : Infinity;
+    const desdeMarca = marcaveis.length ? Math.max(MARCA_DESDE, Date.now() - 24 * 36e5) : Infinity;
+    const desde = Math.min(desdeFixo, desdeMarca);
+    const alvosDe = (it) => {
+      const t = new Date(it.timestamp).getTime(), s = new Set();
+      if (t >= desdeFixo) alvos.forEach(a => s.add(a));
+      if (!it.deStory && t >= desdeMarca) {
+        const cap = String(it.caption || '').toLowerCase();
+        for (const m of marcaveis) {
+          const u = m.conta.username.toLowerCase().replace(/[.]/g, '\\.');
+          if (new RegExp('@' + u + '(?![a-z0-9._])').test(cap)) { if (!s.has(String(m.c.id))) log(`   🏷️ ${cli.nome} marcou @${m.conta.username} na legenda → vai pro story de ${m.c.nome}`); s.add(String(m.c.id)); }
+        }
+      }
+      return [...s];
+    };
     let itens = [];
     try {
       const m = await graph('GET', B + '/' + fonte.ig_id + '/media', { fields: 'id,media_type,media_url,thumbnail_url,timestamp,caption', limit: 6, access_token: fonte.token });
       itens = itens.concat((m.data || []).map(x => ({ ...x, deStory: false })));
     } catch (e) { log('⚠️ espelho: não li os posts de', cli.nome, e.message); }
-    try {
+    if (alvos.length) try {
       const st = await graph('GET', B + '/' + fonte.ig_id + '/stories', { fields: 'id,media_type,media_url,timestamp', access_token: fonte.token });
       itens = itens.concat((st.data || []).map(x => ({ ...x, deStory: true })));
     } catch (e) { log('⚠️ espelho: não li os stories de', cli.nome, '—', e.message); }
-    log(`🪞 espelho: ${cli.nome} — ${itens.filter(x => !x.deStory).length} post(s) e ${itens.filter(x => x.deStory).length} story(s) lidos`);
+    if (alvos.length) log(`🪞 espelho: ${cli.nome} — ${itens.filter(x => !x.deStory).length} post(s) e ${itens.filter(x => x.deStory).length} story(s) lidos`);
     for (const x of itens.filter(x => x.deStory)) {
       const t = new Date(x.timestamp).getTime();
       log(`   🔎 story ${x.id} de ${x.timestamp} · tipo ${x.media_type} · ${x.media_url ? 'tem link' : 'SEM link (música/figurinha?)'} · ${t >= desde ? 'dentro do prazo' : 'antes do espelho ligar'} · ${doRobo.has(String(x.id)) ? 'foi o robô que postou' : 'postado pela pessoa'}`);
@@ -303,6 +345,8 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
     itens = itens.filter(x => x.id && x.timestamp && new Date(x.timestamp).getTime() >= desde && !doRobo.has(String(x.id)))
       .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     for (const it of itens) {
+      const alvosDoItem = alvosDe(it);
+      if (!alvosDoItem.length) continue;
       // 🚫 perfil pessoal não leva propaganda: post que fala do Postou não é espelhado
       if (/postou/i.test(it.caption || '')) { log(`   ⏭ espelho: post de ${cli.nome} fala do Postou — não vai pro story dos outros`); continue; }
       let url = it.media_url, tipo = it.media_type === 'VIDEO' ? 'video' : 'imagem';
@@ -314,8 +358,8 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
       }
       if (!url) { log(`   ⏭ espelho: ${it.deStory ? 'story' : 'post'} ${it.id} de ${cli.nome} veio sem link da mídia (o Instagram não entrega quando tem música/figurinha) — fica manual`); continue; }
       // 🎬 vídeo do Instagram às vezes volta recusado (erro 2207076) → regrava em MP4 H.264/AAC antes, igual ao Reels do Postou
-      let mp4Pronto = false;
-      for (const cid of alvos) {
+      let mp4Pronto = false, impressao;
+      for (const cid of alvosDoItem) {
         const rede = 'espelho:' + cid;
         if (feito.has(`${row.user_id}|${it.id}|${rede}`)) continue;
         const alvoCli = clientes.find(c => String(c.id) === cid);
@@ -340,6 +384,23 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
             continue;
           }
         }
+        // 🔁 o MESMO vídeo/foto já foi pro story desse perfil (ex.: a pessoa repostou o mesmo story em outro perfil nosso) → não repete
+        if (!SECO) {
+          if (impressao === undefined) impressao = await impressaoMidia(url, tipo);
+          if (impressao) {
+            if (!impressoesDoAlvo.has(rede)) {
+              const q = await sb(`publicacoes?user_id=eq.${row.user_id}&rede=eq.${encodeURIComponent(rede)}&status=eq.ok&criado_em=gte.${new Date(Date.now() - 36 * 36e5).toISOString()}&select=resultado`);
+              impressoesDoAlvo.set(rede, (Array.isArray(q.body) ? q.body : []).map(x => x.resultado && x.resultado.fp).filter(Boolean));
+            }
+            if (impressoesDoAlvo.get(rede).some(f => mesmaMidia(f, impressao))) {
+              log(`   ⏭ espelho: esse ${tipo} de ${cli.nome} já está no story de ${alvoCli.nome} (repost) — não repito`);
+              await sb('publicacoes', { method: 'POST', headers: { Prefer: 'return=minimal' },
+                body: JSON.stringify({ user_id: row.user_id, post_id: String(it.id), rede, status: 'pulado', resultado: { repetido: true, de: cli.nome, fp: impressao } }) });
+              feito.add(`${row.user_id}|${it.id}|${rede}`);
+              continue;
+            }
+          }
+        }
         if (n >= 6) return n; // no máximo 6 por rodada
         log(`🪞 espelho: ${cli.nome} → story de ${alvoCli.nome} (${it.deStory ? 'story' : it.media_type})`);
         if (SECO) { n++; continue; }
@@ -356,6 +417,7 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
           }
           resultado = await publicarInstagram({ tipo: 'story', midias: [{ url, tipo }] }, alvo);
           resultado.de = cli.nome;
+          if (impressao) { resultado.fp = impressao; if (impressoesDoAlvo.has(rede)) impressoesDoAlvo.get(rede).push(impressao); }
           log('   ✅ espelhado', resultado.id); if (resultado.id) doRobo.add(String(resultado.id));
         } catch (e) { status = 'erro'; resultado = { erro: e.message, de: cli.nome }; log('   ❌', e.message); }
         await sb(`publicacoes?user_id=eq.${row.user_id}&post_id=eq.${it.id}&rede=eq.${encodeURIComponent(rede)}`, {
