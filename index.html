@@ -4641,6 +4641,7 @@ function orgDesenhar(){
   const lista = document.getElementById('orgLista'), barra = document.getElementById('orgBarra'); if(!lista) return;
   const ruins = orgItens.filter(x=>['parecida','escura','tremida'].includes(x.marca)), est = orgItens.filter(x=>x.estrela);
   barra.innerHTML = !orgItens.length ? '' : `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;position:sticky;top:-14px;background:#faf7ff;padding:8px 0;z-index:2">
+    ${(()=>{ const nv = orgItens.filter(x=>x.nuvem).length; return nv ? `<div style="flex-basis:100%;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:10px 12px;font-size:.85rem;color:#1e3a8a;margin-bottom:6px">☁️ <b>${nv} foto(s) estão só no iCloud</b> — o Mac guardou na nuvem pra economizar espaço, então o navegador não consegue abrir. <b>Pra resolver:</b> no Finder, botão direito na pasta → <b>Baixar agora</b>, espere sumir a nuvenzinha ao lado dos arquivos e toque em <b>↺ Recomeçar</b>. (Ou escolha as fotos direto do app Fotos.)</div>` : ''; })()}
     ${[['todas','Todas ('+orgItens.length+')'],['estrelas','⭐ Favoritas ('+est.length+')'],['apagar','🗑️ Pra apagar ('+ruins.length+')']].map(([k,t])=>`<button class="${orgFiltro===k?'btn':'btn-claro'}" style="padding:6px 12px;font-size:.82rem" onclick="orgFiltro='${k}';orgDesenhar()">${t}</button>`).join('')}
     <span style="flex:1"></span>
     <button class="btn" style="padding:6px 12px;font-size:.82rem" onclick="orgVirarPost()" ${est.length?'':'disabled'}>🚀 Virar post (${Math.min(est.length,10)})</button>
@@ -4660,7 +4661,7 @@ function orgDesenhar(){
     const etq = {nuvem:'☁️ só no iCloud — baixe antes', semver:'🙈 não abriu aqui', parecida:'🔁 parecida', escura:'🌑 escura', tremida:'〰️ tremida', melhor:'👍 melhor do grupo'}[it.marca] || '';
     const cor = it.marca==='melhor' ? '#16a34a' : it.marca ? '#b45309' : '';
     html += `<div style="display:inline-block;vertical-align:top;width:120px;margin:0 6px 8px 0;position:relative">
-      <img src="${it.thumb}" alt="" style="width:120px;height:150px;object-fit:cover;border-radius:10px;border:3px solid ${it.estrela?'#f59e0b':'transparent'};cursor:pointer;${['parecida','escura','tremida'].includes(it.marca)?'opacity:.55;':''}" onclick="orgEstrela(${it.id})">
+      <img src="${it.thumb}" alt="" style="width:120px;height:150px;object-fit:cover;border-radius:10px;border:3px solid ${it.estrela?'#f59e0b':'transparent'};cursor:zoom-in;${['parecida','escura','tremida'].includes(it.marca)?'opacity:.55;':''}" onclick="orgVer(${it.id})" title="Ver grande">
       ${it.video?`<span style="position:absolute;top:6px;left:6px;background:#0008;color:#fff;font-size:.7rem;border-radius:6px;padding:1px 5px">🎬 ${Math.round(it.dur)}s</span>`:''}
       <button onclick="orgEstrela(${it.id})" style="position:absolute;top:4px;right:4px;border:0;border-radius:50%;width:30px;height:30px;background:#fff;cursor:pointer;font-size:1rem;box-shadow:0 1px 4px #0003">${it.estrela?'⭐':'☆'}</button>
       ${etq?`<div style="font-size:.7rem;color:${cor};font-weight:700">${etq}</div>`:''}
@@ -4668,6 +4669,35 @@ function orgDesenhar(){
   });
   lista.innerHTML = html + '</div>';
 }
+/* 🔍 ver a foto/vídeo grande (antes só marcava estrela) */
+let _orgVerUrl = null;
+async function orgVer(id){
+  const lista = orgItens.filter(x=> orgFiltro==='estrelas' ? x.estrela : orgFiltro==='apagar' ? ['parecida','escura','tremida'].includes(x.marca) : true);
+  const i = lista.findIndex(x=>x.id===id); const it = lista[i]; if(!it) return;
+  let tela = document.getElementById('orgVerTela');
+  if(!tela){ tela = document.createElement('div'); tela.id = 'orgVerTela'; tela.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(10,8,20,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:16px'; document.body.appendChild(tela);
+    document.addEventListener('keydown', e=>{ const t=document.getElementById('orgVerTela'); if(!t || t.style.display==='none') return; if(e.key==='Escape') orgVerFechar(); if(e.key==='ArrowRight' && t._prox) orgVer(t._prox); if(e.key==='ArrowLeft' && t._ant) orgVer(t._ant); }); }
+  tela.style.display = 'flex'; tela._prox = lista[i+1] ? lista[i+1].id : null; tela._ant = lista[i-1] ? lista[i-1].id : null;
+  if(_orgVerUrl){ URL.revokeObjectURL(_orgVerUrl); _orgVerUrl = null; }
+  const bt = 'border:0;border-radius:12px;padding:10px 16px;font-weight:700;cursor:pointer;font-size:.9rem';
+  tela.innerHTML = `<div id="orgVerMidia" style="max-width:92vw;max-height:72vh;display:flex;align-items:center;justify-content:center;color:#fff">⏳ abrindo…</div>
+    <div style="color:#ddd;font-size:.8rem">${escapar(it.f.name)} · ${it.quando ? it.quando.toLocaleString('pt-BR') : ''} · ${i+1} de ${lista.length}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center">
+      <button style="${bt};background:#fff;color:#333" ${tela._ant?'':'disabled'} onclick="orgVer(${tela._ant})">◀</button>
+      <button style="${bt};background:${it.estrela?'#f59e0b':'#fff'};color:#333" onclick="orgEstrela(${it.id});orgVer(${it.id})">${it.estrela?'⭐ Favorita':'☆ Marcar favorita'}</button>
+      <button style="${bt};background:#fff;color:#333" ${tela._prox?'':'disabled'} onclick="orgVer(${tela._prox})">▶</button>
+      <button style="${bt};background:#6d28d9;color:#fff" onclick="orgVerFechar()">✕ Fechar</button>
+    </div>`;
+  const caixa = document.getElementById('orgVerMidia');
+  if(it.falhou){ caixa.innerHTML = it.nuvem ? '☁️ Essa foto está só no iCloud — baixe a pasta no Finder (botão direito → Baixar agora) e toque em Recomeçar.' : '🙈 Não consegui abrir esse arquivo aqui.'; return; }
+  try{
+    let blob = it.f;
+    if(!it.video && (ehHeic(it.f) || await pareceHeic(it.f))) blob = await heicParaJpegBlob(it.f, 0.9);
+    _orgVerUrl = URL.createObjectURL(blob);
+    caixa.innerHTML = it.video ? `<video src="${_orgVerUrl}" controls autoplay playsinline style="max-width:92vw;max-height:72vh;border-radius:12px"></video>` : `<img src="${_orgVerUrl}" style="max-width:92vw;max-height:72vh;border-radius:12px;object-fit:contain">`;
+  }catch(e){ caixa.textContent = '🙈 Não consegui abrir: ' + (e.message||e); }
+}
+function orgVerFechar(){ const t=document.getElementById('orgVerTela'); if(t){ t.style.display='none'; t.innerHTML=''; } if(_orgVerUrl){ URL.revokeObjectURL(_orgVerUrl); _orgVerUrl=null; } }
 function orgEstrela(id){ const it = orgItens.find(x=>x.id===id); if(it){ it.estrela = !it.estrela; orgDesenhar(); } }
 function orgListaApagar(){
   const ruins = orgItens.filter(x=>['parecida','escura','tremida'].includes(x.marca));
