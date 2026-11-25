@@ -386,6 +386,8 @@ async function espelhar(row, dados, con, igs, feito, doRobo) {
         }
         // 🔁 o MESMO vídeo/foto já foi pro story desse perfil (ex.: a pessoa repostou o mesmo story em outro perfil nosso) → não repete
         if (!SECO) {
+          const ja = await sb(`publicacoes?user_id=eq.${row.user_id}&post_id=eq.${encodeURIComponent(String(it.id))}&rede=eq.${encodeURIComponent(rede)}&select=status&limit=1`);
+          if (Array.isArray(ja.body) && ja.body.length) { feito.add(`${row.user_id}|${it.id}|${rede}`); continue; }
           if (impressao === undefined) impressao = await impressaoMidia(url, tipo);
           if (impressao) {
             if (!impressoesDoAlvo.has(rede)) {
