@@ -7048,7 +7048,7 @@ function desenharMidias(){
 
 /* ✨ Fotos → Reels com música (feito no próprio aparelho, sem custo) */
 const REEL_MUSICAS = [
-  ['alegre','😄 Alegre'],['fofinha','🧸 Fofinha'],['viagem','🌴 Viagem'],['motivacional','💪 Motivacional'],['calma','🌙 Calma'],['nenhuma','🔇 Sem música'],['minha','📁 Música do meu celular']
+  ['alegre','😄 Alegre'],['fofinha','🧸 Fofinha'],['viagem','🌴 Viagem'],['motivacional','💪 Motivacional'],['calma','🌙 Calma'],['parabens-pop','🎂 Parabéns (pop)'],['parabens-balada','🎂 Parabéns (balada)'],['nenhuma','🔇 Sem música'],['minha','📁 Música do meu celular']
 ];
 let reelMusicaArquivo = null, reelVozBlob = null;
 const REEL_CORES = ['postou','#000000','#ffffff','#ec4899','#facc15','#3b82f6','#22c55e','#f97316'];
@@ -7325,8 +7325,18 @@ function quebrarTextoReel(c, t, max){ const ps=t.split(/\s+/), ls=[]; let l=''; 
 function arredondadoReel(c,x,y,w,h,r){ c.beginPath(); c.moveTo(x+r,y); c.arcTo(x+w,y,x+w,y+h,r); c.arcTo(x+w,y+h,x,y+h,r); c.arcTo(x,y+h,x,y,r); c.arcTo(x,y,x+w,y,r); c.closePath(); }
 
 /* 🎵 músicas criadas pelo Postou (sintetizadas — sem direitos autorais) */
+/* 🎂 trilhas gravadas (arquivos do próprio Postou, instrumentais, sem direitos autorais) */
+const MUSICA_ARQ = { 'parabens-pop':'musica-parabens-pop.mp3', 'parabens-balada':'musica-parabens-balada.mp3' };
+const _musicaArqCache = {};
 async function audioDaMusica(estilo, dur){
   if(estilo==='nenhuma') return null;
+  if(MUSICA_ARQ[estilo]){
+    if(!_musicaArqCache[estilo]) _musicaArqCache[estilo] = fetch(MUSICA_ARQ[estilo]).then(r=>{ if(!r.ok) throw new Error('trilha'); return r.arrayBuffer(); });
+    let ab; try{ ab = await _musicaArqCache[estilo]; }catch(e){ delete _musicaArqCache[estilo]; return null; }
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const buf=await ctx.decodeAudioData(ab.slice(0)); ctx.close&&ctx.close();
+    return buf;
+  }
   if(estilo==='minha'){
     if(!reelMusicaArquivo) return null;
     const ctx=new (window.AudioContext||window.webkitAudioContext)();
