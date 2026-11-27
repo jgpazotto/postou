@@ -388,6 +388,7 @@
     <div class="lp-grid lp-grid6">
       <div class="lp-card"><div class="lp-ic">🤖</div><div><h3>Robô que posta sozinho</h3><p>Instagram, Facebook, Threads e YouTube Shorts no dia e hora certos.</p></div></div>
       <div class="lp-card"><div class="lp-ic">📲</div><div><h3>Stories em vários perfis</h3><p>Todo post vira story nos outros perfis — e o 🪞 Espelho repete até o que você postou direto no Insta (menos story com música do Instagram — regra deles).</p></div></div>
+      <div class="lp-card"><div class="lp-ic">🖼️</div><div><h3>Molduras do mês</h3><p>Natal, Ano Novo, aniversário e as datas do Brasil e dos EUA: 1 toque e sua foto ou vídeo ganha moldura temática — em português ou inglês.</p></div></div>
       <div class="lp-card"><div class="lp-ic">💡</div><div><h3>Ideias prontas pro seu nicho</h3><p>Legendas e hashtags pra dezenas de profissões. Chega de bloqueio criativo.</p></div></div>
       <div class="lp-card"><div class="lp-ic">📅</div><div><h3>Calendário e lembretes</h3><p>Posts, atendimentos e compromissos num calendário só, por dia, semana ou mês.</p></div></div>
       <div class="lp-card"><div class="lp-ic">💰</div><div><h3>Clientes e cobrança</h3><p>Veja quem falta pagar e lembre no WhatsApp num toque.</p></div></div>
@@ -3463,6 +3464,113 @@ async function porMarcaNasFotos(canto){
   if(st) st.innerHTML = feitas ? '✅ Marca colocada em '+feitas+' foto(s)! Toque em <b>Salvar</b> 💜' : '⚠️ Não consegui pôr a marca (ou as fotos já têm). 💜';
 }
 function tirarMarcaDasFotos(){ midiasTemp.forEach(m=>{ if(m.semMarca){ m.url=m.semMarca; delete m.semMarca; } }); desenharMidias(); alertaSuave('↩️ Fotos voltaram sem a marca.'); }
+/* 🖼️ Molduras do mês — desenhadas pelo Postou (sem imagem de fora, servem em qualquer tamanho) */
+const MOLDURAS = [
+  { id:'natal',        nome:'🎄 Natal',            meses:[11,12],  pt:'Feliz Natal',       en:'Merry Christmas' },
+  { id:'anonovo',      nome:'🥂 Ano Novo',         meses:[12,1],   pt:'Feliz Ano Novo',    en:'Happy New Year' },
+  { id:'gratidao',     nome:'🍂 Gratidão',         meses:[11],     pt:'Gratidão',          en:'Happy Thanksgiving' },
+  { id:'aniversario',  nome:'🎂 Aniversário',      meses:[1,2,3,4,5,6,7,8,9,10,11,12], pt:'Parabéns!', en:'Happy Birthday!' },
+];
+function moldurasDoMes(){ const m=new Date().getMonth()+1; const doMes=MOLDURAS.filter(x=>x.meses.includes(m) && x.meses.length<12); return { doMes, outras: MOLDURAS.filter(x=>!doMes.includes(x)) }; }
+function _rnd(seed){ let s=seed>>>0; return ()=>{ s=(s*1664525+1013904223)>>>0; return s/4294967296; }; }
+/* desenha a moldura por cima do que já está no canvas (W×H). idioma: 'pt' | 'en' | 'sem' (sem texto) */
+function desenharMoldura(c, W, H, temaId, idioma){
+  const t = MOLDURAS.find(x=>x.id===temaId); if(!t) return;
+  const u = Math.min(W,H), b = Math.round(u*0.065);           /* espessura da borda */
+  const r = _rnd(temaId.length*977 + 31);
+  const P = { natal:{a:'#b91c1c',b:'#166534',ouro:'#facc15',txt:'#fff'}, anonovo:{a:'#0f172a',b:'#1e3a8a',ouro:'#fbbf24',txt:'#fde68a'},
+              gratidao:{a:'#9a3412',b:'#b45309',ouro:'#fde68a',txt:'#fff7ed'}, aniversario:{a:'#7c3aed',b:'#ec4899',ouro:'#fde047',txt:'#fff'} }[temaId];
+  c.save();
+  /* borda com degradê */
+  const g = c.createLinearGradient(0,0,W,H); g.addColorStop(0,P.a); g.addColorStop(1,P.b);
+  c.fillStyle = g;
+  c.beginPath(); c.rect(0,0,W,H); c.rect(b,b,W-2*b,H-2*b); c.fill('evenodd');
+  /* fio dourado por dentro */
+  c.strokeStyle = P.ouro; c.lineWidth = Math.max(2, u*0.006); c.strokeRect(b, b, W-2*b, H-2*b);
+  const emoji = (ch, x, y, s, rot)=>{ c.save(); c.translate(x,y); c.rotate(rot||0); c.font = Math.round(s)+'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(ch,0,0); c.restore(); };
+  const naBorda = (n, lista, tam)=>{ /* enfeites em cima da borda, uniformes */
+    const per = 2*(W+H), passo = per/n;
+    for(let i=0;i<n;i++){
+      let d = (i+0.5)*passo, x, y;
+      if(d < W){ x=d; y=b*0.5; } else if((d-=W) < H){ x=W-b*0.5; y=d; } else if((d-=H) < W){ x=W-d; y=H-b*0.5; } else { d-=W; x=b*0.5; y=H-d; }
+      emoji(lista[i%lista.length], x, y, tam*(0.85+r()*0.3), (r()-0.5)*0.6);
+    }
+  };
+  const cantos = (lista, tam)=>{ /* buquê de enfeites nos 4 cantos */
+    [[b*1.1,b*1.1],[W-b*1.1,b*1.1],[b*1.1,H-b*1.1],[W-b*1.1,H-b*1.1]].forEach(([x,y],k)=>{
+      emoji(lista[k%lista.length], x, y, tam, (r()-0.5)*0.5);
+      emoji(lista[(k+1)%lista.length], x+(x<W/2?1:-1)*tam*0.62, y+(y<H/2?1:-1)*tam*0.18, tam*0.62, (r()-0.5)*0.7);
+      emoji(lista[(k+2)%lista.length], x+(x<W/2?1:-1)*tam*0.15, y+(y<H/2?1:-1)*tam*0.62, tam*0.55, (r()-0.5)*0.7);
+    });
+  };
+  if(temaId==='natal'){
+    /* bolinhas penduradas no topo */
+    for(let i=0;i<7;i++){ const x = W*(0.2+i*0.1), fio = u*(0.04+ (i%3)*0.03); c.strokeStyle=P.ouro; c.lineWidth=Math.max(1,u*0.003); c.beginPath(); c.moveTo(x,b); c.lineTo(x,b+fio); c.stroke();
+      c.fillStyle = ['#dc2626','#facc15','#16a34a','#f8fafc'][i%4]; c.beginPath(); c.arc(x, b+fio+u*0.018, u*0.02, 0, Math.PI*2); c.fill(); }
+    naBorda(22, ['❄️','⭐'], b*0.8); cantos(['🎄','🎁','🎅'], u*0.13);
+  } else if(temaId==='anonovo'){
+    for(let i=0;i<60;i++){ const x=r()*W, y=r()*H; if(x>b*2.2 && x<W-b*2.2 && y>b*2.2 && y<H-b*2.2) continue; c.fillStyle=['#fbbf24','#f8fafc','#fde68a','#93c5fd'][i%4]; c.beginPath(); c.arc(x,y,u*(0.004+r()*0.006),0,Math.PI*2); c.fill(); }
+    naBorda(20, ['✨','⭐'], b*0.75); cantos(['🍾','🥂','🎉'], u*0.13);
+  } else if(temaId==='gratidao'){
+    naBorda(22, ['🍂','🍁'], b*0.85); cantos(['🌻','🍁','🥧'], u*0.13);
+  } else if(temaId==='aniversario'){
+    for(let i=0;i<50;i++){ const x=r()*W, y=r()*H; if(x>b*2 && x<W-b*2 && y>b*2 && y<H-b*2) continue; c.fillStyle=['#fde047','#f472b6','#60a5fa','#34d399','#fff'][i%5]; c.save(); c.translate(x,y); c.rotate(r()*3); c.fillRect(-u*0.008,-u*0.003,u*0.016,u*0.006); c.restore(); }
+    naBorda(18, ['🎈','🎉'], b*0.85); cantos(['🎈','🎂','🎁'], u*0.13);
+  }
+  /* faixa com o texto embaixo */
+  if(idioma!=='sem'){
+    const txt = idioma==='en' ? t.en : t.pt;
+    const fs = Math.round(u*0.075); c.font = '800 '+fs+'px "Trebuchet MS","Segoe UI",system-ui,sans-serif';
+    const tw = c.measureText(txt).width, ph = fs*1.45, pw = Math.min(W-2*b-u*0.04, tw + fs*1.4), px = (W-pw)/2, py = H - b - ph - u*0.03;
+    c.shadowColor='rgba(0,0,0,.35)'; c.shadowBlur=u*0.02;
+    const gf = c.createLinearGradient(px,0,px+pw,0); gf.addColorStop(0,P.a); gf.addColorStop(1,P.b); c.fillStyle = gf;
+    const rr = ph/2; c.beginPath(); c.moveTo(px+rr,py); c.arcTo(px+pw,py,px+pw,py+ph,rr); c.arcTo(px+pw,py+ph,px,py+ph,rr); c.arcTo(px,py+ph,px,py,rr); c.arcTo(px,py,px+pw,py,rr); c.closePath(); c.fill();
+    c.shadowBlur=0; c.strokeStyle=P.ouro; c.lineWidth=Math.max(2,u*0.005); c.stroke();
+    c.fillStyle = P.txt; c.textAlign='center'; c.textBaseline='middle'; c.fillText(txt, W/2, py+ph/2+fs*0.04, pw-fs*0.6);
+  }
+  c.restore();
+}
+/* ---------- no editor de post ---------- */
+let _molduraIdioma = 'pt';
+function escolherMoldura(){
+  const st=document.getElementById('mMidiaStatus'); if(!st) return;
+  const { doMes, outras } = moldurasDoMes();
+  const bt = (x)=>`<button type="button" class="btn-mini" style="margin:2px" onclick="porMoldura('${x.id}')">${x.nome}</button>`;
+  const id = (k,t)=>`<button type="button" class="btn-mini" style="margin:2px;${_molduraIdioma===k?'outline:2px solid var(--g2)':''}" onclick="_molduraIdioma='${k}';escolherMoldura()">${t}</button>`;
+  st.innerHTML = '🖼️ <b>Moldura do mês:</b> '+doMes.map(bt).join('')+(outras.length?'<br><span style="font-size:.78rem;color:var(--muted)">Outras:</span> '+outras.map(bt).join(''):'')
+    +'<br><span style="font-size:.78rem;color:var(--muted)">Texto:</span> '+id('pt','🇧🇷 Português')+id('en','🇺🇸 English')+id('sem','Sem texto')
+    +` <button type="button" class="btn-mini" style="margin:2px" onclick="alertaSuave('')">✕</button>`;
+}
+function _subirBlobMidia(blob, sufixo, tipo){
+  const caminho=usuarioId+'/'+Date.now()+'-'+Math.random().toString(36).slice(2,7)+'-'+sufixo;
+  return sb.storage.from('midias').upload(caminho, blob, { contentType:tipo, upsert:false }).then(({error})=>{ if(error) throw error; return sb.storage.from('midias').getPublicUrl(caminho).data.publicUrl; });
+}
+function _tamanhoDoVideo(url){ return new Promise(ok=>{ const v=document.createElement('video'); v.muted=true; v.preload='metadata'; v.crossOrigin='anonymous'; v.onloadedmetadata=()=>ok([v.videoWidth||1080, v.videoHeight||1920]); v.onerror=()=>ok([1080,1920]); setTimeout(()=>ok([1080,1920]),8000); v.src=url; }); }
+async function porMoldura(temaId){
+  const st=document.getElementById('mMidiaStatus'); if(st) st.textContent='⏳ Colocando a moldura…';
+  let fotos=0, videos=0;
+  for(const m of midiasTemp){
+    try{
+      if(m.tipo==='imagem' && !m.semMoldura){
+        const img=await carregarImgMarca(m.url);
+        const cv=document.createElement('canvas'); cv.width=img.width; cv.height=img.height; const c=cv.getContext('2d');
+        c.drawImage(img,0,0); desenharMoldura(c, cv.width, cv.height, temaId, _molduraIdioma);
+        const blob=await new Promise(ok=>cv.toBlob(ok,'image/jpeg',0.92)); if(!blob) throw new Error('blob');
+        m.semMoldura=m.url; m.url=await _subirBlobMidia(blob,'moldura.jpg','image/jpeg'); m.molduraTema=temaId; fotos++;
+      } else if(m.tipo==='video' && !m.moldura){
+        /* vídeo: a moldura vai como PNG transparente e o robô junta com o vídeo na hora de publicar */
+        let [w,h]=await _tamanhoDoVideo(m.url); const esc=Math.min(1, 1920/Math.max(w,h)); w=Math.round(w*esc); h=Math.round(h*esc);
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h; desenharMoldura(cv.getContext('2d'), w, h, temaId, _molduraIdioma);
+        const blob=await new Promise(ok=>cv.toBlob(ok,'image/png')); if(!blob) throw new Error('blob');
+        m.moldura=await _subirBlobMidia(blob,'moldura.png','image/png'); m.molduraTema=temaId; videos++;
+      }
+    }catch(e){}
+  }
+  desenharMidias();
+  if(st) st.innerHTML = (fotos||videos) ? '✅ Moldura colocada'+(fotos?' em '+fotos+' foto(s)':'')+(videos?(fotos?' e ':' em ')+videos+' vídeo(s) — o robô junta a moldura com o vídeo na hora de publicar':'')+'. Toque em <b>Salvar</b> 💜' : '⚠️ Não consegui pôr a moldura (ou já tem). 💜';
+}
+function tirarMoldura(){ midiasTemp.forEach(m=>{ if(m.semMoldura){ m.url=m.semMoldura; delete m.semMoldura; delete m.molduraTema; } if(m.moldura){ delete m.moldura; delete m.molduraTema; } }); desenharMidias(); alertaSuave('↩️ Moldura tirada.'); }
+
 function carregarFotoArquivo(input){
   const f = input.files && input.files[0];
   if(!f) return;
@@ -6645,6 +6753,7 @@ const JOY_MAPA = [
   {k:['vitrine','vitrine das empreendedoras','divulgar meu negocio','meu cartao','aparecer na vitrine'], ir:'vitrine', bt:'🛍️ Abrir a Vitrine', r:'🛍️ A Vitrine é a aba "🛍️ Vitrine" no menu. Lá você preenche o seu cartão (nome do negócio, o que faz, Instagram, WhatsApp, cidade e foto) e manda. Depois que a Joice aprova, ele aparece pra todas as empreendedoras do Postou — e você também pode seguir e indicar as outras. 💜'},
   {k:['transformar fotos','fotos em video','modelos de reels','vlog','tela dividida','antes e depois','filtro','texto em cada foto','editor de reels'], ir:'reels', bt:'🎬 Começar um Reels', r:'🎬 Pra transformar fotos em Reels: abra um post (➕ Postar agora → 🎬 Vídeo/Reels ou 📸 Post), suba as fotos e toque em "✨ Transformar fotos em Reels". Lá tem os modelos (Vlog, Tela dividida, Antes e depois), música, texto em cada foto, filtros e a sua marca.'},
   {k:['legenda magica','fazer legenda','criar legenda','legenda pronta','escrever legenda','nao sei escrever'], ir:'post', bt:'✨ Abrir um post', r:'✨ A Legenda mágica fica dentro de cada post, logo abaixo da legenda. Toque e eu te dou 3 legendas prontas (gancho + texto + chamada + hashtags) no tom do seu nicho, com o melhor horário. Gostou? "✅ Usar esta". Não gostou? "🔄 Outras 3".'},
+  {k:['moldura','molduras','moldura do mes','moldura de natal','moldura natal','moldura ano novo','moldura aniversario','borda','frame'], r:'🖼️ Molduras do mês: abra o post, suba a foto ou o vídeo e toque em "🖼️ Moldura do mês". Escolha o tema (Natal, Ano Novo, Aniversário…) e o texto em 🇧🇷 português, 🇺🇸 inglês ou sem texto. Não gostou? "↩️ Tirar a moldura". No vídeo, o robô junta a moldura na hora de publicar. 💜 Dica: poste no story e coloque a figurinha "Sua vez" no app do Instagram pra suas amigas entrarem na brincadeira!'},
   {k:['logo','marca nos posts','minha marca','colocar logo','figurinha','marca d agua','marca dagua'], ir:'usuarios', bt:'👥 Ir pros Perfis', r:'🏷️ Pra pôr o seu logo nos posts: 👥 Usuários → ✏️ no perfil → 🎨 Foto e cor → "🏷️ Marca para os posts" (de preferência PNG sem fundo). Depois, em qualquer post com foto aparece "🏷️ Pôr a marca" e você escolhe o canto. Só entra quando você escolhe.'},
   {k:['respostas prontas','resposta pronta','responder cliente','mensagem pronta','responder direct','responder comentario'], ir:'respostas', bt:'💬 Abrir respostas prontas', r:'💬 As Respostas prontas ficam no fim do cartão "Joy · Seu dia" (aba 🏠 Hoje): textos prontos pra preço, agenda, agradecimento, cobrança… É só tocar em copiar e colar no direct ou no WhatsApp.'},
   {k:['quem nao me segue','nao me segue','deixou de seguir','unfollow','seguidores falsos','quem me segue'], ir:'naosegue', bt:'🔍 Abrir', r:'🔍 O "Quem não me segue" fica no fim do cartão "Joy · Seu dia" (aba 🏠 Hoje). Você baixa o arquivo de seguidores do Instagram (eu ensino o passo a passo lá dentro) e eu mostro quem você segue e não te segue de volta — sem pedir sua senha.'},
@@ -7042,7 +7151,7 @@ function verSemPausas(i){
 function desenharMidias(){
   const el = document.getElementById('mMidiasPrev'); if(!el) return;
   el.innerHTML = midiasTemp.map((m,i)=>`<div style="position:relative;width:${m.tipo==='video'?'112px':'110px'};height:${m.tipo==='video'?'190px':'110px'};border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#f4f0fa">
-      ${m.tipo==='video'?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,var(--g1),var(--g2))">🎬</div><video src="${m.url}#t=0.5" muted playsinline preload="metadata" onerror="this.remove()" style="position:relative;width:100%;height:100%;object-fit:cover;pointer-events:none"></video><span onclick="verMidia(${i})" title="Toque pra assistir" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-size:1.4rem;background:#0009;color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center">▶</span></span><span onclick="verMidia(${i})" style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,#000c);color:#fff;font-size:.72rem;font-weight:700;text-align:center;padding:14px 4px 6px;cursor:pointer">✅ Vídeo pronto<br>▶ toque pra assistir</span>`
+      ${m.tipo==='video'?`<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,var(--g1),var(--g2))">🎬</div><video src="${m.url}#t=0.5" muted playsinline preload="metadata" onerror="this.remove()" style="position:relative;width:100%;height:100%;object-fit:cover;pointer-events:none"></video>${m.moldura?`<img src="${m.moldura}" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none">`:''}<span onclick="verMidia(${i})" title="Toque pra assistir" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;cursor:pointer"><span style="font-size:1.4rem;background:#0009;color:#fff;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center">▶</span></span><span onclick="verMidia(${i})" style="position:absolute;left:0;right:0;bottom:0;background:linear-gradient(transparent,#000c);color:#fff;font-size:.72rem;font-weight:700;text-align:center;padding:14px 4px 6px;cursor:pointer">✅ Vídeo pronto<br>▶ toque pra assistir</span>`
         :`<img src="${m.url}" title="Toque pra ver grande" onclick="verMidia(${i})" style="width:100%;height:100%;object-fit:cover;cursor:zoom-in">`}
       <button title="Tirar" onclick="midiasTemp.splice(${i},1);desenharMidias()" style="position:absolute;top:2px;right:2px;border:none;border-radius:50%;width:20px;height:20px;background:#fff;cursor:pointer;font-size:.7rem">✕</button>
     </div>`).join('') || '<span style="font-size:.8rem;color:var(--muted)">Nenhuma arte ainda.</span>';
@@ -7050,6 +7159,8 @@ function desenharMidias(){
   midiasTemp.forEach((m,i)=>{ if(m.tipo!=='video') return; el.insertAdjacentHTML('beforeend', m.cortes ? `<span style="align-self:center;display:inline-flex;gap:4px"><button class="btn-mini" onclick="verSemPausas(${i})">▶️ Ver sem pausas</button><button class="btn-mini" title="Volta o vídeo inteiro" onclick="tirarPausas(${i})">↩️ Voltar as pausas</button></span>` : `<button class="btn-mini" title="Acha os silêncios da sua fala e corta — o vídeo fica mais dinâmico" onclick="tirarPausas(${i})" style="align-self:center">✂️ Tirar as pausas</button>`); });
   if(midiasTemp.some(m=>m.semMarca)) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Volta as fotos sem o logo" onclick="tirarMarcaDasFotos()" style="align-self:center">↩️ Tirar a marca</button>`);
   else if(midiasTemp.some(m=>m.tipo==='imagem') && marcaDoPostAtual()) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Põe o logo desse perfil nas fotos — só neste post" onclick="escolherCantoMarca()" style="align-self:center">🏷️ Pôr a marca</button>`);
+  if(midiasTemp.some(m=>m.semMoldura || m.moldura)) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Tira a moldura" onclick="tirarMoldura()" style="align-self:center">↩️ Tirar a moldura</button>`);
+  else if(midiasTemp.length) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Moldura temática do mês (Natal, Ano Novo, Aniversário…) — por cima da foto ou do vídeo" onclick="escolherMoldura()" style="align-self:center;background:linear-gradient(135deg,#b91c1c,#166534);color:#fff;border:none">🖼️ Moldura do mês</button>`);
   if(midiasTemp.some(m=>m.tipo==='imagem')) el.insertAdjacentHTML('beforeend', `<button class="btn-mini" title="Junta as fotos num vídeo em pé, com música e texto — chama mais atenção que foto parada" onclick="abrirFotosReels()" style="align-self:center;background:linear-gradient(135deg,#7c3aed,#ec4899);color:#fff;border:none">✨ Fotos → Reels com música</button>`);
   verificarFormato();
 }
