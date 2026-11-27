@@ -5013,13 +5013,21 @@ function salvarPost(id){
     novo.resultado = (r.views!=null||r.curtidas!=null||r.comentarios!=null) ? r : undefined; }
   { const rt=document.getElementById('mReelTeste'); novo.reelTeste = rt && (rt.value==='auto'||rt.value==='manual') ? rt.value : undefined; }
   { const sm=document.getElementById('mStoryMarcar'); const l=sm?[...new Set((sm.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()))].slice(0,5):[]; novo.storyMarcar = l.length ? l : undefined; }
-  { const ci=document.getElementById('mCollabIG'); const lista=ci?(ci.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()).slice(0,3):[]; novo.collabIG = lista.length ? lista : undefined; }
+  { const ci=document.getElementById('mCollabIG'); const todos=ci?[...new Set((ci.value.match(/[A-Za-z0-9._]+/g)||[]).map(u=>u.toLowerCase()))]:[]; const lista=todos.slice(0,3);
+    if(todos.length>3 && !(ci.dataset.okCollab===ci.value)){ ci.dataset.okCollab=ci.value; let av=document.getElementById('mCollabAviso'); if(!av){ av=document.createElement('div'); av.id='mCollabAviso'; ci.insertAdjacentElement('afterend', av); }
+      av.style.cssText='background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:10px;padding:9px 11px;margin:6px 0;font-size:.85rem';
+      av.innerHTML='🤝 <b>O Instagram só deixa convidar 3 perfis pra collab</b> quando o post sai por app. Vão entrar: <b>@'+lista.join(', @')+'</b>. Ficam de fora: @'+todos.slice(3).join(', @')+'. Arrume a lista — ou toque em <b>Salvar</b> de novo pra salvar assim mesmo.';
+      ci.focus(); return; }
+    novo.collabIG = lista.length ? lista : undefined; }
   if(novo.autoPublicar && novo.status!=='publicado') novo.status = 'agendado';
   const salvos = [];
   let irmaos = [];
   if(id){ const p0=dados.posts.find(x=>x.id===id); Object.assign(p0, novo); salvos.push(p0);
     if(p0.grupo) irmaos = dados.posts.filter(x=>x.grupo===p0.grupo && x.id!==p0.id && x.status!=='publicado'); }
   else {
+    { const ass = [novo.clienteId, novo.titulo, novo.data, novo.hora].join('|'); const ult = window._ultimoNovoPost;
+      if(ult && ult.ass===ass && Date.now()-ult.t < 8000){ fecharModal(); return; }
+      window._ultimoNovoPost = { ass, t: Date.now() }; }
     const collab = [...document.querySelectorAll('.chk-collab:checked')].map(c=>parseInt(c.value));
     const ids = [...new Set([novo.clienteId, ...collab])];
     const grupo = ids.length>1 ? 'g'+Date.now().toString(36) : undefined;
