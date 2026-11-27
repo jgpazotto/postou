@@ -670,7 +670,8 @@ async function prepararVideos(p, userId) {
   if (!Array.isArray(p.midias)) return;
   for (const m of p.midias) {
     const cortes = (m && Array.isArray(m.cortes)) ? m.cortes.filter(c => Array.isArray(c) && c.length === 2 && isFinite(c[0]) && isFinite(c[1]) && c[1] > c[0]).slice(0, 200) : [];
-    if (!m || m.tipo !== 'video' || (!/^postou-reels-/.test(m.nome || '') && !cortes.length)) continue;
+    const moldura = (m && typeof m.moldura === 'string' && /^https:\/\//.test(m.moldura)) ? m.moldura : '';
+    if (!m || m.tipo !== 'video' || (!/^postou-reels-/.test(m.nome || '') && !cortes.length && !moldura)) continue;
     const pasta = mkdtempSync(join(tmpdir(), 'reel-')), ent = join(pasta, 'entrada'), sai = join(pasta, 'saida.mp4');
     const r = await fetch(m.url); if (!r.ok) throw new Error('não baixei o vídeo (' + r.status + ')');
     writeFileSync(ent, Buffer.from(await r.arrayBuffer()));
@@ -681,11 +682,23 @@ async function prepararVideos(p, userId) {
     log('   🎬 convertendo o Reels do Postou pra MP4 (' + codecs.replace(/\s+/g, ' ').trim() + ')');
     // ✂️ "tirar as pausas": fica só com os trechos que a pessoa aprovou no site
     const sel = cortes.map(([a, b]) => `between(t,${(+a).toFixed(2)},${(+b).toFixed(2)})`).join('+');
-    const filtros = cortes.length ? ['-vf', `select='${sel}',setpts=N/FRAME_RATE/TB`, '-af', `aselect='${sel}',asetpts=N/SR/TB`] : [];
+    let filtros = cortes.length ? ['-vf', `select='${sel}',setpts=N/FRAME_RATE/TB`, '-af', `aselect='${sel}',asetpts=N/SR/TB`] : [];
     if (cortes.length) log('   ✂️ tirando as pausas (' + cortes.length + ' trechos)');
-    execFileSync('ffmpeg', ['-y', '-v', 'error', '-i', ent, ...filtros, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-r', '30',
+    const entradas = ['-i', ent];
+    if (moldura) {
+      // 🖼️ moldura do mês: PNG transparente por cima do vídeo inteiro
+      const rm = await fetch(moldura); if (!rm.ok) throw new Error('não baixei a moldura (' + rm.status + ')');
+      const png = join(pasta, 'moldura.png'); writeFileSync(png, Buffer.from(await rm.arrayBuffer()));
+      entradas.push('-i', png);
+      const v0 = cortes.length ? `[0:v]select='${sel}',setpts=N/FRAME_RATE/TB[v0]` : `[0:v]null[v0]`;
+      filtros = ['-filter_complex', `${v0};[1:v][v0]scale2ref[mo][v1];[v1][mo]overlay=0:0:format=auto[vout]`, '-map', '[vout]', '-map', '0:a?'];
+      if (cortes.length) filtros.push('-af', `aselect='${sel}',asetpts=N/SR/TB`);
+      log('   🖼️ colocando a moldura do mês' + (m.molduraTema ? ' (' + m.molduraTema + ')' : ''));
+    }
+    execFileSync('ffmpeg', ['-y', '-v', 'error', ...entradas, ...filtros, '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p', '-r', '30',
       '-c:a', 'aac', '-b:a', '160k', '-ar', '44100', '-movflags', '+faststart', sai]);
     if (cortes.length) delete m.cortes;
+    if (moldura) { m.semMolduraVideo = m.url; delete m.moldura; }
     const caminho = userId + '/reels-ig-' + Date.now() + '.mp4';
     const up = await fetch(SB_URL + '/storage/v1/object/midias/' + caminho, { method: 'POST',
       headers: { ...sbHeaders({ 'Content-Type': 'video/mp4', 'x-upsert': 'true' }) }, body: readFileSync(sai) });
